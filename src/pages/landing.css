@@ -1,0 +1,212 @@
+:root {
+  --bg: #ffffff;
+  --muted: #6b7280;
+  --text: #111827;
+  --line: #e5e7eb;
+  --soft: #f3f4f6;
+  --soft2: #ededed;
+  --radius: 14px;
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto,
+    Helvetica, Arial;
+  color: var(--text);
+  background: var(--bg);
+}
+
+.lp2 {
+  min-height: 100vh;
+}
+
+.lp2-header {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 22px;
+  border-bottom: 1px solid var(--line);
+}
+
+.lp2-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.lp2-icon {
+  font-size: 14px;
+  opacity: 0.75;
+}
+.lp2-name {
+  font-weight: 600;
+}
+
+.lp2-loginBtn {
+  font-size: 12px;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  text-decoration: none;
+  color: var(--text);
+  background: #fff;
+}
+
+.lp2-hero {
+  padding: 28px 22px 18px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+.lp2-heroGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  align-items: center;
+}
+.lp2-heroText h1 {
+  margin: 0 0 10px;
+  font-size: 30px;
+  line-height: 1.15;
+}
+.lp2-heroText p {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 13px;
+  max-width: 420px;
+}
+.lp2-cta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  cursor: pointer;
+  font-size: 12px;
+}
+.btn.primary {
+  background: #d9d9d9;
+  border-color: #d9d9d9;
+}
+.btn.ghost {
+  background: #efefef;
+  border-color: #efefef;
+  margin-top: 14px;
+}
+.arrow {
+  margin-left: 8px;
+}
+
+.lp2-heroRow {
+  margin-top: 18px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 18px;
+}
+
+.ph {
+  background: #dcdcdc;
+  border-radius: 12px;
+}
+.ph-hero {
+  height: 170px;
+}
+.ph-small {
+  height: 70px;
+}
+.ph-mid {
+  height: 150px;
+  border-radius: 12px;
+  background: #dcdcdc;
+}
+
+.lp2-mainInfo {
+  margin-top: 12px;
+  padding: 30px 22px;
+  background: #f0f0f0;
+  text-align: center;
+}
+.lp2-kicker {
+  margin: 0 0 6px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: #9ca3af;
+}
+.lp2-mainInfo h2 {
+  margin: 0 0 22px;
+  font-size: 22px;
+}
+
+.lp2-features {
+  max-width: 980px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  align-items: end;
+}
+.lp2-feature {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.mini {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  background: #d5d5d5;
+}
+.lp2-feature p {
+  margin: 0;
+  font-size: 11px;
+  color: #111827;
+}
+
+.lp2-twoCol {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 34px 22px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px;
+  align-items: center;
+}
+.lp2-col h3 {
+  margin: 0 0 10px;
+  font-size: 26px;
+  line-height: 1.1;
+}
+.lp2-col p {
+  margin: 0;
+  color: var(--muted);
+  max-width: 260px;
+}
+
+.lp2-footer {
+  border-top: 1px solid var(--line);
+  padding: 16px 22px;
+  color: var(--muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .lp2-heroGrid {
+    grid-template-columns: 1fr;
+  }
+  .lp2-features {
+    grid-template-columns: 1fr 1fr;
+  }
+  .lp2-twoCol {
+    grid-template-columns: 1fr;
+  }
+}

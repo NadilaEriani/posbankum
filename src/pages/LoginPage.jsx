@@ -50,7 +50,7 @@ export default function LoginPage() {
     const { data: sub } = supabase.auth.onAuthStateChange(
       (_event, newSession) => {
         setSessionEmail(newSession?.user?.email ?? "");
-      }
+      },
     );
 
     return () => sub.subscription.unsubscribe();
@@ -115,32 +115,6 @@ export default function LoginPage() {
                 {errorMsg}
               </div>
             )}
-
-            <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
-              <button
-                className="lp-btn"
-                type="button"
-                onClick={async () => {
-                  const { data } = await supabase.auth.getSession();
-                  const userId = data?.session?.user?.id;
-                  if (!userId) return nav("/admin", { replace: true });
-                  const path = await getRedirectPathByRole(userId);
-                  nav(path, { replace: true });
-                }}
-              >
-                Ke Dashboard
-              </button>
-
-              <button
-                className="lp-btn"
-                type="button"
-                onClick={onLogout}
-                disabled={loading}
-                style={{ background: "#9ca3af" }}
-              >
-                {loading ? "Memproses..." : "Keluar (Ganti Akun)"}
-              </button>
-            </div>
 
             <div style={{ marginTop: 10 }}>
               <Link to="/admin" className="lp-link">

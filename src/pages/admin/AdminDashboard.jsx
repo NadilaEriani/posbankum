@@ -1,4 +1,6 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../../lib/supabaseClient";
 import {
   FiHome,
   FiFileText,
@@ -12,26 +14,78 @@ import {
   FiTrendingUp,
 } from "react-icons/fi";
 import "./adminDashboard.css";
+import DataPosbankum from "./DataPosbankum";
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
+
   const [active, setActive] = useState("Beranda");
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  // Guard: kalau tidak ada session -> balik ke Landing (/)
+  useEffect(() => {
+    let alive = true;
+
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!alive) return;
+
+        if (!data?.session) {
+          navigate("/", { replace: true });
+          return;
+        }
+      } finally {
+        if (alive) setCheckingSession(false);
+      }
+    })();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) navigate("/", { replace: true });
+    });
+
+    return () => {
+      alive = false;
+      subscription?.unsubscribe();
+    };
+  }, [navigate]);
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+
+      navigate("/", { replace: true });
+    } catch (err) {
+      console.error(err);
+      alert("Logout gagal. Coba lagi.");
+    } finally {
+      setLoggingOut(false);
+    }
+  };
 
   const menu = useMemo(
     () => [
       { label: "Beranda", icon: <FiHome /> },
       { label: "Kelola Berita", icon: <FiFileText /> },
-      { label: "Data Posbakum", icon: <FiUsers /> },
-      { label: "Verifikasi Data Posbakum", icon: <FiCheckCircle /> },
+      { label: "Data Posbankum", icon: <FiUsers /> },
+      { label: "Verifikasi Data Posbankum", icon: <FiCheckCircle /> },
       { label: "Riwayat Pengajuan Kegiatan", icon: <FiClock /> },
-      { label: "Kelola Posbakum", icon: <FiSettings /> },
+      { label: "Kelola Posbankum", icon: <FiSettings /> },
     ],
-    []
+    [],
   );
 
   const stats = useMemo(
     () => [
       {
-        title: "Total Posbakum",
+        title: "Total Posbankum",
         value: "128",
         icon: <FiUsers />,
         tone: "green",
@@ -49,19 +103,19 @@ export default function AdminDashboard() {
         tone: "blue",
       },
     ],
-    []
+    [],
   );
 
   const activities = useMemo(
     () => [
       {
         title: "Pengajuan kegiatan baru",
-        meta: "Posbakum Sukajadi • 10 menit lalu",
+        meta: "Posbankum Sukajadi • 10 menit lalu",
         tone: "yellow",
       },
       {
-        title: "Data Posbakum diverifikasi",
-        meta: "Posbakum Marpoyan • 1 jam lalu",
+        title: "Data Posbankum diverifikasi",
+        meta: "Posbankum Marpoyan • 1 jam lalu",
         tone: "green",
       },
       {
@@ -71,12 +125,20 @@ export default function AdminDashboard() {
       },
       {
         title: "Perubahan data paralegal",
-        meta: "Posbakum Tenayan • kemarin",
+        meta: "Posbankum Tenayan • kemarin",
         tone: "green",
       },
     ],
-    []
+    [],
   );
+
+  if (checkingSession) {
+    return (
+      <div className="ad" style={{ padding: 24 }}>
+        Memuat dashboard...
+      </div>
+    );
+  }
 
   return (
     <div className="ad">
@@ -110,8 +172,16 @@ export default function AdminDashboard() {
           <button className="ad-ghostBtn" type="button">
             <FiSettings /> Pengaturan
           </button>
-          <button className="ad-dangerBtn" type="button">
-            <FiLogOut /> Keluar
+
+          <button
+            className="ad-dangerBtn"
+            type="button"
+            onClick={handleLogout}
+            disabled={loggingOut}
+            aria-disabled={loggingOut}
+            title={loggingOut ? "Sedang logout..." : "Keluar"}
+          >
+            <FiLogOut /> {loggingOut ? "Keluar..." : "Keluar"}
           </button>
         </div>
       </aside>
@@ -119,106 +189,111 @@ export default function AdminDashboard() {
       {/* MAIN */}
       <main className="ad-main">
         {/* TOPBAR */}
-        <header className="ad-top">
+        <header className="ad-top ad-topWire">
           <div className="ad-topLeft">
-            <div className="ad-pageTitle">Dashboard</div>
-            <div className="ad-breadcrumb">{active}</div>
+            <div className="ad-wireTitle">
+              {active === "Data Posbankum"
+                ? "Data Posbankum"
+                : active}
+            </div>
           </div>
 
           <div className="ad-topRight">
-            <div className="ad-search">
-              <FiSearch className="ad-searchIcon" />
-              <input className="ad-searchInput" placeholder="Cari data..." />
-            </div>
-
-            <button
-              className="ad-iconBtn"
-              type="button"
-              aria-label="Notifikasi"
-            >
-              <FiBell />
-              <span className="ad-dot" />
-            </button>
-
-            <div className="ad-user">
-              <div className="ad-userAvatar">A</div>
-              <div className="ad-userText">
-                <div className="ad-userName">Admin Kemenkumham</div>
-                <div className="ad-userRole">Administrator</div>
+            <div className="ad-greet">
+              <div className="ad-greetAvatar">A</div>
+              <div className="ad-greetText">
+                Hai <span className="ad-greetName">Admin Kemenkumham</span>
               </div>
             </div>
           </div>
         </header>
 
-        {/* CONTENT GRID */}
-        <section className="ad-grid">
-          {/* STAT CARDS */}
-          <div className="ad-cards">
-            {stats.map((s) => (
-              <div key={s.title} className={`ad-card tone-${s.tone}`}>
-                <div className="ad-cardIcon">{s.icon}</div>
-                <div className="ad-cardBody">
-                  <div className="ad-cardTitle">{s.title}</div>
-                  <div className="ad-cardValue">{s.value}</div>
-                  <div className="ad-cardHint">Update real-time</div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* CHART + ACTIVITY */}
-          <div className="ad-panels">
-            <section className="ad-panel ad-panelChart">
-              <div className="ad-panelHead">
-                <div>
-                  <div className="ad-panelTitle">Statistik Posbakum</div>
-                  <div className="ad-panelSub">Ringkasan 30 hari terakhir</div>
-                </div>
-                <div className="ad-pill">30 Hari</div>
-              </div>
-
-              {/* Placeholder chart */}
-              <div className="ad-chartBox">
-                <div className="ad-chartGrid" />
-                <div className="ad-chartBars">
-                  {Array.from({ length: 12 }).map((_, i) => (
-                    <div
-                      key={i}
-                      className="ad-bar"
-                      style={{ height: `${30 + ((i * 13) % 55)}%` }}
-                    />
-                  ))}
-                </div>
-              </div>
-            </section>
-
-            <section className="ad-panel ad-panelActivity">
-              <div className="ad-panelHead">
-                <div>
-                  <div className="ad-panelTitle">Aktivitas Terbaru</div>
-                  <div className="ad-panelSub">
-                    Notifikasi & perubahan terbaru
+        {/* CONTENT */}
+        {active === "Beranda" ? (
+          <section className="ad-grid">
+            {/* STAT CARDS */}
+            <div className="ad-cards">
+              {stats.map((s) => (
+                <div key={s.title} className={`ad-card tone-${s.tone}`}>
+                  <div className="ad-cardIcon">{s.icon}</div>
+                  <div className="ad-cardBody">
+                    <div className="ad-cardTitle">{s.title}</div>
+                    <div className="ad-cardValue">{s.value}</div>
+                    <div className="ad-cardHint">Update real-time</div>
                   </div>
                 </div>
-                <button className="ad-linkBtn" type="button">
-                  Lihat semua
-                </button>
-              </div>
+              ))}
+            </div>
 
-              <div className="ad-activityList">
-                {activities.map((a, idx) => (
-                  <div key={idx} className="ad-activityItem">
-                    <div className={`ad-badge tone-${a.tone}`} />
-                    <div className="ad-activityText">
-                      <div className="ad-activityTitle">{a.title}</div>
-                      <div className="ad-activityMeta">{a.meta}</div>
+            {/* CHART + ACTIVITY */}
+            <div className="ad-panels">
+              <section className="ad-panel ad-panelChart">
+                <div className="ad-panelHead">
+                  <div>
+                    <div className="ad-panelTitle">Statistik Posbankum</div>
+                    <div className="ad-panelSub">
+                      Ringkasan 30 hari terakhir
                     </div>
                   </div>
-                ))}
-              </div>
-            </section>
+                  <div className="ad-pill">30 Hari</div>
+                </div>
+
+                <div className="ad-chartBox">
+                  <div className="ad-chartGrid" />
+                  <div className="ad-chartBars">
+                    {Array.from({ length: 12 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="ad-bar"
+                        style={{ height: `${30 + ((i * 13) % 55)}%` }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </section>
+
+              <section className="ad-panel ad-panelActivity">
+                <div className="ad-panelHead">
+                  <div>
+                    <div className="ad-panelTitle">Aktivitas Terbaru</div>
+                    <div className="ad-panelSub">
+                      Notifikasi & perubahan terbaru
+                    </div>
+                  </div>
+                  <button className="ad-linkBtn" type="button">
+                    Lihat semua
+                  </button>
+                </div>
+
+                <div className="ad-activityList">
+                  {activities.map((a, idx) => (
+                    <div key={idx} className="ad-activityItem">
+                      <div className={`ad-badge tone-${a.tone}`} />
+                      <div className="ad-activityText">
+                        <div className="ad-activityTitle">{a.title}</div>
+                        <div className="ad-activityMeta">{a.meta}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            </div>
+          </section>
+        ) : active === "Data Posbankum" ? (
+          <DataPosbankum />
+        ) : (
+          <div
+            style={{
+              marginTop: 16,
+              padding: 14,
+              background: "#fff",
+              border: "1px solid var(--line)",
+              borderRadius: "var(--radius)",
+            }}
+          >
+            Halaman <b>{active}</b> belum dibuat.
           </div>
-        </section>
+        )}
       </main>
     </div>
   );

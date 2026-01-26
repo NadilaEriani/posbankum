@@ -261,6 +261,8 @@ export default function KelolaPosbankum() {
     if (!fKabupatenId) return setErr("Kabupaten wajib dipilih.");
     if (!fKecamatanId) return setErr("Kecamatan wajib dipilih.");
     if (!fEmail.trim()) return setErr("Email wajib diisi."); // email disimpan ke posbankum.email_akun
+    if (mode === "add" && !fPassword.trim())
+      return setErr("Password wajib diisi untuk akun baru.");
 
     setSaving(true);
     try {
@@ -272,10 +274,36 @@ export default function KelolaPosbankum() {
       };
 
       if (mode === "add") {
-        const { error } = await supabase.from("posbankum").insert(payload);
+        // ✅ ambil session & token user admin
+        const { data: s, error: sErr } = await supabase.auth.getSession();
+        if (sErr) throw sErr;
+        if (!s?.session?.access_token)
+          throw new Error("Session hilang. Login ulang.");
+
+        const { data, error } = await supabase.functions.invoke(
+          "create-posbankum-account",
+          {
+            body: {
+              nama: fNama.trim(),
+              id_kabupaten: fKabupatenId,
+              id_kecamatan: fKecamatanId,
+              email: fEmail.trim(),
+              password: fPassword.trim(),
+            },
+            // ✅ PENTING: paksa Authorization pakai user access token
+            headers: {
+              Authorization: `Bearer ${s.session.access_token}`,
+            },
+          },
+        );
+
         if (error) throw error;
-        alert("Posbankum berhasil ditambahkan.");
+        if (data?.ok !== true)
+          throw new Error(data?.message || "Gagal membuat akun posbankum");
+
+        alert("Akun posbankum (paralegal) berhasil dibuat.");
       } else {
+        // update sementara masih langsung ke tabel
         const { error } = await supabase
           .from("posbankum")
           .update(payload)

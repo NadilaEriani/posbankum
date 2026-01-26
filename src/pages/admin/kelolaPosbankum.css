@@ -1,0 +1,316 @@
+.kpShell {
+  margin-top: 16px;
+}
+.kpHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px 12px;
+}
+
+.kpHeading {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0b2a4a;
+}
+
+.kpAddTop {
+  border: 1px solid #0b2a4a;
+  background: #ffe88a;
+  color: #0b2a4a;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ===== panel besar ===== */
+.kpPanel {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 16px;
+}
+
+/* ===== toolbar dalam panel ===== */
+.kpToolbar {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 14px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.kpSearch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f0fff7;
+  border: 1px solid #bfead5;
+  border-radius: 999px;
+  padding: 0 14px;
+  height: 40px;
+}
+
+.kpSearchIco {
+  color: #0f766e;
+  font-size: 16px;
+}
+
+.kpSearchInput {
+  border: 0;
+  outline: none;
+  background: transparent;
+  width: 100%;
+  font-size: 13px;
+  color: #0b2a4a;
+}
+
+.kpClear {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  color: #0f766e;
+}
+
+/* dropdowns kanan */
+.kpFilters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.kpSelect {
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid #bfead5;
+  background: #dff7ea;
+  color: #0b2a4a;
+  padding: 0 14px;
+  font-size: 13px;
+  outline: none;
+}
+
+.kpSelect:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* ===== error ===== */
+.kpError {
+  color: #b42318;
+  font-size: 12px;
+  margin: 6px 6px 12px;
+}
+
+/* ===== table card di dalam panel ===== */
+.kpTableCard {
+  background: #f6ffef;
+  border: 1px solid #d6f5c6;
+  border-radius: 16px;
+  padding: 10px;
+}
+
+.kpTable {
+  width: 100%;
+  border-collapse: collapse;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.kpTable thead th {
+  background: #cfeeff;
+  color: #0b2a4a;
+  text-align: left;
+  padding: 12px 12px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.kpTable tbody td {
+  background: #ffffff;
+  border-top: 1px solid #e6f6ff;
+  padding: 12px 12px;
+  font-size: 12px;
+}
+
+.kpMuted {
+  color: #0f766e;
+}
+
+.kpActions {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* icon kotak X kecil seperti template */
+.kpIcoBtn {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  border: 1.4px solid #0b2a4a;
+  background: transparent;
+  cursor: pointer;
+  position: relative; /* boleh tetap */
+}
+
+.kpEmpty {
+  text-align: center;
+  color: #0f766e;
+  padding: 18px !important;
+}
+
+/* ===== pager bawah kanan ===== */
+.kpPager {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 0 4px;
+}
+
+.kpNavBtn {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  color: #0b2a4a;
+  display: grid;
+  place-items: center;
+}
+
+.kpPageBtn {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  color: #0b2a4a;
+  padding: 6px 10px;
+  border-radius: 999px;
+}
+
+.kpPageBtn.is-active {
+  font-weight: 800;
+  background: #ffe88a;
+  color: #0b2a4a;
+}
+
+.kpNextText {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  color: #0f766e;
+  margin-left: 4px;
+}
+
+.kpNavBtn:disabled,
+.kpNextText:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+/* ===== MODAL Tambah Posbankum (sesuai gambar) ===== */
+.kpModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.28);
+  display: grid;
+  place-items: center;
+  z-index: 999;
+}
+
+.kpModal {
+  width: min(520px, calc(100vw - 32px));
+  background: #ffffff;
+  border: 1px solid #cfcfcf;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+}
+
+.kpModalHead {
+  padding: 16px 18px 10px;
+}
+
+.kpModalTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: #0b2a4a;
+}
+
+.kpModalBody {
+  padding: 0 18px 12px;
+}
+
+.kpFormGroup {
+  margin-bottom: 12px;
+}
+
+.kpLabel {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0b2a4a;
+  margin-bottom: 6px;
+}
+
+.kpInput {
+  width: 100%;
+  height: 34px;
+  border-radius: 6px;
+  border: 1px solid #cfcfcf;
+  background: #eaeaea;
+  padding: 0 10px;
+  font-size: 12px;
+  outline: none;
+}
+
+.kpInput:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.kpGrid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.kpModalFoot {
+  padding: 12px 18px 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.kpBtnGhost {
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 0;
+  background: #d6f5c6;
+  color: #0b2a4a;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.kpBtnPrimary {
+  height: 30px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 0;
+  background: #ffe88a;
+  color: #0b2a4a;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.kpBtnGhost:disabled,
+.kpBtnPrimary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

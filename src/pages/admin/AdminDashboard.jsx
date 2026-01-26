@@ -9,12 +9,11 @@ import {
   FiClock,
   FiSettings,
   FiLogOut,
-  FiBell,
-  FiSearch,
   FiTrendingUp,
 } from "react-icons/fi";
 import "./adminDashboard.css";
 import DataPosbankum from "./DataPosbankum";
+import KelolaPosbankum from "./KelolaPosbankum";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -191,11 +190,7 @@ export default function AdminDashboard() {
         {/* TOPBAR */}
         <header className="ad-top ad-topWire">
           <div className="ad-topLeft">
-            <div className="ad-wireTitle">
-              {active === "Data Posbankum"
-                ? "Data Posbankum"
-                : active}
-            </div>
+            <div className="ad-wireTitle">{active}</div>
           </div>
 
           <div className="ad-topRight">
@@ -211,7 +206,6 @@ export default function AdminDashboard() {
         {/* CONTENT */}
         {active === "Beranda" ? (
           <section className="ad-grid">
-            {/* STAT CARDS */}
             <div className="ad-cards">
               {stats.map((s) => (
                 <div key={s.title} className={`ad-card tone-${s.tone}`}>
@@ -225,7 +219,6 @@ export default function AdminDashboard() {
               ))}
             </div>
 
-            {/* CHART + ACTIVITY */}
             <div className="ad-panels">
               <section className="ad-panel ad-panelChart">
                 <div className="ad-panelHead">
@@ -281,6 +274,8 @@ export default function AdminDashboard() {
           </section>
         ) : active === "Data Posbankum" ? (
           <DataPosbankum />
+        ) : active === "Kelola Posbankum" ? (
+          <KelolaPosbankum />
         ) : (
           <div
             style={{

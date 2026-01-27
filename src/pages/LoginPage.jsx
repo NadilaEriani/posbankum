@@ -4,24 +4,38 @@ import { supabase } from "../lib/supabaseClient";
 import "./login.css";
 
 async function getRedirectPathByRole(userId) {
-  // Kalau tabel profiles belum ada / belum diisi, fallback ke "/"
+  // Ambil role dari profiles
   const { data, error } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", userId)
-    .single();
+    .maybeSingle();
 
-  if (error || !data?.role) return "/admin";
+  // Kalau belum ada profiles -> jangan lempar ke /admin, kasih fallback aman
+  if (error) {
+    // sering terjadi kalau RLS profiles belum ada policy SELECT untuk user
+    console.warn("getRedirectPathByRole error:", error.message);
+    return "/"; // atau tampilkan pesan (dibawah kita handle)
+  }
+  if (!data?.role) return "/";
 
-  if (data.role === "admin") return "/admin";
-  if (data.role === "paralegal") return "/paralegal";
-  return "/admin";
+  const role = String(data.role).toLowerCase();
+
+  if (role === "admin") return "/admin";
+  if (role === "posbankum") return "/posbankum";
+
+  // kompatibilitas jika Anda dulu pakai istilah paralegal
+  if (role === "paralegal") return "/posbankum";
+
+  return "/";
 }
 
 export default function LoginPage() {
   const nav = useNavigate();
 
-  const [sessionEmail, setSessionEmail] = useState(""); // kalau sudah login, tampilkan info
+  const [sessionEmail, setSessionEmail] = useState("");
+  const [dashboardPath, setDashboardPath] = useState("/");
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -33,27 +47,56 @@ export default function LoginPage() {
     return e.length > 0 && e.includes("@") && password.length >= 8 && !loading;
   }, [email, password, loading]);
 
+  // cek session awal + redirect otomatis sesuai role
   useEffect(() => {
-    // cek session awal
-    (async () => {
-      const { data } = await supabase.auth.getSession();
-      const userId = data?.session?.user?.id;
-      setSessionEmail(data?.session?.user?.email ?? "");
+    let alive = true;
 
-      if (userId) {
-        const path = await getRedirectPathByRole(userId);
-        nav(path, { replace: true });
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!alive) return;
+
+        const userId = data?.session?.user?.id;
+        const userEmail = data?.session?.user?.email ?? "";
+
+        setSessionEmail(userEmail);
+
+        if (userId) {
+          const path = await getRedirectPathByRole(userId);
+          setDashboardPath(path);
+
+          // kalau role terbaca, langsung redirect
+          if (path !== "/") nav(path, { replace: true });
+          else {
+            // kalau path "/", berarti role belum kebaca / profiles belum ada
+            setErrorMsg(
+              "Akun ini belum punya role/profiles atau policy belum aktif. Hubungi admin.",
+            );
+          }
+        }
+      } catch (e) {
+        console.error(e);
+        setErrorMsg(e?.message || "Gagal cek session.");
       }
     })();
 
-    // listen perubahan auth (login/logout)
-    const { data: sub } = supabase.auth.onAuthStateChange(
-      (_event, newSession) => {
-        setSessionEmail(newSession?.user?.email ?? "");
-      },
-    );
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
+      const userEmail = newSession?.user?.email ?? "";
+      setSessionEmail(userEmail);
 
-    return () => sub.subscription.unsubscribe();
+      const uid = newSession?.user?.id;
+      if (!uid) return;
+
+      const path = await getRedirectPathByRole(uid);
+      setDashboardPath(path);
+    });
+
+    return () => {
+      alive = false;
+      subscription?.unsubscribe();
+    };
   }, [nav]);
 
   const onLogout = async () => {
@@ -62,7 +105,8 @@ export default function LoginPage() {
     const { error } = await supabase.auth.signOut();
     setLoading(false);
     if (error) setErrorMsg(error.message);
-    // setelah logout, tetap di halaman login biar bisa login lagi
+    setSessionEmail("");
+    setDashboardPath("/");
   };
 
   const onLogin = async (e) => {
@@ -85,17 +129,28 @@ export default function LoginPage() {
     }
 
     const userId = data?.user?.id;
+    const userEmail = data?.user?.email ?? "";
+    setSessionEmail(userEmail);
+
     if (!userId) {
-      nav("/admin", { replace: true });
+      setErrorMsg("Login berhasil, tapi userId tidak ditemukan. Coba ulang.");
       return;
     }
 
     const path = await getRedirectPathByRole(userId);
+    setDashboardPath(path);
+
+    if (path === "/") {
+      setErrorMsg(
+        "Login berhasil, tapi role/profiles tidak ditemukan atau policy belum aktif. Hubungi admin.",
+      );
+      return;
+    }
+
     nav(path, { replace: true });
   };
 
-  // Kalau sudah ada session, jangan sembunyikan halaman login:
-  // Tampilkan info + tombol Keluar (biar user bisa ganti akun)
+  // Sudah login: tampilkan info + tombol logout + link sesuai role
   if (sessionEmail) {
     return (
       <div className="lp">
@@ -116,8 +171,17 @@ export default function LoginPage() {
               </div>
             )}
 
-            <div style={{ marginTop: 10 }}>
-              <Link to="/admin" className="lp-link">
+            <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
+              <button
+                className="lp-btn"
+                type="button"
+                onClick={onLogout}
+                disabled={loading}
+              >
+                {loading ? "Keluar..." : "Keluar"}
+              </button>
+
+              <Link to={dashboardPath} className="lp-link">
                 Ke Dashboard
               </Link>
             </div>
@@ -129,7 +193,7 @@ export default function LoginPage() {
     );
   }
 
-  // Mode normal (belum login)
+  // Belum login
   return (
     <div className="lp">
       <div className="lp-card" role="region" aria-label="Login POSBANKUM">

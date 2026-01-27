@@ -274,32 +274,35 @@ export default function KelolaPosbankum() {
       };
 
       if (mode === "add") {
-        // ✅ ambil session & token user admin
         const { data: s, error: sErr } = await supabase.auth.getSession();
         if (sErr) throw sErr;
         if (!s?.session?.access_token)
           throw new Error("Session hilang. Login ulang.");
 
-        const { data, error } = await supabase.functions.invoke(
-          "create-posbankum-account",
-          {
-            body: {
-              nama: fNama.trim(),
-              id_kabupaten: fKabupatenId,
-              id_kecamatan: fKecamatanId,
-              email: fEmail.trim(),
-              password: fPassword.trim(),
-            },
-            // ✅ PENTING: paksa Authorization pakai user access token
-            headers: {
-              Authorization: `Bearer ${s.session.access_token}`,
-            },
-          },
-        );
+        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-posbankum-account`;
 
-        if (error) throw error;
-        if (data?.ok !== true)
-          throw new Error(data?.message || "Gagal membuat akun posbankum");
+        const res = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            Authorization: `Bearer ${s.session.access_token}`,
+          },
+          body: JSON.stringify({
+            nama: fNama.trim(),
+            id_kabupaten: fKabupatenId,
+            id_kecamatan: fKecamatanId,
+            email: fEmail.trim(),
+            password: fPassword.trim(),
+          }),
+        });
+
+        const out = await res.json();
+        if (!res.ok || out?.ok !== true) {
+          throw new Error(
+            out?.message || `Gagal membuat akun posbankum (HTTP ${res.status})`,
+          );
+        }
 
         alert("Akun posbankum (paralegal) berhasil dibuat.");
       } else {

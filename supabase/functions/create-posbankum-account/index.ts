@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
-const corsHeaders = {
+const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
@@ -10,11 +10,23 @@ const corsHeaders = {
 
 type Body = {
   nama: string;
-  id_kabupaten: string; // uuid/text sesuai skema kamu
-  id_kecamatan: string; // uuid/text sesuai skema kamu
+  id_kabupaten: string;
+  id_kecamatan: string;
   email: string;
   password: string;
 };
+
+function json(status: number, payload: unknown) {
+  return new Response(JSON.stringify(payload), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function pickAuthHeader(req: Request) {
+  // Headers.get itu case-insensitive, tapi kita amankan saja
+  return req.headers.get("authorization") ?? req.headers.get("Authorization") ?? "";
+}
 
 Deno.serve(async (req) => {
   // CORS preflight
@@ -22,63 +34,82 @@ Deno.serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  if (req.method !== "POST") {
+    return json(405, { ok: false, message: "Method not allowed" });
+  }
+
   try {
-    if (req.method !== "POST") {
-      return new Response(JSON.stringify({ ok: false, message: "Method not allowed" }), {
-        status: 405,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const serviceRole = Deno.env.get("SERVICE_ROLE_KEY") ?? "";
+
+    if (!supabaseUrl || !anonKey || !serviceRole) {
+      return json(500, {
+        ok: false,
+        message:
+          "Missing env. Pastikan SUPABASE_URL, SUPABASE_ANON_KEY, dan SERVICE_ROLE_KEY tersedia.",
       });
     }
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const anonKey = Deno.env.get("SUPABASE_ANON_KEY"); // default env dari Supabase Functions
-    const serviceRole = Deno.env.get("SERVICE_ROLE_KEY"); // ✅ secret yang kamu set
+    // ===== 1) Ambil JWT admin dari Authorization header =====
+    const authHeader = pickAuthHeader(req);
+    const jwt = authHeader.replace(/^Bearer\s+/i, "").trim();
 
-    if (!supabaseUrl || !anonKey || !serviceRole) {
-      return new Response(
-        JSON.stringify({
-          ok: false,
-          message:
-            "Missing env. Pastikan SUPABASE_URL, SUPABASE_ANON_KEY (default), dan SERVICE_ROLE_KEY (secret) tersedia.",
-        }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+    if (!jwt) {
+      return json(401, {
+        ok: false,
+        message: "Unauthorized: Missing Authorization Bearer token",
+      });
     }
 
-    // Client untuk cek user pemanggil (pakai JWT dari request)
-    const authHeader = req.headers.get("Authorization") ?? "";
+    // Client: user (untuk validasi pemanggil)
     const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+      global: {
+        headers: { Authorization: `Bearer ${jwt}` },
+      },
     });
 
-    // Client admin (service role) untuk create user + bypass RLS
-    const adminClient = createClient(supabaseUrl, serviceRole);
+    // Client: admin (service role)
+    const adminClient = createClient(supabaseUrl, serviceRole, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
 
-    // 1) pastikan yang memanggil adalah admin
-    const { data: userData, error: userErr } = await userClient.auth.getUser();
+    // ===== 2) Pastikan token valid (ambil user dari JWT) =====
+    const { data: userData, error: userErr } = await userClient.auth.getUser(jwt);
     if (userErr || !userData?.user) {
-      return new Response(JSON.stringify({ ok: false, message: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return json(401, {
+        ok: false,
+        message: "Unauthorized: Invalid/Expired token",
+        detail: userErr?.message,
       });
     }
 
     const callerId = userData.user.id;
 
+    // ===== 3) Cek role admin di profiles =====
     const { data: prof, error: profErr } = await adminClient
       .from("profiles")
       .select("id, role")
       .eq("id", callerId)
       .single();
 
-    if (profErr || !prof || prof.role !== "admin") {
-      return new Response(JSON.stringify({ ok: false, message: "Forbidden (admin only)" }), {
-        status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (profErr || !prof) {
+      return json(403, { ok: false, message: "Forbidden (profile not found)" });
+    }
+    if (prof.role !== "admin") {
+      return json(403, { ok: false, message: "Forbidden (admin only)" });
     }
 
-    // 2) ambil body
+    // ===== 4) Ambil body =====
     const body = (await req.json()) as Body;
 
     const nama = (body.nama ?? "").trim();
@@ -87,13 +118,13 @@ Deno.serve(async (req) => {
     const id_kabupaten = body.id_kabupaten;
     const id_kecamatan = body.id_kecamatan;
 
-    if (!nama) throw new Error("Nama Posbankum wajib diisi.");
-    if (!id_kabupaten) throw new Error("Kabupaten wajib dipilih.");
-    if (!id_kecamatan) throw new Error("Kecamatan wajib dipilih.");
-    if (!email) throw new Error("Email wajib diisi.");
-    if (!password) throw new Error("Password wajib diisi.");
+    if (!nama) return json(400, { ok: false, message: "Nama Posbankum wajib diisi." });
+    if (!id_kabupaten) return json(400, { ok: false, message: "Kabupaten wajib dipilih." });
+    if (!id_kecamatan) return json(400, { ok: false, message: "Kecamatan wajib dipilih." });
+    if (!email) return json(400, { ok: false, message: "Email wajib diisi." });
+    if (!password) return json(400, { ok: false, message: "Password wajib diisi." });
 
-    // 3) cek email sudah dipakai di posbankum?
+    // ===== 5) Cek email sudah dipakai di posbankum? =====
     const { data: existsPos } = await adminClient
       .from("posbankum")
       .select("id_posbankum")
@@ -101,26 +132,26 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (existsPos?.id_posbankum) {
-      return new Response(
-        JSON.stringify({ ok: false, message: "Email sudah digunakan untuk akun posbankum lain." }),
-        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
+      return json(409, {
+        ok: false,
+        message: "Email sudah digunakan untuk akun posbankum lain.",
+      });
     }
 
-    // 4) buat user auth (paralegal/posbankum)
+    // ===== 6) Buat user auth (posbankum/paralegal) =====
     const { data: created, error: createErr } = await adminClient.auth.admin.createUser({
       email,
       password,
-      email_confirm: true, // biar langsung bisa login tanpa verifikasi
+      email_confirm: true,
     });
 
     if (createErr || !created?.user) {
-      throw new Error(createErr?.message || "Gagal membuat user auth.");
+      return json(400, { ok: false, message: createErr?.message || "Gagal membuat user auth." });
     }
 
     const newUserId = created.user.id;
 
-    // 5) insert posbankum
+    // ===== 7) Insert posbankum =====
     const { data: pos, error: posErr } = await adminClient
       .from("posbankum")
       .insert({
@@ -133,43 +164,30 @@ Deno.serve(async (req) => {
       .single();
 
     if (posErr || !pos?.id_posbankum) {
-      // cleanup: kalau insert posbankum gagal, hapus user auth yang sudah terbuat
       await adminClient.auth.admin.deleteUser(newUserId);
-      throw new Error(posErr?.message || "Gagal insert posbankum.");
+      return json(400, { ok: false, message: posErr?.message || "Gagal insert posbankum." });
     }
 
     const id_posbankum = pos.id_posbankum;
 
-    // 6) upsert profiles untuk user baru (role posbankum + link ke posbankum)
-    // Catatan: pastikan tabel profiles kamu punya kolom: id (uuid), role (user_role), id_posbankum (uuid)
+    // ===== 8) Upsert profiles user baru =====
     const { error: upErr } = await adminClient.from("profiles").upsert(
-      {
-        id: newUserId,
-        role: "posbankum",
-        id_posbankum,
-      },
+      { id: newUserId, role: "posbankum", id_posbankum },
       { onConflict: "id" },
     );
 
     if (upErr) {
-      // cleanup minimal
       await adminClient.from("posbankum").delete().eq("id_posbankum", id_posbankum);
       await adminClient.auth.admin.deleteUser(newUserId);
-      throw new Error(upErr.message || "Gagal menautkan profiles.");
+      return json(400, { ok: false, message: upErr.message || "Gagal menautkan profiles." });
     }
 
-    return new Response(
-      JSON.stringify({
-        ok: true,
-        message: "Akun posbankum berhasil dibuat.",
-        data: { id_posbankum, user_id: newUserId, email },
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return json(200, {
+      ok: true,
+      message: "Akun posbankum berhasil dibuat.",
+      data: { id_posbankum, user_id: newUserId, email },
+    });
   } catch (e) {
-    return new Response(
-      JSON.stringify({ ok: false, message: e?.message || "Server error" }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    return json(500, { ok: false, message: e?.message || "Server error" });
   }
 });

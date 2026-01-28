@@ -11,6 +11,7 @@ import {
 } from "react-icons/fi";
 import { supabase } from "../../lib/supabaseClient";
 import "./posbankumDashboard.css";
+import KelolaDataPosbankum from "./KelolaDataPosbankum";
 
 export default function PosbankumDashboard() {
   const navigate = useNavigate();
@@ -37,7 +38,6 @@ export default function PosbankumDashboard() {
   const PAGE_SIZE = 4;
   const [total, setTotal] = useState(0);
 
-  // debounce search
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(q.trim()), 350);
     return () => clearTimeout(t);
@@ -86,13 +86,11 @@ export default function PosbankumDashboard() {
           setRoleErr(
             "Akun ini belum memiliki profil. Hubungi admin untuk mengaktifkan role.",
           );
-          // boleh redirect:
-          // navigate("/", { replace: true });
+
           return;
         }
 
         if (prof.role !== "posbankum") {
-          // kalau admin nyasar ke sini, lempar balik ke admin dashboard
           if (prof.role === "admin") {
             navigate("/admin", { replace: true });
             return;
@@ -103,7 +101,6 @@ export default function PosbankumDashboard() {
 
         setProfile(prof);
 
-        // ✅ ambil nama posbankum dari tabel posbankum berdasarkan id_posbankum
         if (prof?.id_posbankum) {
           const { data: pb, error: pbErr } = await supabase
             .from("posbankum")
@@ -121,7 +118,6 @@ export default function PosbankumDashboard() {
         }
 
         // load kategori & berita setelah role valid
-        await Promise.all([loadKategori(), loadBerita(1, "", "")]);
       } catch (e) {
         console.error(e);
         setRoleErr(e?.message || "Gagal memeriksa role/session.");
@@ -160,28 +156,13 @@ export default function PosbankumDashboard() {
 
   // ====== Helpers berita ======
   const normalizeBerita = (row) => {
-    // fleksibel: kalau kolom beda, tetap tampil
-    const id =
-      row.id ?? row.id_berita ?? row.uuid ?? row.slug ?? `${Math.random()}`;
-    const title =
-      row.judul ?? row.title ?? row.nama ?? row.headline ?? "Tanpa Judul";
-    const content =
-      row.ringkasan ??
-      row.summary ??
-      row.isi ??
-      row.content ??
-      row.deskripsi ??
-      "";
-    const category = row.kategori ?? row.category ?? "";
-    const createdAt = row.created_at ?? row.createdAt ?? null;
-    const thumb =
-      row.thumbnail_url ??
-      row.cover_url ??
-      row.image_url ??
-      row.gambar_url ??
-      "";
+    const id = row.id_berita ?? row.id ?? `${Math.random()}`;
+    const title = row.judul ?? "Tanpa Judul";
+    const content = row.isi ?? "";
+    const createdAt = row.tgl_publish ?? null;
+    const thumb = row.gambar ?? "";
 
-    return { id, title, content, category, createdAt, thumb, raw: row };
+    return { id, title, content, createdAt, thumb, raw: row };
   };
 
   const loadKategori = async () => {
@@ -208,23 +189,21 @@ export default function PosbankumDashboard() {
   const loadBerita = async (p, qStr, cat) => {
     setLoadingItems(true);
     setItemsErr("");
+
+    const from = (p - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
     try {
       let query = supabase.from("berita").select("*", { count: "exact" });
 
-      // filter
-      if (qStr) {
-        // coba cari di judul kalau ada, fallback ke ilike content
-        // (kalau kolom tidak ada, supabase akan error -> kita tangkap)
-        query = query.ilike("judul", `%${qStr}%`);
-      }
+      if (qStr) query = query.ilike("judul", `%${qStr}%`);
+
+      // kategori: hanya dipakai kalau kolomnya ada (kalau tidak ada, nanti fallback)
       if (cat) query = query.eq("kategori", cat);
 
-      const from = (p - 1) * PAGE_SIZE;
-      const to = from + PAGE_SIZE - 1;
-
-      // order by created_at bila ada
+      // ✅ sesuai ERD
       const { data, error, count } = await query
-        .order("created_at", { ascending: false })
+        .order("tgl_publish", { ascending: false })
         .range(from, to);
 
       if (error) throw error;
@@ -232,16 +211,15 @@ export default function PosbankumDashboard() {
       setTotal(count ?? 0);
       setItems((data ?? []).map(normalizeBerita));
     } catch (e) {
-      // fallback kedua: tanpa filter judul & tanpa order (kalau kolom tidak cocok)
+      // fallback: buang filter kategori jika kolom tidak ada
       try {
         let q2 = supabase.from("berita").select("*", { count: "exact" });
+        if (qStr) q2 = q2.ilike("judul", `%${qStr}%`);
 
-        if (cat) q2 = q2.eq("kategori", cat);
+        const { data, error, count } = await q2
+          .order("tgl_publish", { ascending: false })
+          .range(from, to);
 
-        const from = (p - 1) * PAGE_SIZE;
-        const to = from + PAGE_SIZE - 1;
-
-        const { data, error, count } = await q2.range(from, to);
         if (error) throw error;
 
         setTotal(count ?? 0);
@@ -249,11 +227,7 @@ export default function PosbankumDashboard() {
       } catch (e2) {
         setItems([]);
         setTotal(0);
-        setItemsErr(
-          e2?.message ||
-            e?.message ||
-            "Gagal memuat berita (cek nama tabel/kolom).",
-        );
+        setItemsErr(e2?.message || e?.message || "Gagal memuat berita.");
       }
     } finally {
       setLoadingItems(false);
@@ -263,16 +237,26 @@ export default function PosbankumDashboard() {
   // reload berita saat filter berubah
   useEffect(() => {
     if (!profile || profile.role !== "posbankum") return;
+    if (active !== "Beranda") return;
     setPage(1);
     loadBerita(1, debouncedQ, kategori);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedQ, kategori]);
+  }, [debouncedQ, kategori, active]);
 
   useEffect(() => {
     if (!profile || profile.role !== "posbankum") return;
+    if (active !== "Beranda") return;
     loadBerita(page, debouncedQ, kategori);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, active]);
+
+  useEffect(() => {
+    if (!profile || profile.role !== "posbankum") return;
+    if (active !== "Beranda") return;
+    loadKategori();
+    loadBerita(1, "", "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, profile]);
 
   const totalPages = useMemo(
     () => Math.max(1, Math.ceil(total / PAGE_SIZE)),
@@ -512,9 +496,11 @@ export default function PosbankumDashboard() {
               </div>
             </div>
           </section>
+        ) : active === "Kelola Data Posbankum" ? (
+          <KelolaDataPosbankum profile={profile} />
         ) : (
           <div className="pbSoon">
-            Halaman <b>{active}</b> belum dibuat. (Nanti kita isi modulnya.)
+            Halaman <b>{active}</b> belum dibuat
           </div>
         )}
       </main>

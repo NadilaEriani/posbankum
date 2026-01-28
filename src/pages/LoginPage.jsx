@@ -4,27 +4,21 @@ import { supabase } from "../lib/supabaseClient";
 import "./login.css";
 
 async function getRedirectPathByRole(userId) {
-  // Ambil role dari profiles
   const { data, error } = await supabase
     .from("profiles")
     .select("role")
     .eq("id", userId)
     .maybeSingle();
 
-  // Kalau belum ada profiles -> jangan lempar ke /admin, kasih fallback aman
   if (error) {
-    // sering terjadi kalau RLS profiles belum ada policy SELECT untuk user
     console.warn("getRedirectPathByRole error:", error.message);
-    return "/"; // atau tampilkan pesan (dibawah kita handle)
+    return "/";
   }
   if (!data?.role) return "/";
 
   const role = String(data.role).toLowerCase();
-
   if (role === "admin") return "/admin";
   if (role === "posbankum") return "/posbankum";
-
-  // kompatibilitas jika Anda dulu pakai istilah paralegal
   if (role === "paralegal") return "/posbankum";
 
   return "/";
@@ -33,13 +27,11 @@ async function getRedirectPathByRole(userId) {
 export default function LoginPage() {
   const nav = useNavigate();
 
-  const [sessionEmail, setSessionEmail] = useState("");
-  const [dashboardPath, setDashboardPath] = useState("/");
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [errorMsg, setErrorMsg] = useState("");
 
   const canSubmit = useMemo(() => {
@@ -47,7 +39,7 @@ export default function LoginPage() {
     return e.length > 0 && e.includes("@") && password.length >= 8 && !loading;
   }, [email, password, loading]);
 
-  // cek session awal + redirect otomatis sesuai role
+  // ✅ kalau sudah ada session, langsung redirect (tanpa layar "kamu sudah login")
   useEffect(() => {
     let alive = true;
 
@@ -57,57 +49,35 @@ export default function LoginPage() {
         if (!alive) return;
 
         const userId = data?.session?.user?.id;
-        const userEmail = data?.session?.user?.email ?? "";
-
-        setSessionEmail(userEmail);
 
         if (userId) {
           const path = await getRedirectPathByRole(userId);
-          setDashboardPath(path);
+          if (!alive) return;
 
-          // kalau role terbaca, langsung redirect
-          if (path !== "/") nav(path, { replace: true });
-          else {
-            // kalau path "/", berarti role belum kebaca / profiles belum ada
-            setErrorMsg(
-              "Akun ini belum punya role/profiles atau policy belum aktif. Hubungi admin.",
-            );
+          if (path !== "/") {
+            nav(path, { replace: true });
+            return;
           }
+
+          // role tidak kebaca / profiles tidak ada / policy belum aktif
+          setErrorMsg(
+            "Session terdeteksi, tapi role/profiles tidak ditemukan atau policy belum aktif. Hubungi admin.",
+          );
+          // optional: paksa logout supaya user bisa login ulang dengan bersih
+          await supabase.auth.signOut();
         }
       } catch (e) {
         console.error(e);
         setErrorMsg(e?.message || "Gagal cek session.");
+      } finally {
+        if (alive) setCheckingSession(false);
       }
     })();
 
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, newSession) => {
-      const userEmail = newSession?.user?.email ?? "";
-      setSessionEmail(userEmail);
-
-      const uid = newSession?.user?.id;
-      if (!uid) return;
-
-      const path = await getRedirectPathByRole(uid);
-      setDashboardPath(path);
-    });
-
     return () => {
       alive = false;
-      subscription?.unsubscribe();
     };
   }, [nav]);
-
-  const onLogout = async () => {
-    setErrorMsg("");
-    setLoading(true);
-    const { error } = await supabase.auth.signOut();
-    setLoading(false);
-    if (error) setErrorMsg(error.message);
-    setSessionEmail("");
-    setDashboardPath("/");
-  };
 
   const onLogin = async (e) => {
     e.preventDefault();
@@ -129,71 +99,46 @@ export default function LoginPage() {
     }
 
     const userId = data?.user?.id;
-    const userEmail = data?.user?.email ?? "";
-    setSessionEmail(userEmail);
-
     if (!userId) {
       setErrorMsg("Login berhasil, tapi userId tidak ditemukan. Coba ulang.");
       return;
     }
 
     const path = await getRedirectPathByRole(userId);
-    setDashboardPath(path);
 
     if (path === "/") {
       setErrorMsg(
         "Login berhasil, tapi role/profiles tidak ditemukan atau policy belum aktif. Hubungi admin.",
       );
+      // optional: logout supaya tidak nyangkut session tanpa role
+      await supabase.auth.signOut();
       return;
     }
 
     nav(path, { replace: true });
   };
 
-  // Sudah login: tampilkan info + tombol logout + link sesuai role
-  if (sessionEmail) {
+  // Saat cek session awal, cukup tahan UI biar gak “kedip”
+  if (checkingSession) {
     return (
       <div className="lp">
-        <div className="lp-card" role="region" aria-label="Sudah Login">
+        <div className="lp-card" role="region" aria-label="Memuat">
           <div className="lp-left" aria-hidden="true">
             <div className="lp-illu" />
           </div>
-
           <div className="lp-right">
-            <h1 className="lp-title">Kamu sudah login</h1>
+            <h1 className="lp-title">Memuat...</h1>
             <p className="lp-hint" style={{ marginTop: 6 }}>
-              Login sebagai: <b>{sessionEmail}</b>
+              Mengecek session
             </p>
-
-            {errorMsg && (
-              <div style={{ fontSize: 12, color: "#b91c1c", marginTop: 10 }}>
-                {errorMsg}
-              </div>
-            )}
-
-            <div style={{ marginTop: 12, display: "flex", gap: 10 }}>
-              <button
-                className="lp-btn"
-                type="button"
-                onClick={onLogout}
-                disabled={loading}
-              >
-                {loading ? "Keluar..." : "Keluar"}
-              </button>
-
-              <Link to={dashboardPath} className="lp-link">
-                Ke Dashboard
-              </Link>
-            </div>
           </div>
         </div>
-
         <p className="lp-foot">© {new Date().getFullYear()} POSBANKUM</p>
       </div>
     );
   }
 
-  // Belum login
+  // ✅ Belum login (atau session gagal dibaca) => tampilkan form login biasa
   return (
     <div className="lp">
       <div className="lp-card" role="region" aria-label="Login POSBANKUM">

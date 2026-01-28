@@ -1,0 +1,230 @@
+.pbKD {
+  padding: 18px;
+}
+
+.pbKDHero {
+  height: 140px;
+  background: #dedede;
+  border-radius: 18px;
+  margin-bottom: 18px;
+}
+
+.pbKDList {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.pbKDRow {
+  display: flex;
+  align-items: center;
+  background: #e6e6e6;
+  border-radius: 18px;
+  overflow: hidden;
+  min-height: 84px;
+}
+
+.pbKDLeft {
+  width: 96px;
+  min-height: 84px;
+  background: #d7d7d7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pbKDIconBox {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 2px solid #9a9a9a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4b4b4b;
+}
+
+.pbKDTitle {
+  flex: 1;
+  padding: 0 16px;
+  font-weight: 600;
+  color: #2e2e2e;
+}
+
+.pbKDActions {
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pbKDUploadBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #bdbdbd;
+  color: #222;
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pbKDUploadBtn:active {
+  transform: translateY(1px);
+}
+
+.pbKDIconBtn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #c9c9c9;
+  border: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #2a2a2a;
+}
+
+.pbKDIconBtn:active {
+  transform: translateY(1px);
+}
+/* ====== Modal Upload ====== */
+.pbModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+  padding: 22px;
+}
+
+.pbModal {
+  width: min(980px, 96vw);
+  background: #fff;
+  border-radius: 16px;
+  border: 2px solid #1e90ff; /* garis biru seperti mockup */
+  padding: 18px;
+}
+
+.pbModalTop {
+  position: relative;
+}
+
+.pbModalHead {
+  height: 86px;
+  border-radius: 16px;
+  background: #dedede;
+}
+
+.pbModalClose {
+  position: absolute;
+  right: 12px;
+  top: 10px;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 0;
+  background: #f2f2f2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.pbModalBody {
+  padding: 18px 10px 8px;
+}
+
+.pbModalDropWrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 14px;
+}
+
+.pbModalDrop {
+  width: min(420px, 80%);
+  height: 180px;
+  background: #dedede;
+  border-radius: 14px;
+  border: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pbModalDrop:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.pbModalDropInner {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+}
+
+.pbModalDropIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #c9c9c9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pbModalDropHint {
+  font-size: 13px;
+  color: #2a2a2a;
+  text-align: center;
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pbModalErr {
+  margin-top: 12px;
+  color: #b91c1c;
+  font-size: 12px;
+  text-align: center;
+}
+
+.pbModalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.pbModalBtn {
+  border: 0;
+  background: #d0d0d0;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pbModalBtnPrimary {
+  background: #c9c9c9;
+}
+
+.pbModalBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* kecil: nama file di row */
+.pbKDSub {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #5a5a5a;
+}

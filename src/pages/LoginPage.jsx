@@ -18,27 +18,48 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      // Login dengan Supabase
-      const { data, error: loginError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      // 1) Login Auth
+      const { data: loginData, error: loginError } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
       if (loginError) throw loginError;
 
-      // Cek role dari user metadata
-      const userRole = data?.user?.user_metadata?.role;
+      const user = loginData?.user;
+      if (!user?.id) throw new Error("Login gagal: user tidak ditemukan.");
 
-      // Redirect berdasarkan role
-      if (userRole === "admin") {
+      // 2) Ambil role dari public.profiles (bukan metadata)
+      const { data: profile, error: profileError } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      if (profileError) throw profileError;
+
+      const role = (profile?.role || "").toString().toLowerCase();
+
+      if (!role) {
+        // profil belum dibuat / role kosong
+        await supabase.auth.signOut();
+        throw new Error(
+          "Role tidak valid (profil belum dibuat / role kosong).",
+        );
+      }
+
+      // 3) Redirect berdasarkan role
+      if (role === "admin") {
         navigate("/admin");
-      } else if (userRole === "posbankum") {
+      } else if (role === "posbankum") {
         navigate("/posbankum");
       } else {
+        await supabase.auth.signOut();
         throw new Error("Role tidak valid");
       }
     } catch (err) {
-      setError(err.message || "Login gagal. Silakan coba lagi.");
+      setError(err?.message || "Login gagal. Silakan coba lagi.");
     } finally {
       setLoading(false);
     }
@@ -51,14 +72,12 @@ export default function LoginPage() {
       showIllustration={true}
     >
       <form onSubmit={handleLogin} className="space-y-6">
-        {/* Error Alert */}
         {error && (
           <div className="bg-danger-l bg-opacity-20 border-2 border-danger-2 rounded-xl p-4">
             <p className="text-b3 text-danger-d text-center">{error}</p>
           </div>
         )}
 
-        {/* Email Input */}
         <Input
           label="Email"
           type="email"
@@ -70,7 +89,6 @@ export default function LoginPage() {
           disabled={loading}
         />
 
-        {/* Password Input */}
         <Input
           label="Kata Sandi"
           type="password"
@@ -82,7 +100,6 @@ export default function LoginPage() {
           disabled={loading}
         />
 
-        {/* Forgot Password Link */}
         <div className="text-right">
           <button
             type="button"
@@ -94,7 +111,6 @@ export default function LoginPage() {
           </button>
         </div>
 
-        {/* Login Button */}
         <Button
           type="submit"
           variant="primary"
@@ -105,7 +121,6 @@ export default function LoginPage() {
           {loading ? "Memproses..." : "Masuk"}
         </Button>
 
-        {/* Divider */}
         <div className="relative my-6">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-neutral-softWhite"></div>
@@ -117,7 +132,6 @@ export default function LoginPage() {
           </div>
         </div>
 
-        {/* Register Link */}
         <Button
           type="button"
           variant="outline"
@@ -130,7 +144,6 @@ export default function LoginPage() {
         </Button>
       </form>
 
-      {/* Footer */}
       <div className="mt-8 text-center">
         <p className="text-field-2 text-neutral-grey">
           Dengan masuk, Anda menyetujui{" "}

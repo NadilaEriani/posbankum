@@ -215,7 +215,7 @@ export default function LandingPage() {
                         <img
                           src={burung5}
                           alt="Maskot Posbankum"
-                          className="w-full h-full object-contain"
+                          className="w-[170%] h-[170%] object-contain relative translate-y-9 translate-x-0"
                         />
                       </div>
                     </div>

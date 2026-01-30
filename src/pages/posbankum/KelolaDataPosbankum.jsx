@@ -43,7 +43,7 @@ export default function KelolaDataPosbankum({ profile }) {
     () => [
       { key: "sk_posbankum", label: "SK Posbankum" },
       { key: "sk_kadarkum", label: "SK Kadarkum" },
-      { key: "sapras", label: "Sapras" },
+      { key: "sarpras", label: "Sarpras" },
       { key: "tagging_area", label: "Tagging Area" },
     ],
     [],

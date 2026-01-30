@@ -1,35 +1,41 @@
 import { useEffect, useMemo, useState } from "react";
 import { FiSearch, FiX, FiFileText, FiFile } from "react-icons/fi";
 import "./dataPosbankum.css";
-import { supabase } from "../../lib/supabaseClient"; // ✅ sesuai supabaseClient.js kamu
+import { supabase } from "../../lib/supabaseClient";
+
+const BUCKET = "posbankum-docs";
 
 export default function DataPosbankum() {
   const [tab, setTab] = useState("all");
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
 
-  // Simpan ID (uuid) supaya filter benar ke DB
   const [kabupatenId, setKabupatenId] = useState("");
   const [kecamatanId, setKecamatanId] = useState("");
 
   const [kabupatenOpts, setKabupatenOpts] = useState([]);
   const [kecamatanOpts, setKecamatanOpts] = useState([]);
 
-  const [rows, setRows] = useState([]); // posbankum list (dengan completeness)
-  const [uploadsByPos, setUploadsByPos] = useState({}); // { [id_posbankum]: data_posbankum[] }
+  const [rows, setRows] = useState([]);
+  const [uploadsByPos, setUploadsByPos] = useState({});
 
   const [stats, setStats] = useState({
     aktif: 0,
     menunggu: 0,
     tidakLengkap: 0,
   });
-
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
-  // === MODAL STATE
+  // Modal detail
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(null);
+
+  // Modal preview file
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState("");
+  const [previewMime, setPreviewMime] = useState("");
+  const [previewName, setPreviewName] = useState("");
 
   const tabs = useMemo(
     () => [
@@ -40,13 +46,53 @@ export default function DataPosbankum() {
     [],
   );
 
-  // kategori wajib (samakan dengan data yang kamu upload)
-  const REQUIRED_KATEGORI = useMemo(
+  // === Normalizer (biar kategori DB yang beda-beda tetap match)
+  const norm = (v) =>
+    String(v ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, " ");
+
+  // map variasi nama kategori → kunci kanonik
+  const KATEGORI_ALIASES = useMemo(
+    () => ({
+      // === SK POSBANKUM
+      "sk posbankum": "sk_posbankum",
+      sk_posbankum: "sk_posbankum",
+      "sk pos bankum": "sk_posbankum",
+
+      // === SK KADARKUM (SK Kab/Kota)
+      "sk kab/kota": "sk_kadarkum",
+      "sk kab kota": "sk_kadarkum",
+      "sk kabupaten/kota": "sk_kadarkum",
+      "sk kadarkum": "sk_kadarkum",
+      sk_kadarkum: "sk_kadarkum",
+
+      // === SARPRAS (Dokumentasi Sarpras)
+      "dokumentasi sarpras": "sarpras",
+      dokumentasi_sarpras: "sarpras",
+      "dok sarpras": "sarpras",
+      sarpras: "sarpras",
+
+      // === TAGGING AREA
+      "tagging area": "tagging_area",
+      "tag area": "tagging_area",
+      tagging_area: "tagging_area",
+    }),
+    [],
+  );
+
+  const canonKategori = (k) => {
+    const n = norm(k);
+    return KATEGORI_ALIASES[n] ?? n; // kalau tidak ada di alias, pakai normalisasi
+  };
+
+  const REQUIRED = useMemo(
     () => [
-      "SK Posbankum",
-      "SK Kab/Kota",
-      "Dokumentasi Sarpras",
-      "Tagging Area",
+      { label: "SK Posbankum", key: "sk_posbankum" },
+      { label: "SK Kab/Kota", key: "sk_kadarkum" },
+      { label: "Dokumentasi Sarpras", key: "sarpras" },
+      { label: "Tagging Area", key: "tagging_area" },
     ],
     [],
   );
@@ -92,40 +138,115 @@ export default function DataPosbankum() {
   }, [kabupatenId]);
 
   const normalizeStatus = (s) => {
-    // jaga-jaga kalau ada data lama "setuju/tolak"
-    if (!s) return "menunggu";
-    const x = String(s).toLowerCase();
-    if (x === "setuju") return "disetujui";
-    if (x === "tolak") return "ditolak";
+    const x = norm(s);
+    if (!x) return "menunggu";
+    if (["setuju", "disetujui", "approved", "approve"].includes(x))
+      return "disetujui";
+    if (["tolak", "ditolak", "rejected", "reject"].includes(x))
+      return "ditolak";
+    if (["menunggu", "pending", "wait"].includes(x)) return "menunggu";
     return x;
   };
 
-  // hitung completeness dari data_posbankum (per posbankum)
-  const computeCompleteness = (uploads = []) => {
-    const latestByKategori = {};
-    for (const u of uploads) {
-      const k = u.kategori ?? "";
-      if (!k) continue;
+  const pickTimestamp = (u) =>
+    u?.tgl_upload ??
+    u?.tanggal_upload ??
+    u?.uploaded_at ??
+    u?.created_at ??
+    u?.updated_at ??
+    null;
 
-      const prev = latestByKategori[k];
-      if (!prev) latestByKategori[k] = u;
+  const pickPath = (u) =>
+    u?.path_berkas ??
+    u?.path ??
+    u?.file_path ??
+    u?.file_url ??
+    u?.url ??
+    u?.public_url ??
+    "";
+
+  const formatTanggal = (ts) => {
+    if (!ts) return "-";
+    try {
+      return new Intl.DateTimeFormat("id-ID", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      }).format(new Date(ts));
+    } catch {
+      return "-";
+    }
+  };
+
+  const stripBucketPrefix = (p) => {
+    const s = String(p || "");
+    if (!s) return "";
+    // kalau tersimpan "posbankum-docs/xxx.pdf", buang prefix bucket
+    if (s.startsWith(`${BUCKET}/`)) return s.slice(BUCKET.length + 1);
+    return s;
+  };
+
+  const openFile = async (row) => {
+    setErr("");
+
+    // row = { path, mime_type, nama_berkas } (kita kirim dari detailRows)
+    const raw = String(row?.path || "");
+    if (!raw) return;
+
+    let url = raw;
+
+    // kalau bukan URL publik → buat signed url dari storage
+    if (!/^https?:\/\//i.test(raw)) {
+      const objectPath = stripBucketPrefix(raw);
+
+      const { data, error } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrl(objectPath, 60 * 10);
+
+      if (error) {
+        setErr(error.message);
+        return;
+      }
+
+      url = data?.signedUrl || "";
+    }
+
+    setPreviewUrl(url);
+    setPreviewMime(row?.mime_type || "");
+    setPreviewName(row?.nama_berkas || "Berkas");
+    setPreviewOpen(true);
+  };
+
+  // hitung completeness dari uploads (per posbankum)
+  const computeCompleteness = (uploads = []) => {
+    const latestByKey = {};
+
+    for (const u0 of uploads) {
+      const key = canonKategori(u0?.kategori);
+      if (!key) continue;
+
+      const ts = pickTimestamp(u0);
+      const prev = latestByKey[key];
+
+      if (!prev) latestByKey[key] = u0;
       else {
-        const a = new Date(prev.tgl_upload).getTime();
-        const b = new Date(u.tgl_upload).getTime();
-        if (b > a) latestByKategori[k] = u;
+        const a = new Date(pickTimestamp(prev) || 0).getTime();
+        const b = new Date(ts || 0).getTime();
+        if (b > a) latestByKey[key] = u0;
       }
     }
 
-    // lengkap = semua REQUIRED_KATEGORI ada & statusnya disetujui
-    const ok = REQUIRED_KATEGORI.every((k) => {
-      const u = latestByKategori[k];
-      return u && normalizeStatus(u.status_verifikasi) === "disetujui";
+    const ok = REQUIRED.every((req) => {
+      const u = latestByKey[req.key];
+      return (
+        u && normalizeStatus(u.status_verifikasi ?? u.status) === "disetujui"
+      );
     });
 
     return ok ? "complete" : "incomplete";
   };
 
-  // Fetch posbankum + uploads sesuai filter
+  // Fetch posbankum + uploads
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -146,24 +267,22 @@ export default function DataPosbankum() {
 
         const ids = (pos ?? []).map((r) => r.id_posbankum);
 
-        // ambil uploads untuk posbankum yang tampil
         let uploads = [];
         if (ids.length) {
+          // ambil semua kolom biar aman jika nama kolom beda (tgl_upload vs created_at, path_berkas vs path, dll)
           const { data: up, error: upErr } = await supabase
             .from("data_posbankum")
-            .select(
-              "id_data,id_posbankum,kategori,tgl_upload,status_verifikasi,path_berkas",
-            )
+            .select("*")
             .in("id_posbankum", ids);
 
           if (upErr) throw upErr;
           uploads = up ?? [];
         }
 
-        // group uploads by posbankum
         const grouped = {};
         for (const u of uploads) {
-          const pid = u.id_posbankum;
+          const pid = u?.id_posbankum;
+          if (!pid) continue;
           if (!grouped[pid]) grouped[pid] = [];
           grouped[pid].push(u);
         }
@@ -173,10 +292,10 @@ export default function DataPosbankum() {
           completeness: computeCompleteness(grouped[r.id_posbankum] ?? []),
         }));
 
-        // stats (berdasarkan data yang sedang tampil)
         const aktif = enriched.length;
         const menunggu = uploads.filter(
-          (u) => normalizeStatus(u.status_verifikasi) === "menunggu",
+          (u) =>
+            normalizeStatus(u?.status_verifikasi ?? u?.status) === "menunggu",
         ).length;
         const tidakLengkap = enriched.filter(
           (r) => r.completeness === "incomplete",
@@ -191,7 +310,7 @@ export default function DataPosbankum() {
         setLoading(false);
       }
     })();
-  }, [kabupatenId, kecamatanId, debouncedQ, REQUIRED_KATEGORI]);
+  }, [kabupatenId, kecamatanId, debouncedQ, REQUIRED, KATEGORI_ALIASES]);
 
   const filtered = useMemo(() => {
     return rows.filter((item) =>
@@ -227,20 +346,7 @@ export default function DataPosbankum() {
     };
   }, [open]);
 
-  const formatTanggal = (ts) => {
-    if (!ts) return "-";
-    try {
-      return new Intl.DateTimeFormat("id-ID", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-      }).format(new Date(ts));
-    } catch {
-      return "-";
-    }
-  };
-
-  // Modal rows: pakai kategori wajib + ambil upload terbaru per kategori
+  // Modal rows: kategori wajib + upload terbaru per kategori (pakai kunci kanonik)
   const detailRows = useMemo(() => {
     const pid = selected?.id_posbankum;
     if (!pid) return [];
@@ -249,25 +355,31 @@ export default function DataPosbankum() {
     const latest = {};
 
     for (const u of ups) {
-      const k = u.kategori ?? "";
-      if (!k) continue;
-      const prev = latest[k];
-      if (!prev) latest[k] = u;
-      else if (new Date(u.tgl_upload) > new Date(prev.tgl_upload))
-        latest[k] = u;
+      const key = canonKategori(u?.kategori);
+      if (!key) continue;
+
+      const prev = latest[key];
+      const ts = pickTimestamp(u);
+      if (!prev) latest[key] = u;
+      else if (new Date(ts || 0) > new Date(pickTimestamp(prev) || 0))
+        latest[key] = u;
     }
 
-    return REQUIRED_KATEGORI.map((k) => {
-      const u = latest[k];
-      const st = normalizeStatus(u?.status_verifikasi);
+    return REQUIRED.map((req) => {
+      const u = latest[req.key];
+      const st = normalizeStatus(u?.status_verifikasi ?? u?.status);
+      const path = pickPath(u);
+
       return {
-        kategori: k,
-        tanggal: u ? formatTanggal(u.tgl_upload) : "-",
-        status: st, // disetujui / ditolak / menunggu
-        path: u?.path_berkas ?? "",
+        kategori: req.label,
+        tanggal: u ? formatTanggal(pickTimestamp(u)) : "-",
+        status: st,
+        path,
+        mime_type: u?.mime_type ?? "",
+        nama_berkas: u?.nama_berkas ?? "",
       };
     });
-  }, [selected, uploadsByPos, REQUIRED_KATEGORI]);
+  }, [selected, uploadsByPos, REQUIRED]);
 
   return (
     <div className="dp">
@@ -480,9 +592,7 @@ export default function DataPosbankum() {
                           aria-label="Buka dokumen"
                           disabled={!r.path}
                           title={!r.path ? "Belum ada berkas" : "Buka berkas"}
-                          onClick={() =>
-                            r.path && window.open(r.path, "_blank")
-                          }
+                          onClick={() => r.path && openFile(r)}
                         >
                           <FiFile />
                         </button>
@@ -501,6 +611,73 @@ export default function DataPosbankum() {
                 onClick={closeDetail}
               >
                 Kembali
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {previewOpen && (
+        <div
+          className="dp-modalOverlay"
+          onMouseDown={() => setPreviewOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="dp-modal" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="dp-modalHead">
+              <div className="dp-modalTitleRow">
+                <div className="dp-modalTitle">
+                  {previewName || "Preview Berkas"}
+                </div>
+                <button
+                  className="dp-clearBtn"
+                  type="button"
+                  onClick={() => setPreviewOpen(false)}
+                  aria-label="Tutup"
+                  style={{ marginLeft: "auto" }}
+                >
+                  <FiX />
+                </button>
+              </div>
+            </div>
+
+            <div style={{ padding: 16 }}>
+              {!previewUrl ? (
+                <div style={{ fontSize: 14 }}>Berkas tidak tersedia.</div>
+              ) : previewMime?.startsWith("image/") ? (
+                <img
+                  src={previewUrl}
+                  alt={previewName}
+                  style={{
+                    width: "100%",
+                    maxHeight: "70vh",
+                    objectFit: "contain",
+                    borderRadius: 12,
+                    background: "#f2f2f2",
+                  }}
+                />
+              ) : (
+                <iframe
+                  src={previewUrl}
+                  title={previewName}
+                  style={{
+                    width: "100%",
+                    height: "70vh",
+                    border: "none",
+                    borderRadius: 12,
+                    background: "#f2f2f2",
+                  }}
+                />
+              )}
+            </div>
+
+            <div className="dp-modalFoot">
+              <button
+                className="dp-backBtn"
+                type="button"
+                onClick={() => setPreviewOpen(false)}
+              >
+                Tutup
               </button>
             </div>
           </div>

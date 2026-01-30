@@ -14,6 +14,7 @@ import {
 import "./adminDashboard.css";
 import DataPosbankum from "./DataPosbankum";
 import KelolaPosbankum from "./KelolaPosbankum";
+import VerifikasiDataPosbankum from "./VerifikasiDataPosbankum";
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -21,7 +22,6 @@ export default function AdminDashboard() {
   const [active, setActive] = useState("Beranda");
   const [loggingOut, setLoggingOut] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
-  
 
   // Guard: kalau tidak ada session -> balik ke Landing (/)
   useEffect(() => {
@@ -277,6 +277,8 @@ export default function AdminDashboard() {
           <DataPosbankum />
         ) : active === "Kelola Posbankum" ? (
           <KelolaPosbankum />
+        ) : active === "Verifikasi Data Posbankum" ? (
+          <VerifikasiDataPosbankum />
         ) : (
           <div
             style={{

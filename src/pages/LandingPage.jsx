@@ -11,6 +11,16 @@ import burung5 from "../assets/burung5.png";
 import burung7 from "../assets/burung7.png";
 import burung9 from "../assets/burung9.png";
 import logo from "../assets/logo.png";
+// ====== IDENTITAS KEMENKUM RIAU ======
+const ORG_SHORT = "Kemenkum Riau";
+const ORG_FULL = "Kantor Wilayah Kementerian Hukum Riau";
+const ORG_ADDR =
+  "Jl. Jend. Sudirman No.233, Sumahilang, Kec. Pekanbaru Kota, Kota Pekanbaru, Riau 28111";
+const ORG_EMAIL = "humaskumriau@gmail.com";
+const ORG_WA_DISPLAY = "0811-6904-422";
+const ORG_WA_TEL = "+628116904422"; // untuk href tel:
+const ORG_HOURS_DAYS = "Senin - Jumat";
+const ORG_HOURS_TIME = "08:00 - 16:00 WIB";
 
 async function getRedirectPathByRole(userId) {
   const { data, error } = await supabase
@@ -79,21 +89,28 @@ export default function LandingPage() {
 
   const faqs = [
     {
-      question: "Apa itu Pos Bantuan Hukum dan siapa yang berhak mendapatkan layanannya?",
-      answer: "Pos Bantuan Hukum (Posbankum) adalah layanan bantuan hukum gratis yang disediakan oleh Kementerian Hukum dan HAM untuk masyarakat kurang mampu. Layanan ini mencakup konsultasi hukum, pendampingan hukum, dan bantuan litigasi di pengadilan. Setiap warga negara Indonesia yang memenuhi kriteria ekonomi tertentu berhak mendapatkan layanan ini secara gratis."
+      question:
+        "Apa itu Pos Bantuan Hukum dan siapa yang berhak mendapatkan layanannya?",
+      answer:
+        "Pos Bantuan Hukum (Posbankum) adalah layanan bantuan hukum gratis yang disediakan melalui {ORG_FULL} untuk masyarakat kurang mampu. Layanan ini mencakup konsultasi hukum, pendampingan hukum, dan bantuan litigasi di pengadilan. Setiap warga negara Indonesia yang memenuhi kriteria ekonomi tertentu berhak mendapatkan layanan ini secara gratis.",
     },
     {
-      question: "Bagaimana cara menghubungi lokasi Posbankum di kelurahan saya?",
-      answer: "Anda dapat menemukan lokasi Posbankum terdekat melalui peta interaktif di website ini atau menghubungi kantor kelurahan/desa setempat. Setiap Posbankum memiliki paralegal terlatih yang siap membantu Anda dengan jadwal layanan yang telah ditentukan. Informasi kontak lengkap juga tersedia di halaman detail setiap Posbankum."
+      question:
+        "Bagaimana cara menghubungi lokasi Posbankum di kelurahan saya?",
+      answer:
+        "Anda dapat menemukan lokasi Posbankum terdekat melalui peta interaktif di website ini atau menghubungi kantor kelurahan/desa setempat. Setiap Posbankum memiliki paralegal terlatih yang siap membantu Anda dengan jadwal layanan yang telah ditentukan. Informasi kontak lengkap juga tersedia di halaman detail setiap Posbankum.",
     },
     {
       question: "Apa saja tugas paralegal di Posbankum?",
-      answer: "Paralegal Posbankum bertugas memberikan konsultasi hukum awal, membantu menyusun dokumen hukum sederhana, memberikan informasi tentang hak-hak hukum masyarakat, melakukan mediasi perselisihan ringan, dan menghubungkan masyarakat dengan advokat atau lembaga bantuan hukum jika diperlukan pendampingan lebih lanjut."
+      answer:
+        "Paralegal Posbankum bertugas memberikan konsultasi hukum awal, membantu menyusun dokumen hukum sederhana, memberikan informasi tentang hak-hak hukum masyarakat, melakukan mediasi perselisihan ringan, dan menghubungkan masyarakat dengan advokat atau lembaga bantuan hukum jika diperlukan pendampingan lebih lanjut.",
     },
     {
-      question: "Apa saja dokumen yang dibutuhkan untuk mendapatkan bantuan di Posbankum?",
-      answer: "Dokumen yang biasanya diperlukan meliputi: KTP asli dan fotokopi, Kartu Keluarga, surat keterangan tidak mampu dari kelurahan (jika ada), dan dokumen terkait permasalahan hukum Anda seperti surat gugatan, kontrak, atau dokumen lain yang relevan. Untuk kasus tertentu, mungkin diperlukan dokumen tambahan yang akan diinformasikan oleh paralegal."
-    }
+      question:
+        "Apa saja dokumen yang dibutuhkan untuk mendapatkan bantuan di Posbankum?",
+      answer:
+        "Dokumen yang biasanya diperlukan meliputi: KTP asli dan fotokopi, Kartu Keluarga, surat keterangan tidak mampu dari kelurahan (jika ada), dan dokumen terkait permasalahan hukum Anda seperti surat gugatan, kontrak, atau dokumen lain yang relevan. Untuk kasus tertentu, mungkin diperlukan dokumen tambahan yang akan diinformasikan oleh paralegal.",
+    },
   ];
 
   return (
@@ -104,22 +121,26 @@ export default function LandingPage() {
           <div className="flex items-center gap-6">
             <span className="flex items-center gap-2 hover:text-brand-yellow-2 transition-colors">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
-                <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
               </svg>
-              bantuan@posbankum.go.id
+              {ORG_EMAIL}
             </span>
             <span className="flex items-center gap-2 hover:text-brand-yellow-2 transition-colors">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
+                <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
               </svg>
-              (021) 123-4567
+              {ORG_WA_DISPLAY}
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <button className="px-3 py-1 rounded hover:bg-white/10 transition-colors font-medium">ID</button>
+            <button className="px-3 py-1 rounded hover:bg-white/10 transition-colors font-medium">
+              ID
+            </button>
             <span className="text-neutral-lGrey">|</span>
-            <button className="px-3 py-1 rounded hover:bg-white/10 transition-colors">EN</button>
+            <button className="px-3 py-1 rounded hover:bg-white/10 transition-colors">
+              EN
+            </button>
           </div>
         </div>
       </div>
@@ -129,11 +150,19 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-6 lg:px-12 h-20 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-3 group">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-blue-1 to-brand-blue-2 flex items-center justify-center shadow-soft group-hover:shadow-md transition-all p-2">
-              <img src={logo} alt="Logo Posbankum" className="w-full h-full object-contain" />
+              <img
+                src={logo}
+                alt="Logo Posbankum"
+                className="w-full h-full object-contain"
+              />
             </div>
             <div>
-              <span className="text-h4 text-brand-blue-d font-bold block leading-tight">POSBANKUM</span>
-              <span className="text-field-2 text-neutral-grey">Kementerian Hukum & HAM RI</span>
+              <span className="text-h4 text-brand-blue-d font-bold block leading-tight">
+                POSBANKUM
+              </span>
+              <span className="text-field-2 text-neutral-grey">
+                {ORG_SHORT}
+              </span>
             </div>
           </Link>
 
@@ -183,11 +212,19 @@ export default function LandingPage() {
                   <div className="text-center">
                     <div className="mb-6 flex justify-center">
                       <div className="w-48 h-48 rounded-full bg-white flex items-center justify-center shadow-soft p-4">
-                        <img src={burung5} alt="Maskot Posbankum" className="w-full h-full object-contain" />
+                        <img
+                          src={burung5}
+                          alt="Maskot Posbankum"
+                          className="w-full h-full object-contain"
+                        />
                       </div>
                     </div>
-                    <h3 className="text-h3 text-white font-bold mb-2">Maskot Posbankum</h3>
-                    <p className="text-b2 text-white/90">Siap Membantu Masyarakat</p>
+                    <h3 className="text-h3 text-white font-bold mb-2">
+                      Maskot Posbankum
+                    </h3>
+                    <p className="text-b2 text-white/90">
+                      Siap Membantu Masyarakat
+                    </p>
                   </div>
                 </div>
               </div>
@@ -197,24 +234,41 @@ export default function LandingPage() {
             <div className="order-1 lg:order-2">
               <div className="inline-flex items-center gap-2 mb-5 px-4 py-2 bg-brand-blue-1/10 text-brand-blue-1 text-field-1 font-semibold rounded-xl border border-brand-blue-1/20">
                 <span>🇮🇩</span>
-                <span>Layanan Pemerintah RI</span>
+                <span>Layanan {ORG_FULL}</span>
               </div>
               <h1 className="text-h1 text-brand-blue-d font-bold mb-6 leading-tight">
                 Ayo Cek Data Posbankum di Wilayah Anda
               </h1>
               <p className="text-b1 text-neutral-dGrey mb-8 leading-relaxed">
-                Temukan informasi lengkap Pos Bantuan Hukum (Posbankum) di desa atau kelurahan Anda. 
-                Akses data paralegal aktif, dokumen hukum, hingga kegiatan Posbankum terbaru dengan mudah dan cepat.
+                Temukan informasi lengkap Pos Bantuan Hukum (Posbankum) di desa
+                atau kelurahan Anda. Akses data paralegal aktif, dokumen hukum,
+                hingga kegiatan Posbankum terbaru dengan mudah dan cepat.
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 mb-10">
                 <button className="px-8 py-4 text-btn font-semibold rounded-xl bg-brand-blue-1 text-white hover:bg-brand-blue-2 transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 flex items-center justify-center gap-2 group">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"/>
+                  <svg
+                    className="w-5 h-5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                   Lihat Posbankum Terdekat
-                  <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd"/>
+                  <svg
+                    className="w-4 h-4 group-hover:translate-x-1 transition-transform"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </button>
                 <button className="px-8 py-4 text-btn font-semibold rounded-xl border-2 border-brand-blue-1 text-brand-blue-1 hover:bg-brand-blue-1 hover:text-white transition-all">
@@ -227,11 +281,18 @@ export default function LandingPage() {
                 {[
                   { num: "5,957+", label: "Posbankum Aktif" },
                   { num: "10,000+", label: "Paralegal Terlatih" },
-                  { num: "100K+", label: "Kasus Ditangani" }
+                  { num: "100K+", label: "Kasus Ditangani" },
                 ].map((stat, idx) => (
-                  <div key={idx} className="text-center p-4 rounded-xl bg-white border border-neutral-softWhite shadow-sm">
-                    <div className="text-h3 text-brand-blue-1 font-bold mb-1">{stat.num}</div>
-                    <div className="text-field-2 text-neutral-grey">{stat.label}</div>
+                  <div
+                    key={idx}
+                    className="text-center p-4 rounded-xl bg-white border border-neutral-softWhite shadow-sm"
+                  >
+                    <div className="text-h3 text-brand-blue-1 font-bold mb-1">
+                      {stat.num}
+                    </div>
+                    <div className="text-field-2 text-neutral-grey">
+                      {stat.label}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -241,19 +302,39 @@ export default function LandingPage() {
           {/* Hero Bottom Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { img: burung1, title: "Akses Mudah & Cepat", desc: "Layanan bantuan hukum yang mudah diakses kapan saja" },
-              { img: burung3, title: "Paralegal Berpengalaman", desc: "Didampingi paralegal terlatih dan bersertifikat" },
-              { img: burung7, title: "Jangkauan Luas", desc: "Tersebar di seluruh desa/kelurahan di Indonesia" }
+              {
+                img: burung1,
+                title: "Akses Mudah & Cepat",
+                desc: "Layanan bantuan hukum yang mudah diakses kapan saja",
+              },
+              {
+                img: burung3,
+                title: "Paralegal Berpengalaman",
+                desc: "Didampingi paralegal terlatih dan bersertifikat",
+              },
+              {
+                img: burung7,
+                title: "Jangkauan Luas",
+                desc: "Tersebar di seluruh desa/kelurahan di Indonesia",
+              },
             ].map((item, idx) => (
               <div
                 key={idx}
                 className="bg-white rounded-2xl p-6 border border-neutral-softWhite shadow-sm hover:shadow-md hover:-translate-y-1 transition-all group"
               >
                 <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-brand-blue-1 to-brand-blue-2 flex items-center justify-center mb-5 shadow-sm group-hover:scale-105 transition-transform p-2.5">
-                  <img src={item.img} alt={item.title} className="w-full h-full object-contain" />
+                  <img
+                    src={item.img}
+                    alt={item.title}
+                    className="w-full h-full object-contain"
+                  />
                 </div>
-                <h3 className="text-b1 font-bold text-brand-blue-d mb-2 group-hover:text-brand-blue-1 transition-colors">{item.title}</h3>
-                <p className="text-b3 text-neutral-grey leading-relaxed">{item.desc}</p>
+                <h3 className="text-b1 font-bold text-brand-blue-d mb-2 group-hover:text-brand-blue-1 transition-colors">
+                  {item.title}
+                </h3>
+                <p className="text-b3 text-neutral-grey leading-relaxed">
+                  {item.desc}
+                </p>
               </div>
             ))}
           </div>
@@ -271,51 +352,69 @@ export default function LandingPage() {
               Informasi Utama Posbankum
             </h2>
             <p className="text-b1 text-neutral-dGrey max-w-2xl mx-auto leading-relaxed">
-              Dapatkan informasi lengkap dan akurat tentang layanan bantuan hukum di wilayah Anda 
-              melalui platform terintegrasi Kementerian Hukum dan HAM RI
+              Dapatkan informasi lengkap dan akurat tentang layanan bantuan
+              hukum di wilayah Anda melalui platform terintegrasi {ORG_FULL}
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
-              { 
-                img: burung1, 
-                title: "Cek Lokasi Posbankum", 
+              {
+                img: burung1,
+                title: "Cek Lokasi Posbankum",
                 desc: "Temukan Posbankum terdekat dengan peta interaktif",
-                color: "from-brand-blue-1 to-brand-blue-2"
+                color: "from-brand-blue-1 to-brand-blue-2",
               },
-              { 
-                img: burung2, 
-                title: "Dokumen Posbankum", 
+              {
+                img: burung2,
+                title: "Dokumen Posbankum",
                 desc: "Akses dokumen dan formulir bantuan hukum resmi",
-                color: "from-danger-1 to-danger-2"
+                color: "from-danger-1 to-danger-2",
               },
-              { 
-                img: burung3, 
-                title: "Data Paralegal", 
+              {
+                img: burung3,
+                title: "Data Paralegal",
                 desc: "Lihat profil paralegal bersertifikat yang bertugas",
-                color: "from-success-d to-success-2"
+                color: "from-success-d to-success-2",
               },
-              { 
-                img: burung4, 
-                title: "Kegiatan Terbaru", 
+              {
+                img: burung4,
+                title: "Kegiatan Terbaru",
                 desc: "Pantau program dan kegiatan Posbankum real-time",
-                color: "from-secondary-1 to-secondary-2"
+                color: "from-secondary-1 to-secondary-2",
               },
             ].map((feature, idx) => (
               <div
                 key={idx}
                 className="bg-white rounded-2xl p-6 border border-neutral-softWhite shadow-sm hover:shadow-md hover:-translate-y-1 transition-all group h-full"
               >
-                <div className={`w-16 h-16 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-5 shadow-sm group-hover:scale-105 transition-transform p-3`}>
-                  <img src={feature.img} alt={feature.title} className="w-full h-full object-contain" />
+                <div
+                  className={`w-16 h-16 rounded-xl bg-gradient-to-br ${feature.color} flex items-center justify-center mb-5 shadow-sm group-hover:scale-105 transition-transform p-3`}
+                >
+                  <img
+                    src={feature.img}
+                    alt={feature.title}
+                    className="w-full h-full object-contain"
+                  />
                 </div>
-                <h3 className="text-b1 font-bold text-brand-blue-d mb-3 group-hover:text-brand-blue-1 transition-colors">{feature.title}</h3>
-                <p className="text-b3 text-neutral-grey leading-relaxed mb-4">{feature.desc}</p>
+                <h3 className="text-b1 font-bold text-brand-blue-d mb-3 group-hover:text-brand-blue-1 transition-colors">
+                  {feature.title}
+                </h3>
+                <p className="text-b3 text-neutral-grey leading-relaxed mb-4">
+                  {feature.desc}
+                </p>
                 <button className="text-field-1 text-brand-blue-1 font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
-                  Lihat Detail 
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd"/>
+                  Lihat Detail
+                  <svg
+                    className="w-4 h-4"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </button>
               </div>
@@ -343,15 +442,32 @@ export default function LandingPage() {
                 Akses Layanan Hukum Gratis
               </h3>
               <p className="text-b1 text-neutral-dGrey leading-relaxed mb-6">
-                Kementerian Hukum dan HAM menyediakan akses bantuan hukum gratis untuk masyarakat kurang mampu. 
-                Posbankum hadir di setiap kelurahan untuk memastikan keadilan dapat diakses oleh seluruh lapisan masyarakat.
+                {ORG_FULL} menyediakan akses bantuan hukum gratis untuk
+                masyarakat kurang mampu. Posbankum hadir di setiap kelurahan
+                untuk memastikan keadilan dapat diakses oleh seluruh lapisan
+                masyarakat.
               </p>
               <ul className="space-y-3 mb-8">
-                {["Konsultasi hukum gratis", "Pendampingan di pengadilan", "Mediasi & penyelesaian sengketa"].map((item, i) => (
-                  <li key={i} className="flex items-center gap-3 text-b2 text-neutral-dGrey">
+                {[
+                  "Konsultasi hukum gratis",
+                  "Pendampingan di pengadilan",
+                  "Mediasi & penyelesaian sengketa",
+                ].map((item, i) => (
+                  <li
+                    key={i}
+                    className="flex items-center gap-3 text-b2 text-neutral-dGrey"
+                  >
                     <div className="w-6 h-6 rounded-lg bg-success-2/10 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-4 h-4 text-success-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/>
+                      <svg
+                        className="w-4 h-4 text-success-2"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     </div>
                     {item}
@@ -366,7 +482,11 @@ export default function LandingPage() {
               <div className="relative">
                 <div className="absolute inset-0 bg-gradient-to-br from-success-2/10 to-success-1/10 rounded-2xl blur-2xl"></div>
                 <div className="relative bg-gradient-to-br from-success-d to-success-2 rounded-2xl h-96 shadow-soft flex items-center justify-center overflow-hidden p-8">
-                  <img src={burung7} alt="Layanan Hukum" className="w-full h-full object-contain" />
+                  <img
+                    src={burung7}
+                    alt="Layanan Hukum"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
               </div>
             </div>
@@ -377,7 +497,11 @@ export default function LandingPage() {
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-br from-danger-1/10 to-danger-2/10 rounded-2xl blur-2xl"></div>
               <div className="relative bg-gradient-to-br from-danger-1 to-danger-2 rounded-2xl h-96 shadow-soft flex items-center justify-center overflow-hidden p-8">
-                <img src={burung9} alt="Informasi Layanan" className="w-full h-full object-contain" />
+                <img
+                  src={burung9}
+                  alt="Informasi Layanan"
+                  className="w-full h-full object-contain"
+                />
               </div>
             </div>
             <div>
@@ -388,13 +512,24 @@ export default function LandingPage() {
                 Informasi Layanan Posbankum
               </h3>
               <p className="text-b1 text-neutral-dGrey leading-relaxed mb-6">
-                Dapatkan penjelasan lengkap tentang prosedur bantuan hukum, hak-hak Anda sebagai warga negara, 
-                dan informasi hukum terkini dari paralegal profesional yang tersebar di seluruh Indonesia.
+                Dapatkan penjelasan lengkap tentang prosedur bantuan hukum,
+                hak-hak Anda sebagai warga negara, dan informasi hukum terkini
+                dari paralegal profesional yang tersebar di seluruh Indonesia.
               </p>
               <div className="grid grid-cols-2 gap-4 mb-8">
-                {["Panduan Lengkap", "FAQ Terpercaya", "Video Tutorial", "Download Formulir"].map((item, i) => (
-                  <div key={i} className="bg-white rounded-xl p-4 border border-neutral-softWhite shadow-sm hover:border-danger-1/30 hover:shadow-md transition-all">
-                    <span className="text-b3 text-brand-blue-d font-semibold">{item}</span>
+                {[
+                  "Panduan Lengkap",
+                  "FAQ Terpercaya",
+                  "Video Tutorial",
+                  "Download Formulir",
+                ].map((item, i) => (
+                  <div
+                    key={i}
+                    className="bg-white rounded-xl p-4 border border-neutral-softWhite shadow-sm hover:border-danger-1/30 hover:shadow-md transition-all"
+                  >
+                    <span className="text-b3 text-brand-blue-d font-semibold">
+                      {item}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -418,8 +553,8 @@ export default function LandingPage() {
               Lokasi Posbankum Terdekat
             </h2>
             <p className="text-b1 text-neutral-dGrey max-w-2xl mx-auto leading-relaxed">
-              Temukan Pos Bantuan Hukum di wilayah Anda melalui peta interaktif yang terintegrasi 
-              dengan data real-time Kementerian Hukum dan HAM RI
+              Temukan Pos Bantuan Hukum di wilayah Anda melalui peta interaktif
+              yang terintegrasi dengan data real-time {ORG_SHORT}
             </p>
           </div>
 
@@ -429,15 +564,30 @@ export default function LandingPage() {
             <div className="relative bg-gradient-to-br from-secondary-3 to-secondary-2 rounded-2xl h-[480px] border border-white/50 shadow-soft flex items-center justify-center overflow-hidden">
               <div className="text-center p-12">
                 <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-white shadow-soft flex items-center justify-center p-4">
-                  <img src={burung5} alt="Peta" className="w-full h-full object-contain" />
+                  <img
+                    src={burung5}
+                    alt="Peta"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
-                <h3 className="text-h3 text-brand-blue-d font-bold mb-3">Peta Interaktif Posbankum</h3>
+                <h3 className="text-h3 text-brand-blue-d font-bold mb-3">
+                  Peta Interaktif Posbankum
+                </h3>
                 <p className="text-b2 text-neutral-dGrey mb-6 max-w-md mx-auto leading-relaxed">
-                  Integrasi dengan Google Maps API untuk menampilkan lokasi seluruh Posbankum secara real-time
+                  Integrasi dengan Google Maps API untuk menampilkan lokasi
+                  seluruh Posbankum secara real-time
                 </p>
                 <div className="inline-flex items-center gap-2 px-6 py-3 bg-brand-blue-d text-white rounded-xl font-semibold shadow-sm">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"/>
+                  <svg
+                    className="w-5 h-5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                   5,957 Posbankum Terdaftar
                 </div>
@@ -448,9 +598,30 @@ export default function LandingPage() {
           {/* Location Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { name: "Posbankum Kelurahan Simpang Baru", address: "Jl. Sudirman No. 123, Pekanbaru", phone: "(0761) 123-456", status: "Aktif", paralegal: "3 Paralegal", img: burung1 },
-              { name: "Posbankum Kelurahan Sail", address: "Jl. Jend. Sudirman No. 45, Pekanbaru", phone: "(0761) 234-567", status: "Aktif", paralegal: "4 Paralegal", img: burung3 },
-              { name: "Posbankum Kelurahan Labuh Baru", address: "Jl. Garuda Sakti KM 3, Pekanbaru", phone: "(0761) 345-678", status: "Aktif", paralegal: "2 Paralegal", img: burung7 },
+              {
+                name: "Posbankum Kelurahan Simpang Baru",
+                address: "Jl. Sudirman No. 123, Pekanbaru",
+                phone: "(0761) 123-456",
+                status: "Aktif",
+                paralegal: "3 Paralegal",
+                img: burung1,
+              },
+              {
+                name: "Posbankum Kelurahan Sail",
+                address: "Jl. Jend. Sudirman No. 45, Pekanbaru",
+                phone: "(0761) 234-567",
+                status: "Aktif",
+                paralegal: "4 Paralegal",
+                img: burung3,
+              },
+              {
+                name: "Posbankum Kelurahan Labuh Baru",
+                address: "Jl. Garuda Sakti KM 3, Pekanbaru",
+                phone: "(0761) 345-678",
+                status: "Aktif",
+                paralegal: "2 Paralegal",
+                img: burung7,
+              },
             ].map((location, idx) => (
               <div
                 key={idx}
@@ -458,22 +629,40 @@ export default function LandingPage() {
               >
                 <div className="flex items-start gap-4 mb-5">
                   <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-danger-1 to-danger-2 flex items-center justify-center flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform p-2.5">
-                    <img src={location.img} alt={location.name} className="w-full h-full object-contain" />
+                    <img
+                      src={location.img}
+                      alt={location.name}
+                      className="w-full h-full object-contain"
+                    />
                   </div>
                   <div className="flex-1">
-                    <h4 className="text-b1 font-bold text-brand-blue-d mb-2 group-hover:text-brand-blue-1 transition-colors leading-snug">{location.name}</h4>
+                    <h4 className="text-b1 font-bold text-brand-blue-d mb-2 group-hover:text-brand-blue-1 transition-colors leading-snug">
+                      {location.name}
+                    </h4>
                   </div>
                 </div>
                 <div className="space-y-2 mb-5">
                   <p className="text-b3 text-neutral-grey flex items-start gap-2">
-                    <svg className="w-4 h-4 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"/>
+                    <svg
+                      className="w-4 h-4 flex-shrink-0 mt-0.5"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                     <span className="flex-1">{location.address}</span>
                   </p>
                   <p className="text-b3 text-neutral-grey flex items-center gap-2">
-                    <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
+                    <svg
+                      className="w-4 h-4 flex-shrink-0"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
                     </svg>
                     {location.phone}
                   </p>
@@ -483,15 +672,27 @@ export default function LandingPage() {
                     ✓ {location.status}
                   </span>
                   <span className="text-field-2 text-neutral-grey flex items-center gap-1.5 font-medium">
-                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                      <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+                    <svg
+                      className="w-4 h-4"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
                     </svg>
                     {location.paralegal}
                   </span>
                 </div>
                 <button className="w-full px-5 py-3 rounded-xl bg-brand-blue-d text-white font-semibold hover:bg-brand-blue-s2 transition-all flex items-center justify-center gap-2 text-btn-sm shadow-sm hover:shadow-md">
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"/>
+                  <svg
+                    className="w-4 h-4"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                   Lihat Rute
                 </button>
@@ -513,7 +714,8 @@ export default function LandingPage() {
               Pertanyaan yang Sering Diajukan
             </h2>
             <p className="text-b1 text-neutral-dGrey leading-relaxed">
-              Temukan jawaban atas pertanyaan umum seputar layanan Posbankum dan bantuan hukum gratis
+              Temukan jawaban atas pertanyaan umum seputar layanan Posbankum dan
+              bantuan hukum gratis
             </p>
           </div>
 
@@ -528,18 +730,36 @@ export default function LandingPage() {
                   className="w-full flex items-start justify-between p-6 text-left hover:bg-secondary-3/5 transition-all group"
                 >
                   <div className="flex items-start gap-4 flex-1 pr-4">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${
-                      openFaq === index 
-                        ? 'bg-brand-blue-1 text-white' 
-                        : 'bg-brand-blue-1/10 text-brand-blue-1 group-hover:bg-brand-blue-1/20'
-                    }`}>
+                    <div
+                      className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 transition-all ${
+                        openFaq === index
+                          ? "bg-brand-blue-1 text-white"
+                          : "bg-brand-blue-1/10 text-brand-blue-1 group-hover:bg-brand-blue-1/20"
+                      }`}
+                    >
                       {openFaq === index ? (
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z" clipRule="evenodd"/>
+                        <svg
+                          className="w-5 h-5"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M5 10a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                       ) : (
-                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clipRule="evenodd"/>
+                        <svg
+                          className="w-5 h-5"
+                          fill="currentColor"
+                          viewBox="0 0 20 20"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+                            clipRule="evenodd"
+                          />
                         </svg>
                       )}
                     </div>
@@ -562,7 +782,9 @@ export default function LandingPage() {
           </div>
 
           <div className="text-center mt-12">
-            <p className="text-b2 text-neutral-grey mb-6">Masih ada pertanyaan lain?</p>
+            <p className="text-b2 text-neutral-grey mb-6">
+              Masih ada pertanyaan lain?
+            </p>
             <button className="px-8 py-4 text-btn-md font-semibold rounded-xl bg-brand-blue-1 text-white hover:bg-brand-blue-2 transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5">
               Hubungi Layanan Bantuan →
             </button>
@@ -576,48 +798,82 @@ export default function LandingPage() {
           <div className="absolute top-0 right-0 w-96 h-96 bg-brand-yellow-2 rounded-full blur-3xl"></div>
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-brand-blue-2 rounded-full blur-3xl"></div>
         </div>
-        
+
         <div className="h-1 bg-gradient-to-r from-danger-1 via-brand-yellow-2 to-danger-1"></div>
-        
+
         <div className="relative max-w-7xl mx-auto px-6 lg:px-12 pt-16 pb-8">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
             {/* Column 1: Brand */}
             <div>
               <div className="flex items-center gap-3 mb-6 group">
                 <div className="w-14 h-14 rounded-xl bg-white flex items-center justify-center shadow-soft group-hover:shadow-md transition-all p-2.5">
-                  <img src={burung5} alt="Logo Footer" className="w-full h-full object-contain" />
+                  <img
+                    src={burung5}
+                    alt="Logo Footer"
+                    className="w-full h-full object-contain"
+                  />
                 </div>
                 <div>
-                  <span className="text-h4 font-bold block leading-tight mb-1">POSBANKUM</span>
-                  <span className="text-field-2 opacity-90">Kemenkumham RI</span>
+                  <span className="text-h4 font-bold block leading-tight mb-1">
+                    POSBANKUM
+                  </span>
+                  <span className="text-field-2 opacity-90">{ORG_SHORT}</span>
                 </div>
               </div>
               <p className="text-b3 opacity-85 leading-relaxed mb-6">
-                Platform resmi Kementerian Hukum dan HAM Republik Indonesia untuk layanan bantuan hukum masyarakat
+                Platform resmi {ORG_FULL} untuk layanan bantuan hukum masyarakat
+                di Provinsi Riau
               </p>
-              
+
               <div className="flex items-center gap-3 mb-6">
-                <a href="mailto:bantuan@posbankum.go.id" className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all hover:scale-105">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
-                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                <a
+                  href={`mailto:${ORG_EMAIL}`}
+                  className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all hover:scale-105"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                    <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                   </svg>
                 </a>
-                <a href="tel:+622112345678" className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all hover:scale-105">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
+                <a
+                  href={`tel:${ORG_WA_TEL}`}
+                  className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all hover:scale-105"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
                   </svg>
                 </a>
-                <a href="#" className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all hover:scale-105">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M4.083 9h1.946c.089-1.546.383-2.97.837-4.118A6.004 6.004 0 004.083 9zM10 2a8 8 0 100 16 8 8 0 000-16zm0 2c-.076 0-.232.032-.465.262-.238.234-.497.623-.737 1.182-.389.907-.673 2.142-.766 3.556h3.936c-.093-1.414-.377-2.649-.766-3.556-.24-.56-.5-.948-.737-1.182C10.232 4.032 10.076 4 10 4zm3.971 5c-.089-1.546-.383-2.97-.837-4.118A6.004 6.004 0 0115.917 9h-1.946zm-2.003 2H8.032c.093 1.414.377 2.649.766 3.556.24.56.5.948.737 1.182.233.23.389.262.465.262.076 0 .232-.032.465-.262.238-.234.498-.623.737-1.182.389-.907.673-2.142.766-3.556zm1.166 4.118c.454-1.147.748-2.572.837-4.118h1.946a6.004 6.004 0 01-2.783 4.118zm-6.268 0C6.412 13.97 6.118 12.546 6.03 11H4.083a6.004 6.004 0 002.783 4.118z" clipRule="evenodd"/>
+                <a
+                  href="#"
+                  className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 flex items-center justify-center transition-all hover:scale-105"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="currentColor"
+                    viewBox="0 0 20 20"
+                  >
+                    <path
+                      fillRule="evenodd"
+                      d="M4.083 9h1.946c.089-1.546.383-2.97.837-4.118A6.004 6.004 0 004.083 9zM10 2a8 8 0 100 16 8 8 0 000-16zm0 2c-.076 0-.232.032-.465.262-.238.234-.497.623-.737 1.182-.389.907-.673 2.142-.766 3.556h3.936c-.093-1.414-.377-2.649-.766-3.556-.24-.56-.5-.948-.737-1.182C10.232 4.032 10.076 4 10 4zm3.971 5c-.089-1.546-.383-2.97-.837-4.118A6.004 6.004 0 0115.917 9h-1.946zm-2.003 2H8.032c.093 1.414.377 2.649.766 3.556.24.56.5.948.737 1.182.233.23.389.262.465.262.076 0 .232-.032.465-.262.238-.234.498-.623.737-1.182.389-.907.673-2.142.766-3.556zm1.166 4.118c.454-1.147.748-2.572.837-4.118h1.946a6.004 6.004 0 01-2.783 4.118zm-6.268 0C6.412 13.97 6.118 12.546 6.03 11H4.083a6.004 6.004 0 002.783 4.118z"
+                      clipRule="evenodd"
+                    />
                   </svg>
                 </a>
               </div>
 
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 border border-white/20">
                 <div className="w-2 h-2 rounded-full bg-success-2 animate-pulse"></div>
-                <span className="text-field-2 font-semibold">Melayani 24/7</span>
+                <span className="text-field-2 font-semibold">
+                  Melayani 24/7
+                </span>
               </div>
             </div>
 
@@ -625,13 +881,32 @@ export default function LandingPage() {
             <div>
               <h4 className="text-b1 font-bold mb-6">Layanan Kami</h4>
               <ul className="space-y-3 text-b3">
-                {["Cek Lokasi Posbankum", "Dokumen & Formulir", "Data Paralegal", "Kegiatan Posbankum", "Panduan Bantuan Hukum"].map((item, i) => (
+                {[
+                  "Cek Lokasi Posbankum",
+                  "Dokumen & Formulir",
+                  "Data Paralegal",
+                  "Kegiatan Posbankum",
+                  "Panduan Bantuan Hukum",
+                ].map((item, i) => (
                   <li key={i}>
-                    <a href="#" className="flex items-center gap-2 opacity-85 hover:opacity-100 hover:translate-x-1 transition-all group">
-                      <svg className="w-4 h-4 text-brand-yellow-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd"/>
+                    <a
+                      href="#"
+                      className="flex items-center gap-2 opacity-85 hover:opacity-100 hover:translate-x-1 transition-all group"
+                    >
+                      <svg
+                        className="w-4 h-4 text-brand-yellow-2"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
                       </svg>
-                      <span className="group-hover:text-brand-yellow-1 transition-colors">{item}</span>
+                      <span className="group-hover:text-brand-yellow-1 transition-colors">
+                        {item}
+                      </span>
                     </a>
                   </li>
                 ))}
@@ -642,13 +917,32 @@ export default function LandingPage() {
             <div>
               <h4 className="text-b1 font-bold mb-6">Informasi</h4>
               <ul className="space-y-3 text-b3">
-                {["Tentang Posbankum", "Visi & Misi", "Struktur Organisasi", "Berita Terkini", "FAQ"].map((item, i) => (
+                {[
+                  "Tentang Posbankum",
+                  "Visi & Misi",
+                  "Struktur Organisasi",
+                  "Berita Terkini",
+                  "FAQ",
+                ].map((item, i) => (
                   <li key={i}>
-                    <a href="#" className="flex items-center gap-2 opacity-85 hover:opacity-100 hover:translate-x-1 transition-all group">
-                      <svg className="w-4 h-4 text-brand-yellow-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd"/>
+                    <a
+                      href="#"
+                      className="flex items-center gap-2 opacity-85 hover:opacity-100 hover:translate-x-1 transition-all group"
+                    >
+                      <svg
+                        className="w-4 h-4 text-brand-yellow-2"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z"
+                          clipRule="evenodd"
+                        />
                       </svg>
-                      <span className="group-hover:text-brand-yellow-1 transition-colors">{item}</span>
+                      <span className="group-hover:text-brand-yellow-1 transition-colors">
+                        {item}
+                      </span>
                     </a>
                   </li>
                 ))}
@@ -661,37 +955,67 @@ export default function LandingPage() {
               <ul className="space-y-4 text-b3">
                 <li className="flex items-start gap-3 opacity-85">
                   <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-brand-yellow-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd"/>
+                    <svg
+                      className="w-5 h-5 text-brand-yellow-2"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   </div>
-                  <span className="leading-relaxed">Jl. HR. Rasuna Said Kav. 6-7, Jakarta 12940</span>
+                  <span className="leading-relaxed">{ORG_ADDR}</span>
                 </li>
                 <li>
-                  <a href="tel:+6221525-3004" className="flex items-start gap-3 opacity-85 hover:opacity-100 hover:text-brand-yellow-1 transition-all">
+                  <a
+                    href={`tel:${ORG_WA_TEL}`}
+                    className="flex items-start gap-3 opacity-85 hover:opacity-100 hover:text-brand-yellow-1 transition-all"
+                  >
                     <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-5 h-5 text-brand-yellow-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z"/>
+                      <svg
+                        className="w-5 h-5 text-brand-yellow-2"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M2 3a1 1 0 011-1h2.153a1 1 0 01.986.836l.74 4.435a1 1 0 01-.54 1.06l-1.548.773a11.037 11.037 0 006.105 6.105l.774-1.548a1 1 0 011.059-.54l4.435.74a1 1 0 01.836.986V17a1 1 0 01-1 1h-2C7.82 18 2 12.18 2 5V3z" />
                       </svg>
                     </div>
-                    <span>(021) 525-3004</span>
+                    <span>{ORG_WA_DISPLAY}</span>
                   </a>
                 </li>
                 <li>
-                  <a href="mailto:bantuan@posbankum.go.id" className="flex items-start gap-3 opacity-85 hover:opacity-100 hover:text-brand-yellow-1 transition-all">
+                  <a
+                    href={`mailto:${ORG_EMAIL}`}
+                    className="flex items-start gap-3 opacity-85 hover:opacity-100 hover:text-brand-yellow-1 transition-all"
+                  >
                     <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                      <svg className="w-5 h-5 text-brand-yellow-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z"/>
-                        <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z"/>
+                      <svg
+                        className="w-5 h-5 text-brand-yellow-2"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path d="M2.003 5.884L10 9.882l7.997-3.998A2 2 0 0016 4H4a2 2 0 00-1.997 1.884z" />
+                        <path d="M18 8.118l-8 4-8-4V14a2 2 0 002 2h12a2 2 0 002-2V8.118z" />
                       </svg>
                     </div>
-                    <span className="break-all">bantuan@posbankum.go.id</span>
+                    <span className="break-all">{ORG_EMAIL}</span>
                   </a>
                 </li>
                 <li className="flex items-start gap-3 opacity-85">
                   <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                    <svg className="w-5 h-5 text-brand-yellow-2" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd"/>
+                    <svg
+                      className="w-5 h-5 text-brand-yellow-2"
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
+                        clipRule="evenodd"
+                      />
                     </svg>
                   </div>
                   <div>
@@ -720,18 +1044,28 @@ export default function LandingPage() {
 
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-b3 opacity-75">
-              © {new Date().getFullYear()} Kementerian Hukum dan HAM RI. Hak Cipta Dilindungi.
+              © {new Date().getFullYear()} {ORG_FULL}. Hak Cipta
+              Dilindungi.{" "}
             </p>
             <div className="flex items-center gap-6 text-b3">
-              <a href="#" className="opacity-75 hover:opacity-100 hover:text-brand-yellow-2 transition-all">
+              <a
+                href="#"
+                className="opacity-75 hover:opacity-100 hover:text-brand-yellow-2 transition-all"
+              >
                 Syarat & Ketentuan
               </a>
               <span className="opacity-50">•</span>
-              <a href="#" className="opacity-75 hover:opacity-100 hover:text-brand-yellow-2 transition-all">
+              <a
+                href="#"
+                className="opacity-75 hover:opacity-100 hover:text-brand-yellow-2 transition-all"
+              >
                 Kebijakan Privasi
               </a>
               <span className="opacity-50">•</span>
-              <a href="#" className="opacity-75 hover:opacity-100 hover:text-brand-yellow-2 transition-all">
+              <a
+                href="#"
+                className="opacity-75 hover:opacity-100 hover:text-brand-yellow-2 transition-all"
+              >
                 Sitemap
               </a>
             </div>

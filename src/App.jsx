@@ -4,10 +4,13 @@ import { supabase } from "./lib/supabaseClient";
 
 import LandingPage from "./pages/LandingPage";
 import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
+
 // admin
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import DataPosbankum from "./pages/admin/DataPosbankum";
 import KelolaPosbankum from "./pages/admin/KelolaPosbankum";
+
 // posbankum
 import PosbankumDashboard from "./pages/posbankum/PosbankumDashboard.jsx";
 
@@ -25,7 +28,6 @@ export default function App() {
       curr.startsWith("/admin") || curr.startsWith("/posbankum");
 
     // ✅ keluar dari dashboard => logout
-    // (logout hanya saat pindah route, tidak kena StrictMode "unmount palsu")
     if (wasDashboard && !isDashboard) {
       supabase.auth.signOut();
     }
@@ -37,6 +39,7 @@ export default function App() {
     <Routes>
       <Route path="/" element={<LandingPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
 
       {/* Admin */}
       <Route path="/admin" element={<AdminDashboard />} />

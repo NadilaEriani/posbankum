@@ -1,0 +1,921 @@
+/* =========
+   Base
+========= */
+.rk-wrap {
+  padding: 22px 24px 30px;
+  font-weight: 500;
+  color: #0f172a;
+}
+/* =========
+   3 Top Cards
+========= */
+.rk-topCards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+  margin-bottom: 18px;
+}
+
+.rk-topCard {
+  background: #ffffff;
+  border: 1.3px solid #e2e8f099;
+  border-radius: 16px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
+  min-height: 112px;
+}
+
+.rk-topIcon {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.18);
+  flex: 0 0 auto;
+}
+
+.rk-topIcon svg {
+  width: 28px;
+  height: 28px;
+}
+
+.rk-topIcon--wait {
+  background: linear-gradient(135deg, #fe9a00, #f54900);
+}
+
+.rk-topIcon--ok {
+  background: linear-gradient(135deg, #00bc7d, #00a63e);
+}
+
+.rk-topIcon--no {
+  background: linear-gradient(135deg, #fb2c36, #e7000b);
+}
+
+.rk-topLabel {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 6px;
+}
+
+.rk-topValue {
+  font-size: 38px;
+  line-height: 1;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.rk-topHint {
+  font-size: 13px;
+  color: #64748b;
+}
+
+/* =========
+   Panel (tabs + toolbar)
+========= */
+.rk-panel {
+  background: #ffffff;
+  border: 1.27px solid #e2e8f099;
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
+  margin-bottom: 18px;
+}
+
+.rk-divider {
+  height: 1px;
+  background: #e2e8f0;
+  opacity: 0.8;
+  margin: 10px 0 14px;
+}
+
+.rk-tabs {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.rk-tab {
+  border: 0;
+  cursor: pointer;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  color: #45556c;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.rk-tab.active {
+  background: #009966;
+  color: #ffffff;
+  box-shadow: 0 10px 18px rgba(0, 153, 102, 0.25);
+}
+
+.rk-toolbar {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.rk-search {
+  flex: 1;
+  min-width: 280px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #f1f5f9;
+  border: 1px solid #bbd3f8;
+  border-radius: 16px;
+  padding: 0 14px;
+}
+
+.rk-search input {
+  flex: 1;
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: 15px;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.rk-search input::placeholder {
+  color: #94a3b8;
+}
+
+.rk-ic {
+  color: #64748b;
+}
+
+.rk-clear {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+}
+
+.rk-clear:hover {
+  background: rgba(15, 23, 42, 0.06);
+}
+
+.rk-filters {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.rk-select {
+  height: 56px;
+  background: #f1f5f9;
+  border: 1.27px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.rk-select select {
+  border: 0;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  min-width: 190px;
+  appearance: none;
+}
+
+.rk-select select:disabled {
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+/* =========
+   Error & Empty
+========= */
+.rk-error {
+  margin: 12px 0 14px;
+  background: #fee2e2;
+  border: 1px solid rgba(231, 0, 11, 0.25);
+  color: #7f1d1d;
+  border-radius: 16px;
+  padding: 12px 14px;
+  font-size: 14px;
+}
+
+.rk-empty {
+  padding: 18px;
+  color: #64748b;
+  font-size: 14px;
+}
+
+/* =========
+   List Cards (FIX FIGMA)
+========= */
+.rk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.rk-itemCard {
+  background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.75);
+  border-radius: 20px;
+  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.08);
+  padding: 16px;
+  display: flex;
+  gap: 18px;
+  align-items: stretch;
+  position: relative;
+}
+
+.rk-thumb {
+  width: 320px;
+  min-height: 210px;
+  border-radius: 20px;
+  background: #e2e8f0;
+  background-position: center;
+  background-size: cover;
+  flex: 0 0 auto;
+}
+
+.rk-body {
+  flex: 1;
+  padding: 6px 2px;
+  min-width: 0;
+}
+
+.rk-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+  padding-right: 170px;
+}
+
+.rk-judul {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: #0f172a;
+}
+
+/* === Status pill + icon (Figma style) === */
+.rk-pill {
+  position: absolute;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  right: 16px;
+  margin-top: 0; /* sebelumnya ada margin-top: 2px */
+  z-index: 2;
+  flex: 0 0 auto;
+  top: 16px;
+}
+
+.rk-pillIc {
+  width: 16px;
+  height: 16px;
+  display: inline-block;
+}
+
+.rk-pill svg {
+  width: 16px;
+  height: 16px;
+}
+
+.rk-pill--approved {
+  background: #d0fae5;
+  color: #007a55;
+}
+
+.rk-pill--rejected {
+  background: #ffe2e2;
+  color: #c10007;
+}
+
+.rk-pill--pending {
+  background: #fffbebcc;
+  color: #fe9a00;
+}
+
+.rk-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.rk-metaText {
+  font-weight: 600;
+}
+
+.rk-dot {
+  color: #94a3b8;
+  font-weight: 800;
+}
+
+/* Deskripsi lebih mirip figma (3 baris) */
+.rk-desc {
+  margin-top: 10px;
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.6;
+
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Actions: rapih kanan bawah */
+.rk-actions {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  padding: 6px 2px;
+  min-width: 120px;
+}
+
+/* === Detail button kecil (Figma) === */
+.rk-detailBtn {
+  border: 0;
+  cursor: pointer;
+  border-radius: 12px;
+  padding: 10px 14px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #1d4ed8;
+  color: #ffffff;
+  font-weight: 800;
+  font-size: 14px;
+  box-shadow: 0 12px 20px rgba(29, 78, 216, 0.22);
+}
+
+.rk-detailBtn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* =========
+   Pagination
+========= */
+.rk-pagination {
+  margin-top: 18px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  align-items: center;
+}
+
+.rk-pageNav,
+.rk-pageBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #0f172a;
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.06);
+}
+
+.rk-pageBtn.active {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+  color: #ffffff;
+}
+
+.rk-pageNav:disabled,
+.rk-pageBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+/* =========
+   Modal (Detail)
+========= */
+.rk-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.38);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 999;
+}
+
+.rk-modal {
+  width: min(980px, 100%);
+  max-height: 92vh;
+  overflow: auto;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1.3px solid #e2e8f099;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.25);
+  position: relative;
+  padding: 18px;
+}
+
+.rk-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 0;
+  cursor: pointer;
+  background: #f1f5f9;
+  color: #0f172a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+
+.rk-close:hover {
+  background: #e2e8f0;
+}
+
+.rk-modal-head {
+  padding-right: 58px;
+}
+
+.rk-modal-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.rk-modal-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #475569;
+  font-size: 14px;
+  margin-bottom: 6px;
+}
+
+.rk-modal-loc {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #475569;
+  font-size: 14px;
+}
+
+.rk-locText {
+  font-weight: 500;
+}
+
+.rk-modal-image {
+  margin-top: 14px;
+}
+
+.rk-modal-img {
+  width: 100%;
+  height: 270px;
+  object-fit: cover;
+  border-radius: 16px;
+}
+
+.rk-modal-img-empty {
+  width: 100%;
+  height: 270px;
+  border-radius: 16px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.rk-modal-dates {
+  margin-top: 14px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.rk-dateItem {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px 14px;
+}
+
+.rk-dateLabel {
+  display: block;
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 6px;
+  font-weight: 700;
+}
+
+.rk-dateValue {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.rk-modal-desc {
+  margin-top: 14px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 14px;
+}
+
+.rk-descTitle {
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: #0f172a;
+}
+
+.rk-descText {
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.rk-modal-note {
+  margin-top: 12px;
+  border-radius: 16px;
+  background: #fff7f7;
+  border: 1px solid rgba(231, 0, 11, 0.18);
+  padding: 14px;
+}
+
+.rk-note-title {
+  font-weight: 700;
+  color: #7f1d1d;
+  margin-bottom: 8px;
+}
+
+.rk-note-text {
+  color: #7f1d1d;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.rk-modal-infoRow {
+  margin-top: 12px;
+  display: flex;
+  gap: 14px;
+}
+
+.rk-infoCard {
+  flex: 1;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.rk-infoLabel {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.rk-modal-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* =========
+   Buttons (Modal)
+========= */
+.rk-btn {
+  border: 0;
+  cursor: pointer;
+  border-radius: 10px;
+  padding: 12px 18px;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.rk-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.rk-btn-reject {
+  color: #ffffff;
+  background: linear-gradient(135deg, #e7000b, #c10007);
+  box-shadow: 0 14px 22px rgba(231, 0, 11, 0.22);
+}
+
+.rk-btn-approve {
+  color: #ffffff;
+  background: linear-gradient(135deg, #009966, #007a55);
+  box-shadow: 0 14px 22px rgba(0, 153, 102, 0.22);
+}
+
+/* =========
+   Reject Modal (Catatan)
+========= */
+.rk-reject-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.38);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  z-index: 1000;
+}
+
+.rk-reject-modal {
+  width: min(560px, 100%);
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1.3px solid #e2e8f099;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.25);
+  padding: 16px;
+}
+
+.rk-reject-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.rk-reject-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.rk-close-sm {
+  position: static;
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+}
+
+.rk-reject-textarea {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  border-radius: 14px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  padding: 12px 12px;
+  outline: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.rk-reject-textarea::placeholder {
+  color: #94a3b8;
+}
+
+.rk-reject-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.rk-btn-neutral {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.rk-btn-primaryDark {
+  background: #334155;
+  color: #ffffff;
+  box-shadow: 0 14px 22px rgba(51, 65, 85, 0.22);
+}
+
+/* =========
+   Responsive
+========= */
+@media (max-width: 980px) {
+  .rk-topCards {
+    grid-template-columns: 1fr;
+  }
+
+  .rk-thumb {
+    width: 260px;
+    min-height: 180px;
+  }
+}
+
+@media (max-width: 720px) {
+  .rk-itemCard {
+    flex-direction: column;
+  }
+
+  .rk-thumb {
+    width: 100%;
+  }
+
+  .rk-actions {
+    justify-content: flex-start;
+  }
+
+  .rk-modal-dates {
+    grid-template-columns: 1fr;
+  }
+  .rk-pill {
+    position: static;
+  }
+  .rk-head {
+    padding-right: 0;
+  }
+}
+/* penting: jangan sampai dropdown ke-clip */
+.rk-panel,
+.rk-toolbar {
+  overflow: visible;
+}
+
+/* ===== dropdown row ===== */
+.rk-filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap; /* aman di layar kecil */
+}
+
+/* ===== Custom Dropdown (rk) ===== */
+.rk-dd {
+  position: relative;
+}
+
+.rk-ddBtn {
+  height: 48px;
+  min-width: 190px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid #e2e8f0;
+  background: #f1f5f9;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.rk-dd.is-disabled .rk-ddBtn {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.rk-ddIcon {
+  width: 18px;
+  height: 18px;
+  color: #0f172a;
+}
+
+.rk-ddText {
+  font-size: 14px;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 180px;
+}
+
+.rk-ddText.is-placeholder {
+  color: #64748b;
+}
+
+.rk-ddChevron {
+  margin-left: auto;
+  width: 18px;
+  height: 18px;
+  color: #0f172a;
+  transition: transform 0.15s ease;
+}
+
+.rk-ddChevron.is-open {
+  transform: rotate(180deg);
+}
+
+.rk-ddMenu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  z-index: 999; /* biar aman */
+  width: 260px;
+  border-radius: 14px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.12);
+  overflow: auto; /* ✅ list scroll */
+  max-height: 260px; /* ✅ biar nggak kepanjangan */
+}
+
+.rk-ddItem {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  color: #0f172a;
+}
+
+.rk-ddItem:hover {
+  background: #f1f5f9;
+}
+
+.rk-ddItem.is-active {
+  background: #eef2ff;
+}
+
+.rk-ddCheck {
+  color: #2563eb;
+}
+
+/* reset filter button */
+.rk-resetBtn {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  cursor: pointer;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.rk-resetBtn:hover {
+  background: #f8fafc;
+}
+
+
+/* ===== Laporan Kegiatan redesign ===== */
+.rk-wrap, .rk-wrap * { font-family: 'Outfit', sans-serif; }
+.rk-wrap { padding: 6px 0 24px; }
+.rk-title { font-size: 28px; font-weight: 800; color: #101828; position: relative; padding-bottom: 12px; }
+.rk-title::after { content: ''; position: absolute; left: 0; bottom: 0; width: 46px; height: 4px; border-radius: 999px; background: #f3bf27; }
+.rk-topCards { gap: 18px; }
+.rk-topCard { border-radius: 18px; border: 0; color: #fff; box-shadow: 0 12px 28px rgba(15,23,42,.12); }
+.rk-topCard:nth-child(1) { background: linear-gradient(135deg, #343a73 0%, #545a94 100%); }
+.rk-topCard:nth-child(2) { background: linear-gradient(135deg, #f5cb29 0%, #f6a640 100%); }
+.rk-topCard:nth-child(3) { background: linear-gradient(135deg, #0b7f59 0%, #289c72 100%); }
+.rk-topCard:nth-child(4) { background: linear-gradient(135deg, #ff2a2a 0%, #ff0015 100%); }
+.rk-topIcon { background: rgba(255,255,255,.2) !important; }
+.rk-topLabel, .rk-topValue, .rk-topHint { color: #fff; }
+.rk-topLabel { font-size: 14px; font-weight: 500; }
+.rk-topValue { font-size: 26px; font-weight: 800; }
+.rk-topHint { font-size: 12px; font-weight: 400; }
+.rk-panel { border-radius: 18px; border: 1px solid #d8dde6; box-shadow: 0 8px 24px rgba(15,23,42,.08); }
+.rk-search { height: 52px; border-radius: 18px; background: #fff; border-color: #d8dde6; }
+.rk-tab { height: 38px; border-radius: 14px; background: #f2f4f7; font-weight: 700; }
+.rk-tab.active { background: #343a73; color: #fff; }
+.rk-itemCard { border-radius: 18px; border: 1px solid #e7ebf2; box-shadow: 0 8px 24px rgba(15,23,42,.08); overflow: hidden; }
+.rk-thumb { height: 220px; }
+.rk-pill { border-radius: 999px; font-size: 12px; font-weight: 700; }
+.rk-detailBtn { height: 42px; border-radius: 999px; background: #343a73; }
+.rk-pageBtn.active { background: #343a73; color: #fff; }

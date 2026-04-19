@@ -1,0 +1,1245 @@
+import { HiOutlineScale } from "react-icons/hi"; 
+import { AiOutlineBarChart } from "react-icons/ai";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../../lib/supabaseClient";
+import {
+  FiCheckCircle,
+  FiClock,
+  FiDownload,
+  FiEye,
+  FiFileText,
+  FiMail,
+  FiMapPin,
+  FiSearch,
+  FiUser,
+  FiUsers,
+  FiX,
+  FiChevronLeft,
+  FiChevronRight,
+  FiCalendar,
+} from "react-icons/fi";
+import { BsSliders2, BsTelephone } from "react-icons/bs";
+import { RiScales3Line } from "react-icons/ri";
+import posbankum from "../../assets/icon.png";
+import "./semuaKasus.css";
+
+const PAGE_SIZE = 9;
+
+const CATEGORY_OPTIONS = [
+  "Semua",
+  "Hukum Pidana",
+  "Hukum Perdata",
+  "Hukum Keluarga",
+  "Hukum Ketenagakerjaan",
+  "Hukum Waris",
+  "Pertanahan",
+];
+
+const STATUS_OPTIONS = ["Semua", "Diproses", "Mediasi", "Selesai"];
+const PRIORITY_OPTIONS = ["Semua", "Rendah", "Sedang", "Tinggi"];
+const SORT_OPTIONS = ["Terbaru", "Terlama", "Prioritas Tertinggi"];
+
+function formatDateID(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatShortDateID(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function getPriorityWeight(value) {
+  if (value === "Tinggi") return 3;
+  if (value === "Sedang") return 2;
+  return 1;
+}
+
+function getStatusIcon(status) {
+  if (status === "Selesai") return <FiCheckCircle />;
+  if (status === "Mediasi") return <FiUsers />;
+  return <FiClock />;
+}
+
+function normalizePhone(phone) {
+  const cleaned = String(phone || "").replace(/\D/g, "");
+  if (!cleaned) return "";
+  if (cleaned.startsWith("62")) return cleaned;
+  if (cleaned.startsWith("0")) return `62${cleaned.slice(1)}`;
+  return cleaned;
+}
+
+function buildWhatsappLink(item) {
+  const phone = normalizePhone(item.paralegalPhone);
+  const text = encodeURIComponent(
+    `Halo ${item.paralegal}, saya ingin menanyakan status kasus ${item.id} - ${item.judul}.`,
+  );
+  return `https://wa.me/${phone}?text=${text}`;
+}
+
+function exportCsv(rows) {
+  const headers = [
+    "Nomor Kasus",
+    "Judul",
+    "Kategori",
+    "Status",
+    "Prioritas",
+    "Posbankum",
+    "Kota",
+    "Pelapor",
+    "Paralegal",
+    "Tanggal Lapor",
+  ];
+
+  const escapeValue = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
+
+  const csv = [
+    headers.join(","),
+    ...rows.map((row) =>
+      [
+        row.id,
+        row.judul,
+        row.kategori,
+        row.status,
+        row.prioritas,
+        row.posbankum,
+        row.kota,
+        row.pelapor,
+        row.paralegal,
+        formatShortDateID(row.tanggalLapor),
+      ]
+        .map(escapeValue)
+        .join(","),
+    ),
+  ].join("\n");
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "semua-kasus-posbankum-riau.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function parseCatatanAdmin(raw) {
+  if (!raw) return {};
+  if (typeof raw === "object" && !Array.isArray(raw)) return raw;
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
+}
+
+function normalizeKategori(value) {
+  const raw = String(value || "")
+    .trim()
+    .toLowerCase();
+
+  if (raw === "pidana" || raw === "hukum pidana") return "Hukum Pidana";
+  if (raw === "perdata" || raw === "hukum perdata") return "Hukum Perdata";
+  if (raw === "keluarga" || raw === "hukum keluarga") return "Hukum Keluarga";
+  if (raw === "ketenagakerjaan" || raw === "hukum ketenagakerjaan") {
+    return "Hukum Ketenagakerjaan";
+  }
+  if (raw === "waris" || raw === "hukum waris") return "Hukum Waris";
+  if (raw === "pertanahan") return "Pertanahan";
+
+  return value || "Hukum Perdata";
+}
+
+function normalizePrioritas(value) {
+  const raw = String(value || "")
+    .trim()
+    .toLowerCase();
+  if (raw === "tinggi") return "Tinggi";
+  if (raw === "sedang") return "Sedang";
+  if (raw === "rendah") return "Rendah";
+  return "Sedang";
+}
+
+function ensurePosbankumPrefix(value) {
+  const text = String(value || "").trim();
+  if (!text) return "Posbankum";
+  if (text.toLowerCase().startsWith("posbankum")) return text;
+  return `Posbankum ${text}`;
+}
+
+function inferStatus(row, extra, timelines = []) {
+  const explicitStatus = String(
+    extra.status_kasus || extra.status || row.status || "",
+  )
+    .trim()
+    .toLowerCase();
+
+  if (explicitStatus === "selesai") return "Selesai";
+  if (explicitStatus === "mediasi") return "Mediasi";
+  if (explicitStatus === "diproses") return "Diproses";
+
+  const hasMediasiTimeline = timelines.some((item) =>
+    String(item.title || item.deskripsi || "")
+      .toLowerCase()
+      .includes("mediasi"),
+  );
+
+  if (hasMediasiTimeline) return "Mediasi";
+  if (String(row.status || "").toLowerCase() === "selesai") return "Selesai";
+
+  return "Diproses";
+}
+
+function inferProgress(status, extra) {
+  const numericProgress = Number(extra.progress);
+  if (Number.isFinite(numericProgress) && numericProgress >= 0) {
+    return Math.max(0, Math.min(100, Math.round(numericProgress)));
+  }
+
+  if (status === "Selesai") return 100;
+  if (status === "Mediasi") return 65;
+  return 45;
+}
+
+function mapPengaduanToCase(row, posbankumRow, kabupatenNama, timelines = []) {
+  const extra = parseCatatanAdmin(row.catatan_admin);
+  const status = inferStatus(row, extra, timelines);
+  const progress = inferProgress(status, extra);
+  const lastTimeline = timelines.length
+    ? timelines[timelines.length - 1]
+    : null;
+
+  return {
+    id: row.nomor_pengaduan || row.id_pengaduan,
+    judul: row.judul_pengaduan || "Tanpa Judul",
+    kategori: normalizeKategori(row.jenis_masalah),
+    status,
+    prioritas: normalizePrioritas(extra.prioritas),
+    progress,
+    posbankum: ensurePosbankumPrefix(posbankumRow?.nama),
+    kota:
+      kabupatenNama ||
+      row.kabupaten_kota ||
+      posbankumRow?.alamat ||
+      "Kota Pekanbaru",
+    pelapor: row.nama_pelapor || "-",
+    paralegal:
+      extra.paralegal_nama ||
+      posbankumRow?.nama_paralegal ||
+      "Paralegal Belum Diisi",
+    paralegalPhone:
+      extra.paralegal_hp || posbankumRow?.nomor_tlp || "0812-0000-0000",
+    emailPosbankum:
+      posbankumRow?.email_akun || row.email || "posbankum@contoh.go.id",
+    tanggalLapor:
+      row.created_at || row.tanggal_kejadian || new Date().toISOString(),
+    updateTerakhir:
+      lastTimeline?.tanggal ||
+      row.updated_at ||
+      row.created_at ||
+      new Date().toISOString(),
+    deskripsi:
+      row.kronologi || extra.catatan_internal || "Belum ada deskripsi kasus.",
+  };
+}
+
+export default function SemuaKasus() {
+  const [cases, setCases] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+
+  const [search, setSearch] = useState("");
+  const [selectedCase, setSelectedCase] = useState(null);
+  const [showDetail, setShowDetail] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
+  const [showStat, setShowStat] = useState(false);
+  const [page, setPage] = useState(1);
+
+  const [filters, setFilters] = useState({
+    kategori: "Semua",
+    status: "Semua",
+    prioritas: "Semua",
+    urutkan: "Terbaru",
+  });
+
+  const [draftFilters, setDraftFilters] = useState(filters);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadCasesFromSupabase() {
+      setLoading(true);
+      setLoadError("");
+
+      try {
+        const { data: pengaduanRows, error: pengaduanError } = await supabase
+          .from("pengaduan")
+          .select(
+            `
+            id_pengaduan,
+            id_posbankum,
+            nomor_pengaduan,
+            nama_pelapor,
+            nomor_telepon,
+            email,
+            jenis_masalah,
+            judul_pengaduan,
+            kronologi,
+            tanggal_kejadian,
+            waktu_kejadian,
+            lokasi_kejadian,
+            provinsi,
+            kabupaten_kota,
+            kecamatan,
+            id_kabupaten,
+            id_kecamatan,
+            status,
+            catatan_admin,
+            created_by,
+            created_at,
+            updated_at
+          `,
+          )
+          .order("created_at", { ascending: false });
+
+        if (pengaduanError) throw pengaduanError;
+
+        if (!pengaduanRows || !pengaduanRows.length) {
+          if (isMounted) {
+            setCases([]);
+            setLoadError(
+              "Belum ada data kasus di Supabase. Jalankan SQL seed dummy dulu.",
+            );
+          }
+          return;
+        }
+
+        const posbankumIds = [
+          ...new Set(
+            pengaduanRows.map((item) => item.id_posbankum).filter(Boolean),
+          ),
+        ];
+
+        const pengaduanIds = pengaduanRows.map((item) => item.id_pengaduan);
+
+        let posbankumRows = [];
+        let kabupatenRows = [];
+        let timelineRows = [];
+
+        if (posbankumIds.length) {
+          const { data, error } = await supabase
+            .from("posbankum")
+            .select(
+              `
+              id_posbankum,
+              id_kabupaten,
+              nama,
+              nomor_tlp,
+              alamat,
+              nama_paralegal,
+              email_akun
+            `,
+            )
+            .in("id_posbankum", posbankumIds);
+
+          if (error) throw error;
+          posbankumRows = data || [];
+        }
+
+        const kabupatenIds = [
+          ...new Set(
+            posbankumRows
+              .map((item) => item.id_kabupaten)
+              .concat(pengaduanRows.map((item) => item.id_kabupaten))
+              .filter(Boolean),
+          ),
+        ];
+
+        if (kabupatenIds.length) {
+          const { data, error } = await supabase
+            .from("kabupaten")
+            .select("id_kabupaten, nama")
+            .in("id_kabupaten", kabupatenIds);
+
+          if (error) throw error;
+          kabupatenRows = data || [];
+        }
+
+        if (pengaduanIds.length) {
+          const { data, error } = await supabase
+            .from("pengaduan_timeline")
+            .select(
+              `
+              id_timeline,
+              id_pengaduan,
+              title,
+              deskripsi,
+              tanggal,
+              created_by,
+              created_at
+            `,
+            )
+            .in("id_pengaduan", pengaduanIds)
+            .order("tanggal", { ascending: true });
+
+          if (error) throw error;
+          timelineRows = data || [];
+        }
+
+        const posbankumMap = new Map(
+          posbankumRows.map((item) => [item.id_posbankum, item]),
+        );
+
+        const kabupatenMap = new Map(
+          kabupatenRows.map((item) => [item.id_kabupaten, item.nama]),
+        );
+
+        const timelineMap = new Map();
+        for (const item of timelineRows) {
+          if (!timelineMap.has(item.id_pengaduan)) {
+            timelineMap.set(item.id_pengaduan, []);
+          }
+          timelineMap.get(item.id_pengaduan).push(item);
+        }
+
+        const mappedCases = pengaduanRows.map((row) => {
+          const posbankumRow = posbankumMap.get(row.id_posbankum);
+          const kabupatenNama =
+            kabupatenMap.get(posbankumRow?.id_kabupaten) ||
+            kabupatenMap.get(row.id_kabupaten) ||
+            row.kabupaten_kota;
+
+          return mapPengaduanToCase(
+            row,
+            posbankumRow,
+            kabupatenNama,
+            timelineMap.get(row.id_pengaduan) || [],
+          );
+        });
+
+        if (isMounted) {
+          setCases(mappedCases);
+        }
+      } catch (error) {
+        console.error("Gagal load semua kasus dari Supabase:", error);
+        if (isMounted) {
+          setCases([]);
+          setLoadError(error.message || "Gagal memuat data dari Supabase.");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadCasesFromSupabase();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const sourceCases = useMemo(() => cases || [], [cases]);
+
+  const summary = useMemo(() => {
+    const total = sourceCases.length;
+    return {
+      total,
+      diproses: sourceCases.filter((item) => item.status === "Diproses").length,
+      mediasi: sourceCases.filter((item) => item.status === "Mediasi").length,
+      selesai: sourceCases.filter((item) => item.status === "Selesai").length,
+      tinggi: sourceCases.filter((item) => item.prioritas === "Tinggi").length,
+    };
+  }, [sourceCases]);
+
+  const filteredCases = useMemo(() => {
+    let rows = [...sourceCases];
+
+    const keyword = search.trim().toLowerCase();
+    if (keyword) {
+      rows = rows.filter((item) =>
+        [
+          item.id,
+          item.judul,
+          item.pelapor,
+          item.paralegal,
+          item.posbankum,
+          item.kategori,
+        ].some((field) => String(field).toLowerCase().includes(keyword)),
+      );
+    }
+
+    if (filters.kategori !== "Semua") {
+      rows = rows.filter((item) => item.kategori === filters.kategori);
+    }
+
+    if (filters.status !== "Semua") {
+      rows = rows.filter((item) => item.status === filters.status);
+    }
+
+    if (filters.prioritas !== "Semua") {
+      rows = rows.filter((item) => item.prioritas === filters.prioritas);
+    }
+
+    rows.sort((a, b) => {
+      if (filters.urutkan === "Terlama") {
+        return new Date(a.tanggalLapor) - new Date(b.tanggalLapor);
+      }
+
+      if (filters.urutkan === "Prioritas Tertinggi") {
+        const byPriority =
+          getPriorityWeight(b.prioritas) - getPriorityWeight(a.prioritas);
+        if (byPriority !== 0) return byPriority;
+        return new Date(b.tanggalLapor) - new Date(a.tanggalLapor);
+      }
+
+      return new Date(b.tanggalLapor) - new Date(a.tanggalLapor);
+    });
+
+    return rows;
+  }, [sourceCases, search, filters]);
+
+  useEffect(() => {
+    const total = Math.max(1, Math.ceil(filteredCases.length / PAGE_SIZE));
+    if (page > total) {
+      setPage(1);
+    }
+  }, [filteredCases, page]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredCases.length / PAGE_SIZE));
+
+  const pagedCases = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filteredCases.slice(start, start + PAGE_SIZE);
+  }, [filteredCases, page]);
+
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (filters.kategori !== "Semua") count += 1;
+    if (filters.status !== "Semua") count += 1;
+    if (filters.prioritas !== "Semua") count += 1;
+    if (search.trim()) count += 1;
+    return count;
+  }, [filters, search]);
+
+  const activeFilterChips = useMemo(() => {
+    const chips = [];
+    if (search.trim()) chips.push(`Pencarian: "${search.trim()}"`);
+    if (filters.kategori !== "Semua") chips.push(filters.kategori);
+    if (filters.status !== "Semua") chips.push(filters.status);
+    if (filters.prioritas !== "Semua") chips.push(filters.prioritas);
+    return chips;
+  }, [filters, search]);
+
+  const categoryStats = useMemo(() => {
+    return CATEGORY_OPTIONS.filter((item) => item !== "Semua")
+      .map((kategori) => {
+        const count = sourceCases.filter(
+          (row) => row.kategori === kategori,
+        ).length;
+        const percentage = summary.total
+          ? ((count / summary.total) * 100).toFixed(1)
+          : "0.0";
+        return { kategori, count, percentage };
+      })
+      .filter((item) => item.count > 0);
+  }, [sourceCases, summary.total]);
+
+  const posbankumStats = useMemo(() => {
+    const grouped = sourceCases.reduce((acc, item) => {
+      const key = item.posbankum.replace(/^Posbankum\s+/i, "");
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+
+    return Object.entries(grouped)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [sourceCases]);
+
+  const openDetail = (item) => {
+    setSelectedCase(item);
+    setShowDetail(true);
+  };
+
+  const closeDetail = () => {
+    setSelectedCase(null);
+    setShowDetail(false);
+  };
+
+  const applyFilters = () => {
+    setFilters(draftFilters);
+    setPage(1);
+    setShowFilter(false);
+  };
+
+  const resetFilters = () => {
+    const initial = {
+      kategori: "Semua",
+      status: "Semua",
+      prioritas: "Semua",
+      urutkan: "Terbaru",
+    };
+    setFilters(initial);
+    setDraftFilters(initial);
+    setSearch("");
+    setPage(1);
+  };
+
+  const openWhatsapp = () => {
+    if (!selectedCase) return;
+    window.open(
+      buildWhatsappLink(selectedCase),
+      "_blank",
+      "noopener,noreferrer",
+    );
+  };
+
+  const goPrevPage = () => setPage((prev) => Math.max(1, prev - 1));
+  const goNextPage = () => setPage((prev) => Math.min(totalPages, prev + 1));
+
+  return (
+    <div className="skWrap">
+      <div className="skHeaderRow">
+        <div>
+          <h2 className="skPageTitle">Semua Kasus Posbankum Riau</h2>
+          <div className="skTitleUnderline" />
+        </div>
+
+        <button
+          type="button"
+          className="skStatsBtn"
+          onClick={() => setShowStat(true)}
+        >
+          <AiOutlineBarChart /> Statistik
+        </button>
+      </div>
+
+      <div className="skStatsGrid">
+        <div className="skStatCard skBlue">
+          <div className="skStatLabel">Total Kasus</div>
+          <div className="skStatValue">{summary.total}</div>
+        </div>
+
+        <div className="skStatCard skYellow">
+          <div className="skStatLabel">Diproses</div>
+          <div className="skStatValue">{summary.diproses}</div>
+        </div>
+
+        <div className="skStatCard skBlue">
+          <div className="skStatLabel">Mediasi</div>
+          <div className="skStatValue">{summary.mediasi}</div>
+        </div>
+
+        <div className="skStatCard skGreen">
+          <div className="skStatLabel">Selesai</div>
+          <div className="skStatValue">{summary.selesai}</div>
+        </div>
+
+        <div className="skStatCard skRed">
+          <div className="skStatLabel">Prioritas Tinggi</div>
+          <div className="skStatValue">{summary.tinggi}</div>
+        </div>
+      </div>
+
+      <div className="skToolbarCard">
+        <div className="skToolbarRow">
+          <div className="skSearchBox">
+            <FiSearch />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+              placeholder="Cari berdasarkan nomor kasus, judul, pelapor, atau paralegal..."
+            />
+          </div>
+
+          <button
+            type="button"
+            className="skFilterBtn"
+            onClick={() => {
+              setDraftFilters(filters);
+              setShowFilter(true);
+            }}
+          >
+            <BsSliders2 />
+            Filter & Urutkan
+            {activeFilterCount > 0 ? (
+              <span className="skFilterCount">{activeFilterCount}</span>
+            ) : null}
+          </button>
+
+          <button
+            type="button"
+            className="skExportBtn"
+            onClick={() => exportCsv(filteredCases)}
+          >
+            <FiDownload /> Export CSV
+          </button>
+        </div>
+
+        {activeFilterChips.length ? (
+          <div className="skActiveFilterBar">
+            <div className="skActiveLeft">
+              <span className="skActiveLabel">Filter Aktif:</span>
+              <div className="skChipWrap">
+                {activeFilterChips.map((chip) => (
+                  <span className="skActiveChip" key={chip}>
+                    {chip}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="skResetLink"
+              onClick={resetFilters}
+            >
+              Reset Semua
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {loadError ? (
+        <div className="skResultText" style={{ color: "#b91c1c" }}>
+          {loadError}
+        </div>
+      ) : null}
+
+      <div className="skResultText">
+        Menampilkan{" "}
+        <span className="skResultNumber">{filteredCases.length}</span> dari{" "}
+        <span className="skResultNumber">{sourceCases.length}</span> kasus
+      </div>
+
+      {loading ? (
+        <div className="skResultText">Memuat data kasus dari Supabase...</div>
+      ) : sourceCases.length === 0 ? (
+        <div className="skResultText">Belum ada data kasus di Supabase.</div>
+      ) : (
+        <>
+          <div className="skCardGrid">
+            {pagedCases.map((item) => (
+              <div className="skCaseCard" key={item.id}>
+                <div className="skCaseTop">
+                  <div className="skCaseTopRow">
+                    <div className="skCaseNumber">{item.id}</div>
+                    <div
+                      className={`skPriorityPill skPriority${item.prioritas}`}
+                    >
+                      {item.prioritas}
+                    </div>
+                  </div>
+
+                  <h3 className="skCaseTitle">{item.judul}</h3>
+
+                  <div className="skBadgeRow">
+                    <span className={`skStatusBadge skStatus${item.status}`}>
+                      {getStatusIcon(item.status)}
+                      {item.status}
+                    </span>
+
+                    <span className="skCategoryBadge">{item.kategori}</span>
+                  </div>
+                </div>
+
+                <div className="skCaseBody">
+                  <div className="skProgressHead">
+                    <span>Progress</span>
+                    <b>{item.progress}%</b>
+                  </div>
+
+                  <div className="skProgressTrack">
+                    <div
+                      className="skProgressFill"
+                      style={{ width: `${item.progress}%` }}
+                    />
+                  </div>
+
+                  <div className="skInfoList">
+                    <div className="skInfoItem skInfoItemPosbankum">
+                      <span
+                        className="skMaskIcon"
+                        style={{ "--mask-url": `url(${posbankum})` }}
+                        aria-hidden="true"
+                      />
+                      <span className="skInfoTextBold">{item.posbankum}</span>
+                    </div>
+
+                    <div className="skInfoItem">
+                      <FiMapPin />
+                      <span>{item.kota}</span>
+                    </div>
+
+                    <div className="skInfoItem">
+                      <FiUser />
+                      <span>Pelapor: {item.pelapor}</span>
+                    </div>
+
+                    <div className="skInfoItem">
+                      <HiOutlineScale className="skParalegalIconThin"  />
+                      
+                      <span>Paralegal: {item.paralegal}</span>
+                    </div>
+
+                    <div className="skInfoItem">
+                      <FiCalendar className="skDateIconBold" />
+                      <span>{formatShortDateID(item.tanggalLapor)}</span>
+                    </div>
+                  </div>
+
+                  <p className="skCaseDesc">{item.deskripsi}</p>
+
+                  <button
+                    type="button"
+                    className="skDetailBtn"
+                    onClick={() => openDetail(item)}
+                  >
+                    <FiEye />
+                    <span>Lihat Detail</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {totalPages > 1 ? (
+            <div className="skPagination">
+              <button
+                type="button"
+                className="skPageArrow"
+                onClick={goPrevPage}
+                disabled={page === 1}
+              >
+                <FiChevronLeft />
+              </button>
+
+              {Array.from({ length: totalPages }).map((_, index) => {
+                const value = index + 1;
+                return (
+                  <button
+                    type="button"
+                    key={value}
+                    className={`skPageBtn ${page === value ? "is-active" : ""}`}
+                    onClick={() => setPage(value)}
+                  >
+                    {value}
+                  </button>
+                );
+              })}
+
+              <button
+                type="button"
+                className="skPageArrow"
+                onClick={goNextPage}
+                disabled={page === totalPages}
+              >
+                <FiChevronRight />
+              </button>
+            </div>
+          ) : null}
+        </>
+      )}
+
+      {showDetail && selectedCase ? (
+        <div className="skOverlay" onClick={closeDetail}>
+          <div className="skDetailModal" onClick={(e) => e.stopPropagation()}>
+            <div className="skDetailHeader">
+              <button
+                type="button"
+                className="skModalClose"
+                onClick={closeDetail}
+              >
+                <FiX />
+              </button>
+
+              <div className="skDetailNumber">{selectedCase.id}</div>
+              <div className="skDetailTitle">{selectedCase.judul}</div>
+
+              <div className="skDetailBadgeRow">
+                <span
+                  className={`skStatusBadge skStatus${selectedCase.status}`}
+                >
+                  {getStatusIcon(selectedCase.status)}
+                  {selectedCase.status}
+                </span>
+
+                <span className="skCategoryBadge">{selectedCase.kategori}</span>
+
+                <span
+                  className={`skPriorityPill skPriority${selectedCase.prioritas}`}
+                >
+                  {selectedCase.prioritas}
+                </span>
+              </div>
+
+              <div className="skDetailProgressHead">
+                <span>Progress Penanganan</span>
+                <b>{selectedCase.progress}%</b>
+              </div>
+
+              <div className="skDetailProgressTrack">
+                <div
+                  className="skDetailProgressFill"
+                  style={{ width: `${selectedCase.progress}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="skDetailBody">
+              <div className="skDetailInfoCard">
+                <div className="skSectionHead is-card">
+                  <span
+                    className="skMaskIcon skMaskBlue"
+                    style={{ "--mask-url": `url(${posbankum})` }}
+                    aria-hidden="true"
+                  />
+                  <span>Informasi Posbankum</span>
+                </div>
+
+                <div className="skDetailInfoGrid">
+                  <div>
+                    <div className="skDetailLabel">Nama Posbankum</div>
+                    <div className="skDetailValue">
+                      {selectedCase.posbankum}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="skDetailLabel">Kabupaten/Kota</div>
+                    <div className="skDetailValue">{selectedCase.kota}</div>
+                  </div>
+
+                  <div>
+                    <div className="skDetailLabel">Email</div>
+                    <div className="skDetailValue skIconValue">
+                      <FiMail />
+                      {selectedCase.emailPosbankum}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="skDetailLabel">Paralegal</div>
+                    <div className="skDetailValue">
+                      {selectedCase.paralegal}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="skSectionBlock">
+                <div className="skSectionHead">
+                  <FiUser />
+                  <span>Informasi Pelapor</span>
+                </div>
+
+                <div className="skTwoColGrid">
+                  <div className="skPlainCard">
+                    <div className="skDetailLabel">Nama Pelapor</div>
+                    <div className="skDetailValue">{selectedCase.pelapor}</div>
+                  </div>
+
+                  <div className="skPlainCard">
+                    <div className="skDetailLabel">Telepon Paralegal</div>
+                    <div className="skDetailValue skIconValue">
+                      <BsTelephone />
+                      {selectedCase.paralegalPhone}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="skSectionBlock">
+                <div className="skSectionHead">
+                  <FiCalendar className="skDateIconBold skDateIconBoldBlue" />
+                  <span>Timeline</span>
+                </div>
+
+                <div className="skTwoColGrid">
+                  <div className="skPlainCard">
+                    <div className="skDetailLabel">Tanggal Lapor</div>
+                    <div className="skDetailValue">
+                      {formatDateID(selectedCase.tanggalLapor)}
+                    </div>
+                  </div>
+
+                  <div className="skPlainCard">
+                    <div className="skDetailLabel">Update Terakhir</div>
+                    <div className="skDetailValue">
+                      {formatDateID(selectedCase.updateTerakhir)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="skSectionBlock">
+                <div className="skSectionHead">
+                  <FiFileText />
+                  <span>Deskripsi Kasus</span>
+                </div>
+
+                <div className="skDescriptionCard">
+                  {selectedCase.deskripsi}
+                </div>
+              </div>
+            </div>
+
+            <div className="skDetailFooter">
+              <button
+                type="button"
+                className="skFooterGhost"
+                onClick={closeDetail}
+              >
+                Tutup
+              </button>
+
+              <button
+                type="button"
+                className="skFooterPrimary"
+                onClick={openWhatsapp}
+              >
+                <BsTelephone /> Hubungi Paralegal
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showFilter ? (
+        <div className="skOverlay" onClick={() => setShowFilter(false)}>
+          <div className="skFilterModal" onClick={(e) => e.stopPropagation()}>
+            <div className="skModalTopBar">
+              <div className="skModalTitle">
+                <BsSliders2 />
+                Filter & Urutkan Kasus
+              </div>
+
+              <button
+                type="button"
+                className="skModalClose"
+                onClick={() => setShowFilter(false)}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="skFilterBody">
+              <div className="skFilterSection">
+                <div className="skFilterLabel">Kategori Kasus</div>
+                <div className="skOptionGrid">
+                  {CATEGORY_OPTIONS.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      className={`skOptionBtn ${
+                        draftFilters.kategori === item ? "is-active" : ""
+                      }`}
+                      onClick={() =>
+                        setDraftFilters((prev) => ({ ...prev, kategori: item }))
+                      }
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="skFilterSection">
+                <div className="skFilterLabel">Status Kasus</div>
+                <div className="skOptionGrid">
+                  {STATUS_OPTIONS.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      className={`skOptionBtn ${
+                        draftFilters.status === item ? "is-active" : ""
+                      }`}
+                      onClick={() =>
+                        setDraftFilters((prev) => ({ ...prev, status: item }))
+                      }
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="skFilterSection">
+                <div className="skFilterLabel">Prioritas</div>
+                <div className="skOptionGrid">
+                  {PRIORITY_OPTIONS.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      className={`skOptionBtn ${
+                        draftFilters.prioritas === item ? "is-active" : ""
+                      }`}
+                      onClick={() =>
+                        setDraftFilters((prev) => ({
+                          ...prev,
+                          prioritas: item,
+                        }))
+                      }
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="skFilterSection">
+                <div className="skFilterLabel">Urutkan Berdasarkan</div>
+                <div className="skOptionColumn">
+                  {SORT_OPTIONS.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      className={`skOptionBtn full ${
+                        draftFilters.urutkan === item ? "is-active" : ""
+                      }`}
+                      onClick={() =>
+                        setDraftFilters((prev) => ({ ...prev, urutkan: item }))
+                      }
+                    >
+                      {item}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="skModalFooter">
+              <button
+                type="button"
+                className="skFooterGhost"
+                onClick={() => {
+                  const initial = {
+                    kategori: "Semua",
+                    status: "Semua",
+                    prioritas: "Semua",
+                    urutkan: "Terbaru",
+                  };
+                  setDraftFilters(initial);
+                }}
+              >
+                Reset Semua
+              </button>
+
+              <button
+                type="button"
+                className="skFooterPrimary"
+                onClick={applyFilters}
+              >
+                Terapkan Filter
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showStat ? (
+        <div className="skOverlay" onClick={() => setShowStat(false)}>
+          <div className="skStatModal" onClick={(e) => e.stopPropagation()}>
+            <div className="skModalTopBar">
+              <div className="skModalTitle">
+                <FiClock />
+                Statistik Kasus Posbankum Riau
+              </div>
+
+              <button
+                type="button"
+                className="skModalClose"
+                onClick={() => setShowStat(false)}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="skStatModalBody">
+              <div className="skStatModalGrid">
+                <div className="skStatCard skBlue">
+                  <div className="skStatLabel">Total Kasus</div>
+                  <div className="skStatValue">{summary.total}</div>
+                </div>
+
+                <div className="skStatCard skYellow">
+                  <div className="skStatLabel">Diproses</div>
+                  <div className="skStatValue">{summary.diproses}</div>
+                </div>
+
+                <div className="skStatCard skOrange">
+                  <div className="skStatLabel">Mediasi</div>
+                  <div className="skStatValue">{summary.mediasi}</div>
+                </div>
+
+                <div className="skStatCard skGreen">
+                  <div className="skStatLabel">Selesai</div>
+                  <div className="skStatValue">{summary.selesai}</div>
+                </div>
+              </div>
+
+              <div className="skStatSectionTitle">
+                Kasus Berdasarkan Kategori
+              </div>
+              <div className="skBarList">
+                {categoryStats.map((item) => (
+                  <div className="skBarCard" key={item.kategori}>
+                    <div className="skBarHead">
+                      <span>{item.kategori}</span>
+                      <b>
+                        {item.count} kasus ({item.percentage}%)
+                      </b>
+                    </div>
+                    <div className="skBarTrack">
+                      <div
+                        className="skBarFill"
+                        style={{ width: `${item.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="skStatSectionTitle">
+                Kasus Berdasarkan Posbankum
+              </div>
+              <div className="skPosbankumGrid">
+                {posbankumStats.map((item) => (
+                  <div className="skPosbankumCard" key={item.name}>
+                    <div className="skPosbankumLeft">
+                      <span
+                        className="skMaskIcon skMaskBlue"
+                        style={{ "--mask-url": `url(${posbankum})` }}
+                        aria-hidden="true"
+                      />
+                      <span>{item.name}</span>
+                    </div>
+
+                    <span className="skPosbankumCount">{item.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

@@ -1,0 +1,1488 @@
+import { MdLocationSearching } from "react-icons/md";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "../../lib/supabaseClient";
+import SuccessToast from "../../components/ui/SuccessToast";
+import {
+  FiFileText,
+  FiUpload,
+  FiX,
+  FiEye,
+  FiCheckCircle,
+  FiClock,
+  FiXCircle,
+  FiMapPin,
+  FiInfo,
+  FiSearch,
+  FiSave,
+} from "react-icons/fi";
+import "./kelolaPosbankum.css";
+
+const BUCKET = "posbankum-docs";
+const TABLE_DOC = "data_posbankum";
+const TABLE_POS = "posbankum";
+
+const MAX_FILE = 5 * 1024 * 1024;
+const ALLOWED_MIME = new Set(["application/pdf", "image/jpeg", "image/png"]);
+
+function formatDateID(iso) {
+  if (!iso) return "-";
+  try {
+    const d = new Date(iso);
+    return d.toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
+  } catch {
+    return "-";
+  }
+}
+
+function normStatus(s) {
+  return String(s || "")
+    .trim()
+    .toLowerCase();
+}
+
+function statusKind(s) {
+  const v = normStatus(s);
+  if (!v) return "none";
+  if (["diterima", "disetujui", "approved", "valid"].includes(v)) return "ok";
+  if (["ditolak", "rejected", "tolak"].includes(v)) return "bad";
+  if (
+    [
+      "menunggu",
+      "pending",
+      "review",
+      "proses",
+      "diproses",
+      "verifikasi",
+    ].includes(v)
+  ) {
+    return "wait";
+  }
+  return "wait";
+}
+
+function statusLabelFromKind(k) {
+  if (k === "ok") return "Diterima";
+  if (k === "bad") return "Ditolak";
+  if (k === "wait") return "Proses";
+  return "Belum";
+}
+
+function buildOsmEmbed(lat, lng) {
+  const la = Number(lat);
+  const lo = Number(lng);
+  if (!Number.isFinite(la) || !Number.isFinite(lo)) return "";
+  const d = 0.008;
+  const left = lo - d;
+  const right = lo + d;
+  const top = la + d;
+  const bottom = la - d;
+
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(
+    `${left},${bottom},${right},${top}`,
+  )}&layer=mapnik&marker=${encodeURIComponent(`${la},${lo}`)}`;
+}
+
+function buildPdfPreviewUrl(url) {
+  if (!url) return "";
+  return `${url}#page=1&toolbar=0&navpanes=0&scrollbar=0&view=FitH`;
+}
+
+function ensureLeaflet() {
+  if (window.L) return Promise.resolve(window.L);
+
+  const cssId = "leaflet-css";
+  if (!document.getElementById(cssId)) {
+    const link = document.createElement("link");
+    link.id = cssId;
+    link.rel = "stylesheet";
+    link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    document.head.appendChild(link);
+  }
+
+  return new Promise((resolve, reject) => {
+    const jsId = "leaflet-js";
+    const existed = document.getElementById(jsId);
+
+    if (existed) {
+      let waited = 0;
+      const timer = setInterval(() => {
+        if (window.L) {
+          clearInterval(timer);
+          resolve(window.L);
+        }
+        waited += 100;
+        if (waited >= 8000) {
+          clearInterval(timer);
+          reject(new Error("Leaflet gagal dimuat."));
+        }
+      }, 100);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = jsId;
+    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+    script.async = true;
+    script.onload = () => resolve(window.L);
+    script.onerror = () => reject(new Error("Leaflet gagal dimuat."));
+    document.body.appendChild(script);
+  });
+}
+
+function getLocationStatusRaw(row, hasCoords) {
+  if (!row) return hasCoords ? "proses" : "";
+
+  const raw =
+    row.status_lokasi ??
+    row.status_tagging ??
+    row.status_tagging_area ??
+    row.status_verifikasi_lokasi ??
+    row.status_verifikasi_tagging ??
+    row.verification_status_location ??
+    "";
+
+  if (raw) return raw;
+  return hasCoords ? "proses" : "";
+}
+
+export default function KelolaDataPosbankum({ profile }) {
+  const posbankumId = profile?.id_posbankum ?? null;
+
+  const docTypes = useMemo(
+    () => [
+      { key: "sk_posbankum", title: "SK Posbankum", theme: "green" },
+      { key: "sk_kadarkum", title: "SK Kadarkum", theme: "orange" },
+      { key: "sarpras", title: "Dokumentasi Sapras", theme: "orange" },
+    ],
+    [],
+  );
+
+  const [posRow, setPosRow] = useState(null);
+  const [posName, setPosName] = useState("Posbankum");
+  const [locSaved, setLocSaved] = useState({ lat: "", lng: "", alamat: "" });
+  const [locDraft, setLocDraft] = useState({ lat: "", lng: "", alamat: "" });
+  const [locDirty, setLocDirty] = useState(false);
+  const [savingLoc, setSavingLoc] = useState(false);
+  const [locErr, setLocErr] = useState("");
+
+  const [loadingDocs, setLoadingDocs] = useState(false);
+  const [docsLatest, setDocsLatest] = useState({});
+  const [previewUrl, setPreviewUrl] = useState({});
+
+  const [uploadOpen, setUploadOpen] = useState(false);
+  const [uploadKey, setUploadKey] = useState("");
+  const [uploadTitle, setUploadTitle] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [uploadErr, setUploadErr] = useState("");
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedPreviewUrl, setSelectedPreviewUrl] = useState("");
+  const [selectedPreviewType, setSelectedPreviewType] = useState("");
+  const [existingPreviewUrl, setExistingPreviewUrl] = useState("");
+  const [existingPreviewType, setExistingPreviewType] = useState("");
+  const fileRef = useRef(null);
+
+  const [detailOpen, setDetailOpen] = useState(false);
+  const [detailRow, setDetailRow] = useState(null);
+  const [detailTitle, setDetailTitle] = useState("Preview Dokumen");
+  const [detailUrl, setDetailUrl] = useState("");
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailErr, setDetailErr] = useState("");
+
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const [editLocOpen, setEditLocOpen] = useState(false);
+  const [locQuery, setLocQuery] = useState("");
+  const mapBoxRef = useRef(null);
+  const mapRef = useRef(null);
+  const markerRef = useRef(null);
+
+  const pickCoordsFromRow = useCallback((row) => {
+    if (!row) return { lat: "", lng: "" };
+
+    const lat =
+      row.latitude ??
+      row.lat ??
+      row.latitude_pos ??
+      row.lat_pos ??
+      row.lattitude ??
+      null;
+
+    const lng =
+      row.longitude ??
+      row.lng ??
+      row.long ??
+      row.longitude_pos ??
+      row.lng_pos ??
+      row.long_pos ??
+      null;
+
+    if (Number.isFinite(Number(lat)) && Number.isFinite(Number(lng))) {
+      return { lat: String(lat), lng: String(lng) };
+    }
+
+    const koordinat = row.koordinat ?? row.coordinate ?? row.coords ?? "";
+    if (typeof koordinat === "string" && koordinat.includes(",")) {
+      const [a, b] = koordinat.split(",").map((v) => v.trim());
+      if (Number.isFinite(Number(a)) && Number.isFinite(Number(b))) {
+        return { lat: a, lng: b };
+      }
+    }
+
+    return { lat: "", lng: "" };
+  }, []);
+
+  const loadPosbankum = useCallback(async () => {
+    if (!posbankumId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from(TABLE_POS)
+        .select("*")
+        .eq("id_posbankum", posbankumId)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      setPosRow(data || null);
+      setPosName(data?.nama || "Posbankum");
+
+      const coords = pickCoordsFromRow(data || {});
+      const alamat = data?.alamat ? String(data.alamat) : "";
+
+      setLocSaved({ lat: coords.lat, lng: coords.lng, alamat });
+      setLocDraft((prev) => {
+        if (editLocOpen && (prev.lat || prev.lng || prev.alamat)) return prev;
+        return { lat: coords.lat, lng: coords.lng, alamat };
+      });
+
+      if (!editLocOpen) setLocDirty(false);
+    } catch (e) {
+      console.warn("loadPosbankum:", e);
+    }
+  }, [pickCoordsFromRow, posbankumId, editLocOpen]);
+
+  const createSignedUrl = useCallback(async (path, expiresIn = 600) => {
+    if (!path) return "";
+    try {
+      const { data, error } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrl(path, expiresIn);
+      if (error) throw error;
+      return data?.signedUrl || "";
+    } catch {
+      return "";
+    }
+  }, []);
+
+  const loadDocs = useCallback(async () => {
+    if (!posbankumId) return;
+
+    setLoadingDocs(true);
+    try {
+      const { data, error } = await supabase
+        .from(TABLE_DOC)
+        .select("*")
+        .eq("id_posbankum", posbankumId)
+        .order("tgl_upload", { ascending: false })
+        .limit(200);
+
+      if (error) throw error;
+
+      const latest = {};
+      for (const row of data || []) {
+        if (row?.kategori && !latest[row.kategori]) {
+          latest[row.kategori] = row;
+        }
+      }
+      setDocsLatest(latest);
+
+      const nextPreview = {};
+      for (const item of docTypes) {
+        const row = latest[item.key];
+        if (row?.path_berkas) {
+          const url = await createSignedUrl(row.path_berkas, 600);
+          if (url) nextPreview[item.key] = url;
+        }
+      }
+      setPreviewUrl(nextPreview);
+    } catch (e) {
+      console.warn("loadDocs:", e);
+      setDocsLatest({});
+      setPreviewUrl({});
+    } finally {
+      setLoadingDocs(false);
+    }
+  }, [createSignedUrl, docTypes, posbankumId]);
+
+  useEffect(() => {
+    loadPosbankum();
+    loadDocs();
+  }, [loadDocs, loadPosbankum]);
+
+  useEffect(() => {
+    return () => {
+      if (selectedPreviewUrl && selectedPreviewUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(selectedPreviewUrl);
+      }
+    };
+  }, [selectedPreviewUrl]);
+
+  const hasSavedCoords =
+    Number.isFinite(Number(locSaved.lat)) &&
+    Number.isFinite(Number(locSaved.lng));
+
+  const locationKind = useMemo(() => {
+    return statusKind(getLocationStatusRaw(posRow, hasSavedCoords));
+  }, [posRow, hasSavedCoords]);
+
+  const locationLabel = statusLabelFromKind(locationKind);
+
+  const stats = useMemo(() => {
+    const total = 4;
+    let ok = 0;
+    let wait = 0;
+    let bad = 0;
+    let none = 0;
+
+    for (const item of docTypes) {
+      const row = docsLatest[item.key];
+      const kind = row ? statusKind(row.status_verifikasi) : "none";
+      if (kind === "ok") ok += 1;
+      else if (kind === "wait") wait += 1;
+      else if (kind === "bad") bad += 1;
+      else none += 1;
+    }
+
+    if (hasSavedCoords) {
+      if (locationKind === "ok") ok += 1;
+      else if (locationKind === "bad") bad += 1;
+      else wait += 1;
+    } else {
+      none += 1;
+    }
+
+    return { total, ok, wait, bad, none };
+  }, [docTypes, docsLatest, hasSavedCoords, locationKind]);
+
+  const openUpload = async (kategori) => {
+    const found = docTypes.find((x) => x.key === kategori);
+    const row = docsLatest[kategori];
+
+    if (selectedPreviewUrl && selectedPreviewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(selectedPreviewUrl);
+    }
+
+    setUploadKey(kategori);
+    setUploadTitle(
+      found?.title ? `Upload ${found.title}` : "Upload Dokumentasi Sapras",
+    );
+    setSelectedFile(null);
+    setSelectedPreviewUrl("");
+    setSelectedPreviewType("");
+    setExistingPreviewUrl("");
+    setExistingPreviewType("");
+    setUploadErr("");
+    setUploadOpen(true);
+
+    if (row?.path_berkas) {
+      const signedUrl = await createSignedUrl(row.path_berkas, 600);
+      setExistingPreviewUrl(signedUrl);
+      setExistingPreviewType(row?.mime_type || "");
+    }
+  };
+
+  const closeUpload = () => {
+    if (uploading) return;
+
+    if (selectedPreviewUrl && selectedPreviewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(selectedPreviewUrl);
+    }
+
+    setUploadOpen(false);
+    setUploadKey("");
+    setUploadTitle("");
+    setUploadErr("");
+    setSelectedFile(null);
+    setSelectedPreviewUrl("");
+    setSelectedPreviewType("");
+    setExistingPreviewUrl("");
+    setExistingPreviewType("");
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  const pickFile = () => fileRef.current?.click();
+
+  const validateFile = (file) => {
+    if (!file) return "Pilih file dulu.";
+    if (!ALLOWED_MIME.has(file.type)) return "Format file harus PDF/JPG/PNG.";
+    if (file.size > MAX_FILE) return "Ukuran maksimal 5MB.";
+    return "";
+  };
+
+  const setPreviewFromFile = (file) => {
+    if (selectedPreviewUrl && selectedPreviewUrl.startsWith("blob:")) {
+      URL.revokeObjectURL(selectedPreviewUrl);
+    }
+    const blobUrl = URL.createObjectURL(file);
+    setSelectedPreviewUrl(blobUrl);
+    setSelectedPreviewType(file.type || "");
+  };
+
+  const onFileChange = (e) => {
+    const file = e.target.files?.[0] || null;
+    if (!file) return;
+
+    const msg = validateFile(file);
+    if (msg) {
+      setUploadErr(msg);
+      e.target.value = "";
+      return;
+    }
+
+    setUploadErr("");
+    setSelectedFile(file);
+    setPreviewFromFile(file);
+  };
+
+  const onDrop = (e) => {
+    e.preventDefault();
+    if (uploading) return;
+
+    const file = e.dataTransfer?.files?.[0] || null;
+    if (!file) return;
+
+    const msg = validateFile(file);
+    if (msg) {
+      setUploadErr(msg);
+      return;
+    }
+
+    setUploadErr("");
+    setSelectedFile(file);
+    setPreviewFromFile(file);
+  };
+
+  const doUpload = async () => {
+    if (!posbankumId) return setUploadErr("id_posbankum tidak ditemukan.");
+    if (!uploadKey) return setUploadErr("Kategori dokumen tidak valid.");
+    if (!selectedFile) return setUploadErr("Pilih file dulu.");
+
+    setUploading(true);
+    setUploadErr("");
+
+    try {
+      const safeName = selectedFile.name.replace(/[^\w.\-]+/g, "_");
+      const path = `${posbankumId}/${uploadKey}/${Date.now()}_${safeName}`;
+
+      const { error: upErr } = await supabase.storage
+        .from(BUCKET)
+        .upload(path, selectedFile, {
+          contentType: selectedFile.type,
+          upsert: false,
+        });
+      if (upErr) throw upErr;
+
+      const payload = {
+        id_posbankum: posbankumId,
+        kategori: uploadKey,
+        path_berkas: path,
+        tgl_upload: new Date().toISOString(),
+        status_verifikasi: "proses",
+        nama_berkas: selectedFile.name,
+        mime_type: selectedFile.type,
+        size_bytes: selectedFile.size,
+      };
+
+      const { error: insErr } = await supabase.from(TABLE_DOC).insert(payload);
+      if (insErr) throw insErr;
+
+      await loadDocs();
+      closeUpload();
+      setSuccessMessage("Dokumen berhasil diupload!");
+    } catch (e) {
+      console.error(e);
+      setUploadErr(e?.message || "Upload gagal.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const openDetail = async (row, title) => {
+    if (!row?.path_berkas) return;
+
+    setDetailOpen(true);
+    setDetailRow(row);
+    setDetailTitle(title || "Preview Dokumen");
+    setDetailUrl("");
+    setDetailErr("");
+    setDetailLoading(true);
+
+    try {
+      const signedUrl = await createSignedUrl(row.path_berkas, 600);
+      if (!signedUrl) throw new Error("Gagal memuat dokumen.");
+      setDetailUrl(signedUrl);
+    } catch (e) {
+      setDetailErr(e?.message || "Gagal memuat dokumen.");
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const closeDetail = () => {
+    setDetailOpen(false);
+    setDetailRow(null);
+    setDetailTitle("Preview Dokumen");
+    setDetailUrl("");
+    setDetailErr("");
+    setDetailLoading(false);
+  };
+
+  const saveLocation = async () => {
+    if (!posbankumId) return;
+
+    setSavingLoc(true);
+    setLocErr("");
+
+    try {
+      const row = posRow || {};
+      const keys = new Set(Object.keys(row));
+
+      const latNum = Number(locDraft.lat);
+      const lngNum = Number(locDraft.lng);
+
+      const patch = {};
+
+      if (keys.has("alamat")) patch.alamat = locDraft.alamat || "";
+      if (keys.has("latitude"))
+        patch.latitude = Number.isFinite(latNum) ? latNum : null;
+      if (keys.has("longitude"))
+        patch.longitude = Number.isFinite(lngNum) ? lngNum : null;
+      if (keys.has("lat")) patch.lat = Number.isFinite(latNum) ? latNum : null;
+      if (keys.has("lng")) patch.lng = Number.isFinite(lngNum) ? lngNum : null;
+      if (keys.has("long"))
+        patch.long = Number.isFinite(lngNum) ? lngNum : null;
+      if (keys.has("koordinat")) {
+        patch.koordinat =
+          Number.isFinite(latNum) && Number.isFinite(lngNum)
+            ? `${latNum},${lngNum}`
+            : null;
+      }
+
+      if (keys.has("status_lokasi")) patch.status_lokasi = "proses";
+      if (keys.has("status_tagging")) patch.status_tagging = "proses";
+      if (keys.has("status_tagging_area")) patch.status_tagging_area = "proses";
+      if (keys.has("status_verifikasi_lokasi"))
+        patch.status_verifikasi_lokasi = "proses";
+      if (keys.has("status_verifikasi_tagging"))
+        patch.status_verifikasi_tagging = "proses";
+      if (keys.has("verification_status_location"))
+        patch.verification_status_location = "proses";
+
+      const { error } = await supabase
+        .from(TABLE_POS)
+        .update(patch)
+        .eq("id_posbankum", posbankumId);
+
+      if (error) throw error;
+
+      setLocSaved({ ...locDraft });
+      setLocDirty(false);
+      setEditLocOpen(false);
+      await loadPosbankum();
+      setSuccessMessage("Lokasi Posbankum berhasil disimpan!");
+    } catch (e) {
+      console.error(e);
+      setLocErr(e?.message || "Gagal menyimpan lokasi.");
+    } finally {
+      setSavingLoc(false);
+    }
+  };
+
+  const moveMarker = useCallback((lat, lng, zoom = 16) => {
+    const m = mapRef.current;
+    const L = window.L;
+    if (!m || !L) return;
+
+    const la = Number(lat);
+    const lo = Number(lng);
+    if (!Number.isFinite(la) || !Number.isFinite(lo)) return;
+
+    m.setView([la, lo], zoom);
+
+    if (markerRef.current) {
+      markerRef.current.setLatLng([la, lo]);
+    } else {
+      markerRef.current = L.marker([la, lo], {
+        draggable: true,
+      }).addTo(m);
+    }
+  }, []);
+
+  const reverseGeocode = useCallback(async (lat, lng) => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(
+          lat,
+        )}&lon=${encodeURIComponent(lng)}`,
+        {
+          headers: {
+            "Accept-Language": "id-ID",
+          },
+        },
+      );
+      const json = await res.json();
+      return json?.display_name || "";
+    } catch {
+      return "";
+    }
+  }, []);
+
+  const applyPickedLocation = useCallback(
+    async (lat, lng, withReverse = true) => {
+      const fixedLat = Number(lat).toFixed(6);
+      const fixedLng = Number(lng).toFixed(6);
+
+      moveMarker(fixedLat, fixedLng, 16);
+      setLocDraft((prev) => ({
+        ...prev,
+        lat: fixedLat,
+        lng: fixedLng,
+      }));
+      setLocDirty(true);
+
+      if (withReverse) {
+        const alamat = await reverseGeocode(fixedLat, fixedLng);
+        if (alamat) {
+          setLocDraft((prev) => ({
+            ...prev,
+            lat: fixedLat,
+            lng: fixedLng,
+            alamat,
+          }));
+        }
+      }
+    },
+    [moveMarker, reverseGeocode],
+  );
+
+  useEffect(() => {
+    if (!editLocOpen) return;
+
+    let cancelled = false;
+
+    const initMap = async () => {
+      try {
+        const L = await ensureLeaflet();
+        if (cancelled || !mapBoxRef.current) return;
+
+        if (mapRef.current) {
+          try {
+            mapRef.current.off();
+            mapRef.current.remove();
+          } catch {}
+          mapRef.current = null;
+          markerRef.current = null;
+        }
+
+        const lat = Number(locDraft.lat || locSaved.lat);
+        const lng = Number(locDraft.lng || locSaved.lng);
+        const hasCoord = Number.isFinite(lat) && Number.isFinite(lng);
+
+        const startLat = hasCoord ? lat : 0.5071;
+        const startLng = hasCoord ? lng : 101.4478;
+        const startZoom = hasCoord ? 16 : 11;
+
+        const map = L.map(mapBoxRef.current, {
+          zoomControl: true,
+          scrollWheelZoom: true,
+        }).setView([startLat, startLng], startZoom);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution: "© OpenStreetMap",
+        }).addTo(map);
+
+        const marker = L.marker([startLat, startLng], {
+          draggable: true,
+        }).addTo(map);
+
+        marker.on("dragend", async (e) => {
+          const pos = e.target.getLatLng();
+          await applyPickedLocation(pos.lat, pos.lng, true);
+        });
+
+        map.on("click", async (e) => {
+          await applyPickedLocation(e.latlng.lat, e.latlng.lng, true);
+        });
+
+        markerRef.current = marker;
+        mapRef.current = map;
+
+        if (!hasCoord) {
+          marker.setOpacity(0.85);
+        }
+
+        setTimeout(() => {
+          map.invalidateSize();
+        }, 250);
+      } catch (e) {
+        console.warn("init map:", e);
+        setLocErr("Peta gagal dimuat.");
+      }
+    };
+
+    initMap();
+
+    return () => {
+      cancelled = true;
+      if (mapRef.current) {
+        try {
+          mapRef.current.off();
+          mapRef.current.remove();
+        } catch {}
+        mapRef.current = null;
+        markerRef.current = null;
+      }
+    };
+  }, [
+    editLocOpen,
+    locSaved.lat,
+    locSaved.lng,
+    locDraft.lat,
+    locDraft.lng,
+    applyPickedLocation,
+  ]);
+
+  const searchLocation = async () => {
+    const q = locQuery.trim();
+    if (!q) return;
+
+    setLocErr("");
+
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(
+          q,
+        )}&limit=1`,
+        {
+          headers: {
+            "Accept-Language": "id-ID",
+          },
+        },
+      );
+
+      const json = await res.json();
+      const hit = json?.[0];
+      if (!hit) {
+        setLocErr("Lokasi tidak ditemukan.");
+        return;
+      }
+
+      const lat = Number(hit.lat);
+      const lng = Number(hit.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        setLocErr("Koordinat lokasi tidak valid.");
+        return;
+      }
+
+      setLocDraft((prev) => ({
+        ...prev,
+        lat: lat.toFixed(6),
+        lng: lng.toFixed(6),
+        alamat: hit.display_name || prev.alamat,
+      }));
+      setLocDirty(true);
+
+      setTimeout(() => {
+        moveMarker(lat, lng, 16);
+      }, 120);
+    } catch {
+      setLocErr("Pencarian lokasi gagal.");
+    }
+  };
+
+  const useMyLocation = () => {
+    if (!navigator.geolocation) {
+      setLocErr("Browser tidak mendukung geolocation.");
+      return;
+    }
+
+    setLocErr("");
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = Number(position.coords.latitude).toFixed(6);
+        const lng = Number(position.coords.longitude).toFixed(6);
+
+        setLocDraft((prev) => ({
+          ...prev,
+          lat,
+          lng,
+        }));
+        setLocDirty(true);
+
+        setTimeout(() => {
+          moveMarker(lat, lng, 16);
+        }, 120);
+
+        const alamat = await reverseGeocode(lat, lng);
+        if (alamat) {
+          setLocDraft((prev) => ({
+            ...prev,
+            lat,
+            lng,
+            alamat,
+          }));
+        }
+      },
+      () => {
+        setLocErr("Gagal mengambil lokasi saat ini.");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+      },
+    );
+  };
+
+  const getDocToneClass = (kind) => {
+    if (kind === "ok") return "doc-ok";
+    if (kind === "bad") return "doc-bad";
+    if (kind === "wait") return "doc-wait";
+    return "doc-none";
+  };
+
+  const renderCardPreview = (item, row) => {
+    const url = previewUrl[item.key] || "";
+    const mime = String(row?.mime_type || "");
+    const isSapras = item.key === "sarpras";
+
+    if (!row || !url) {
+      return <div className="kpPreviewPh" />;
+    }
+
+    if (mime.startsWith("image/")) {
+      return (
+        <img
+          className={`kpPreviewImg ${isSapras ? "is-sapras" : ""}`}
+          src={url}
+          alt={item.title}
+        />
+      );
+    }
+
+    if (mime === "application/pdf") {
+      return (
+        <iframe
+          className="kpPreviewPdf"
+          title={`Preview ${item.title}`}
+          src={buildPdfPreviewUrl(url)}
+        />
+      );
+    }
+
+    return <div className="kpPreviewPh" />;
+  };
+
+  const renderUploadPreview = () => {
+    const activeUrl = selectedPreviewUrl || existingPreviewUrl;
+    const activeType = selectedPreviewType || existingPreviewType;
+
+    if (!activeUrl) {
+      return (
+        <div className="kpDropEmpty">
+          <div className="kpDropIcon">
+            <FiUpload />
+          </div>
+          <div className="kpDropText">
+            <div className="kpDropMain">Klik untuk pilih file</div>
+            <div className="kpDropSub">atau drag &amp; drop file di sini</div>
+          </div>
+        </div>
+      );
+    }
+
+    if (String(activeType).startsWith("image/")) {
+      return (
+        <div className="kpUploadPreviewWrap">
+          <img
+            className="kpUploadPreviewImg"
+            src={activeUrl}
+            alt="Preview upload"
+          />
+          {selectedFile ? (
+            <button
+              type="button"
+              className="kpUploadRemove"
+              onClick={(e) => {
+                e.stopPropagation();
+
+                if (
+                  selectedPreviewUrl &&
+                  selectedPreviewUrl.startsWith("blob:")
+                ) {
+                  URL.revokeObjectURL(selectedPreviewUrl);
+                }
+
+                setSelectedFile(null);
+                setSelectedPreviewUrl("");
+                setSelectedPreviewType("");
+                setUploadErr("");
+                if (fileRef.current) fileRef.current.value = "";
+              }}
+            >
+              <FiX />
+            </button>
+          ) : null}
+        </div>
+      );
+    }
+
+    if (activeType === "application/pdf") {
+      return (
+        <div className="kpUploadPdfWrap">
+          <iframe
+            className="kpUploadPdfFrame"
+            title="Preview PDF Upload"
+            src={buildPdfPreviewUrl(activeUrl)}
+          />
+          <div className="kpDropSub kpPdfName">
+            {selectedFile?.name || "Upload Terbaru"}
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
+
+  if (!posbankumId) {
+    return (
+      <section className="kpRoot kdpRoot">
+        <div className="kpBox kpError">
+          <b>Profile belum lengkap</b>
+          <div className="kpMuted" style={{ marginTop: 6 }}>
+            id_posbankum tidak ada pada profile user ini.
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="kpRoot kdpRoot">
+      <SuccessToast
+        message={successMessage}
+        onClose={() => setSuccessMessage("")}
+      />
+
+      <div className="kpPageHead">
+        <div>
+          <div className="kpTitle">Kelola Data Posbankum</div>
+          <div className="kpTitleUnderline" />
+        </div>
+      </div>
+
+      <div className="kpStats">
+        <div className="kpStatCard stat-total">
+          <div className="kpStatIcon is-stat">
+            <FiFileText />
+          </div>
+          <div className="kpStatText">
+            <div className="kpStatLabel">Total</div>
+            <div className="kpStatValue">{stats.total}</div>
+          </div>
+        </div>
+
+        <div className="kpStatCard stat-ok">
+          <div className="kpStatIcon is-stat">
+            <FiCheckCircle />
+          </div>
+          <div className="kpStatText">
+            <div className="kpStatLabel">Diterima</div>
+            <div className="kpStatValue">{stats.ok}</div>
+          </div>
+        </div>
+
+        <div className="kpStatCard stat-wait">
+          <div className="kpStatIcon is-stat">
+            <FiClock />
+          </div>
+          <div className="kpStatText">
+            <div className="kpStatLabel">Proses</div>
+            <div className="kpStatValue">{stats.wait}</div>
+          </div>
+        </div>
+
+        <div className="kpStatCard stat-bad">
+          <div className="kpStatIcon is-stat">
+            <FiXCircle />
+          </div>
+          <div className="kpStatText">
+            <div className="kpStatLabel">Ditolak</div>
+            <div className="kpStatValue">{stats.bad}</div>
+          </div>
+        </div>
+
+        <div className="kpStatCard stat-none">
+          <div className="kpStatIcon is-stat">
+            <FiUpload />
+          </div>
+          <div className="kpStatText">
+            <div className="kpStatLabel">Belum</div>
+            <div className="kpStatValue">{stats.none}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="kpHint">
+        <div className="kpHintHead">
+          <div className="kpHintIcon">
+            <FiInfo />
+          </div>
+          <div className="kpHintContent">
+            <div className="kpHintTitle">Petunjuk Kelola Data Posbankum</div>
+            <div className="kpHintText">
+              Lengkapi 4 data wajib: <b>SK Posbankum</b>, <b>SK Kadarkum</b>,{" "}
+              <b>Dokumentasi Sapras</b> (format PDF/JPG/PNG, max 5MB), dan{" "}
+              <b>Tagging Area</b>. Untuk Tagging Area, atur lokasi melalui peta
+              lalu simpan. Status awal data yang baru disimpan adalah{" "}
+              <b>Proses</b> sampai admin mengubahnya menjadi <b>Diterima</b>{" "}
+              atau <b>Ditolak</b>.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="kpDocs kpDocsMain">
+        {docTypes.map((item) => {
+          const row = docsLatest[item.key];
+          const kind = row ? statusKind(row.status_verifikasi) : "none";
+          const label = statusLabelFromKind(kind);
+          const note =
+            row?.catatan_admin ??
+            row?.catatan ??
+            row?.keterangan ??
+            row?.note ??
+            "";
+          const uploadAt = row?.tgl_upload ? formatDateID(row.tgl_upload) : "-";
+
+          return (
+            <div
+              className={`kpDocCard ${getDocToneClass(kind)}`}
+              key={item.key}
+            >
+              <div className="kpDocTop">
+                <div className="kpDocTitle">{item.title}</div>
+                <div
+                  className={[
+                    "kpStatusPill",
+                    kind === "ok"
+                      ? "is-ok"
+                      : kind === "wait"
+                        ? "is-wait"
+                        : kind === "bad"
+                          ? "is-bad"
+                          : "is-none",
+                  ].join(" ")}
+                >
+                  {kind === "ok" ? (
+                    <FiCheckCircle />
+                  ) : kind === "wait" ? (
+                    <FiClock />
+                  ) : kind === "bad" ? (
+                    <FiXCircle />
+                  ) : (
+                    <FiUpload />
+                  )}
+                  <span>{label}</span>
+                </div>
+              </div>
+
+              <div className="kpDocMeta">Upload: {uploadAt}</div>
+
+              <div className="kpPreview">{renderCardPreview(item, row)}</div>
+
+              {kind === "bad" && note ? (
+                <div className="kpAdminNote">
+                  <div className="kpAdminNoteTitle">Catatan Admin:</div>
+                  <div className="kpAdminNoteText">{note}</div>
+                </div>
+              ) : null}
+
+              <div className="kpDocActions">
+                <button
+                  className={[
+                    "kpBtnPrimary",
+                    kind === "bad" ? "is-danger" : "is-blue",
+                  ].join(" ")}
+                  type="button"
+                  onClick={() => openUpload(item.key)}
+                  disabled={uploading}
+                >
+                  <FiUpload />
+                  Ganti
+                </button>
+
+                <button
+                  className="kpBtnIcon"
+                  type="button"
+                  onClick={() =>
+                    row && openDetail(row, `${item.title} ${posName}`)
+                  }
+                  disabled={!row?.path_berkas}
+                  title="Lihat"
+                >
+                  <FiEye />
+                </button>
+              </div>
+            </div>
+          );
+        })}
+
+        <div className={`kpDocCard kpMapCard ${getDocToneClass(locationKind)}`}>
+          <div className="kpDocTop">
+            <div className="kpDocTitle">Tagging Area</div>
+            <div
+              className={[
+                "kpStatusPill",
+                locationKind === "ok"
+                  ? "is-ok"
+                  : locationKind === "wait"
+                    ? "is-wait"
+                    : locationKind === "bad"
+                      ? "is-bad"
+                      : "is-none",
+              ].join(" ")}
+            >
+              {locationKind === "ok" ? (
+                <FiCheckCircle />
+              ) : locationKind === "wait" ? (
+                <FiClock />
+              ) : locationKind === "bad" ? (
+                <FiXCircle />
+              ) : (
+                <FiUpload />
+              )}
+              <span>{hasSavedCoords ? locationLabel : "Belum"}</span>
+            </div>
+          </div>
+
+          <div className="kpDocMeta">
+            Upload: {posRow?.updated_at ? formatDateID(posRow.updated_at) : "-"}
+          </div>
+
+          <div className="kpPreview">
+            <div className="kpLocMap">
+              {hasSavedCoords ? (
+                <div className="kpLocMapPreview">
+                  <iframe
+                    className="kpLocFrame"
+                    title="Tagging Area"
+                    src={buildOsmEmbed(locSaved.lat, locSaved.lng)}
+                  />
+                  <div className="kpLocPreviewShield" aria-hidden="true" />
+                </div>
+              ) : (
+                <div className="kpLocMapPh">
+                  <FiMapPin />
+                  <span>Lokasi belum diatur</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="kpLocMiniCoords">
+            <FiMapPin />
+            <span>
+              {hasSavedCoords ? `${locSaved.lat}, ${locSaved.lng}` : "-"}
+            </span>
+          </div>
+
+          <div className="kpDocActions">
+            <button
+              className="kpBtnPrimary is-blue"
+              type="button"
+              onClick={() => {
+                setLocErr("");
+                setLocQuery("");
+                setLocDraft({
+                  lat: locSaved.lat || "",
+                  lng: locSaved.lng || "",
+                  alamat: locSaved.alamat || "",
+                });
+                setLocDirty(false);
+                setEditLocOpen(true);
+              }}
+            >
+              <FiMapPin />
+              Atur Lokasi
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {uploadOpen && (
+        <div className="kpModalOverlay" role="dialog" aria-modal="true">
+          <div className="kpModalCard kpModalUpload">
+            <div className="kpModalHead">
+              <div className="kpModalHeadTitle">{uploadTitle}</div>
+              <button
+                className="kpModalClose"
+                type="button"
+                onClick={closeUpload}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="kpModalBody kpModalBodyScroll">
+              <div className="kpRuleBox">
+                <div className="kpRuleTitle">Ketentuan Upload Dokumen</div>
+                <ul className="kpRuleList">
+                  <li>Format file: PDF, JPG, PNG</li>
+                  <li>Ukuran maksimal: 5MB</li>
+                  <li>Pastikan dokumen terbaca dengan jelas</li>
+                  <li>Gunakan scan berkualitas tinggi untuk dokumen fisik</li>
+                  <li>Pastikan semua informasi terlihat lengkap</li>
+                </ul>
+              </div>
+
+              <div
+                className="kpDrop kpDropPreview"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={onDrop}
+                onClick={pickFile}
+                role="button"
+                tabIndex={0}
+              >
+                {renderUploadPreview()}
+              </div>
+
+              {uploadErr ? <div className="kpModalErr">{uploadErr}</div> : null}
+
+              <div className="kpModalActions">
+                <button
+                  className="kpBtnGhost"
+                  type="button"
+                  onClick={closeUpload}
+                  disabled={uploading}
+                >
+                  Batal
+                </button>
+                <button
+                  className="kpBtnSave"
+                  type="button"
+                  onClick={doUpload}
+                  disabled={uploading || !selectedFile}
+                >
+                  {uploading ? "Upload..." : "Upload"}
+                </button>
+              </div>
+            </div>
+
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,image/png,image/jpeg"
+              style={{ display: "none" }}
+              onChange={onFileChange}
+            />
+          </div>
+        </div>
+      )}
+
+      {detailOpen && (
+        <div className="kpModalOverlay" role="dialog" aria-modal="true">
+          <div className="kpModalCard kpModalMedium">
+            <div className="kpModalHead">
+              <div className="kpModalHeadTitle">{detailTitle}</div>
+              <button
+                className="kpModalClose"
+                type="button"
+                onClick={closeDetail}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="kpModalBody kpModalBodyPreview kpModalBodyScroll">
+              <div className="kpPreviewBig">
+                {detailLoading ? (
+                  <div className="kpPreviewBigText">Memuat...</div>
+                ) : detailErr ? (
+                  <div className="kpPreviewBigText">{detailErr}</div>
+                ) : detailUrl ? (
+                  String(detailRow?.mime_type || "").startsWith("image/") ? (
+                    <img
+                      className="kpPreviewBigImg"
+                      src={detailUrl}
+                      alt="Preview"
+                    />
+                  ) : (
+                    <iframe
+                      className="kpPreviewBigFrame"
+                      title="Preview"
+                      src={buildPdfPreviewUrl(detailUrl)}
+                    />
+                  )
+                ) : (
+                  <div className="kpPreviewBigText">Tidak ada preview.</div>
+                )}
+              </div>
+
+              <div className="kpModalActions kpModalActionsPreview">
+                <button
+                  className="kpBtnGhost"
+                  type="button"
+                  onClick={closeDetail}
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editLocOpen && (
+        <div className="kpModalOverlay" role="dialog" aria-modal="true">
+          <div className="kpModalCard kpModalLoc">
+            <div className="kpModalHead">
+              <div className="kpModalHeadTitle">
+                <FiMapPin />
+                Edit Lokasi Posbankum
+              </div>
+              <button
+                className="kpModalClose"
+                type="button"
+                onClick={() => setEditLocOpen(false)}
+                disabled={savingLoc}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="kpModalBody kpModalBodyScroll">
+              <div className="kpLocSearchRow">
+                <div className="kpLocSearch">
+                  <FiSearch className="kpLocSearchIcon" />
+                  <input
+                    className="kpLocSearchInput"
+                    placeholder="Cari lokasi (contoh: Jl. Sudirman, Pekanbaru)"
+                    value={locQuery}
+                    onChange={(e) => setLocQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") searchLocation();
+                    }}
+                  />
+                </div>
+
+                <button
+                  className="kpLocCariBtn"
+                  type="button"
+                  onClick={searchLocation}
+                >
+                  Cari
+                </button>
+
+                <button
+                  className="kpLocGpsBtn"
+                  type="button"
+                  onClick={useMyLocation}
+                  title="Gunakan lokasi saat ini"
+                >
+                  <MdLocationSearching />
+                </button>
+              </div>
+
+              <div className="kpMapWrap">
+                <div className="kpMapBox" ref={mapBoxRef} />
+              </div>
+
+              <div className="kpLocFormGrid">
+                <div className="kpField">
+                  <div className="kpFieldLabel">Latitude</div>
+                  <input
+                    className="kpFieldInput"
+                    value={locDraft.lat}
+                    onChange={(e) => {
+                      setLocDraft((prev) => ({ ...prev, lat: e.target.value }));
+                      setLocDirty(true);
+                    }}
+                    onBlur={() => moveMarker(locDraft.lat, locDraft.lng, 16)}
+                  />
+                </div>
+
+                <div className="kpField">
+                  <div className="kpFieldLabel">Longitude</div>
+                  <input
+                    className="kpFieldInput"
+                    value={locDraft.lng}
+                    onChange={(e) => {
+                      setLocDraft((prev) => ({ ...prev, lng: e.target.value }));
+                      setLocDirty(true);
+                    }}
+                    onBlur={() => moveMarker(locDraft.lat, locDraft.lng, 16)}
+                  />
+                </div>
+              </div>
+
+              <div className="kpField kpFieldAlamat">
+                <div className="kpFieldLabel">Alamat Lengkap</div>
+                <textarea
+                  className="kpFieldTextarea"
+                  value={locDraft.alamat}
+                  onChange={(e) => {
+                    setLocDraft((prev) => ({
+                      ...prev,
+                      alamat: e.target.value,
+                    }));
+                    setLocDirty(true);
+                  }}
+                />
+              </div>
+
+              <div className="kpTip">
+                <FiInfo />
+                <span>
+                  <b>Tip:</b> Geser marker atau klik pada peta untuk memilih
+                  koordinat, atau gunakan tombol lokasi untuk mendapatkan posisi
+                  saat ini.
+                </span>
+              </div>
+
+              {locErr ? <div className="kpInlineErr">{locErr}</div> : null}
+
+              <div className="kpModalActions">
+                <button
+                  className="kpBtnGhost"
+                  type="button"
+                  onClick={() => setEditLocOpen(false)}
+                  disabled={savingLoc}
+                >
+                  Batal
+                </button>
+                <button
+                  className="kpBtnSave"
+                  type="button"
+                  onClick={saveLocation}
+                  disabled={!locDirty || savingLoc}
+                >
+                  <FiSave />
+                  {savingLoc ? "Menyimpan..." : "Simpan Lokasi"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {loadingDocs ? <div className="kpLoading">Memuat...</div> : null}
+    </section>
+  );
+}

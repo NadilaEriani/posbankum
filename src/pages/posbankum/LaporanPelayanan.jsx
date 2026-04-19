@@ -1,0 +1,1994 @@
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "../../lib/supabaseClient";
+import SuccessToast from "../../components/ui/SuccessToast";
+import DeleteConfirmModal from "../../components/ui/DeleteConfirmModal";
+import {
+  FiFileText,
+  FiClock,
+  FiCheckCircle,
+  FiAlertTriangle,
+  FiTrendingUp,
+  FiCalendar,
+  FiPlus,
+  FiRotateCcw,
+  FiBarChart2,
+  FiSearch,
+  FiFilter,
+  FiEye,
+  FiTrash2,
+  FiPrinter,
+  FiX,
+  FiUser,
+  FiPhone,
+  FiMail,
+  FiMapPin,
+  FiUsers,
+  FiSend,
+  FiPaperclip,
+  FiChevronDown,
+  FiInfo,
+} from "react-icons/fi";
+import "./laporanPelayanan.css";
+
+const STORAGE_BUCKET = "pengaduan-lampiran";
+
+const PARALEGAL_OPTIONS = [
+  { nama: "Ahmad Fauzi, S.H.", hp: "0813-7200-3452" },
+  { nama: "Siti Rahma, S.H.", hp: "0812-6677-8899" },
+  { nama: "Yuni Kartika, S.H.", hp: "0813-9876-1234" },
+];
+
+function toTitleCase(value) {
+  return String(value || "")
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function formatDateID(dateStr) {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function getDaysDiff(dateStr) {
+  if (!dateStr) return 0;
+  const start = new Date(dateStr);
+  const now = new Date("2026-02-25T00:00:00");
+  if (Number.isNaN(start.getTime())) return 0;
+  return Math.max(0, Math.ceil((now - start) / (1000 * 60 * 60 * 24)));
+}
+
+function getPriorityLabel(v) {
+  if (v === "tinggi") return "Tinggi";
+  if (v === "sedang") return "Sedang";
+  return "Rendah";
+}
+
+function getStatusLabel(v) {
+  return v === "selesai" ? "Selesai" : "Diproses";
+}
+
+function buildStats(reports) {
+  const total = reports.length;
+  const aktif = reports.filter((x) => x.status === "diproses").length;
+  const selesai = reports.filter((x) => x.status === "selesai").length;
+  const tinggi = reports.filter((x) => x.prioritas === "tinggi").length;
+  const tingkatSelesai = total ? Math.round((selesai / total) * 100) : 0;
+  const avgHari = total
+    ? Math.round(
+        reports.reduce((sum, x) => sum + getDaysDiff(x.tanggal_kejadian), 0) /
+          total,
+      )
+    : 0;
+
+  return {
+    total,
+    aktif,
+    selesai,
+    tinggi,
+    tingkatSelesai,
+    avgHari,
+  };
+}
+
+function parseCatatanAdmin(raw) {
+  if (!raw) return {};
+
+  if (typeof raw === "object" && !Array.isArray(raw)) {
+    return raw;
+  }
+
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      console.warn("Gagal parse catatan_admin:", error, raw);
+      return {};
+    }
+  }
+
+  return {};
+}
+function buildCatatanAdmin(formData, profile) {
+  return JSON.stringify({
+    nik: formData.nik || "",
+    nama_lurah: formData.nama_lurah || "",
+    prioritas: formData.prioritas || "sedang",
+    paralegal_nama: formData.paralegal_nama || "",
+    paralegal_hp: formData.paralegal_hp || "",
+    catatan_internal: formData.catatan_internal || "",
+    updates: [
+      {
+        title: "Laporan Diterima",
+        date: formatDateID(new Date().toISOString()),
+        time: new Date().toLocaleTimeString("id-ID", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        desc: "Laporan berhasil dibuat dan masuk ke antrian pemeriksaan awal.",
+        by: profile?.full_name || "Admin Posbankum",
+      },
+    ],
+  });
+}
+function formatTimeID(dateStr) {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function mapDbToUi(row, lampiran = [], timeline = []) {
+  const extra = parseCatatanAdmin(row.catatan_admin);
+
+  const fallbackUpdates = [
+    {
+      title: row.status === "selesai" ? "Laporan Selesai" : "Laporan Diterima",
+      date: formatDateID(row.created_at || row.tanggal_kejadian),
+      time: row.waktu_kejadian || "-",
+      desc: extra.catatan_internal || "Laporan telah masuk ke sistem.",
+      by: extra.paralegal_nama || "Admin Posbankum",
+    },
+  ];
+
+  const mappedTimeline = (timeline || []).map((item) => ({
+    title: item.title || "Update",
+    date: formatDateID(item.tanggal || item.created_at),
+    time: formatTimeID(item.tanggal || item.created_at),
+    desc: item.deskripsi || "-",
+    by: item.created_by_name || "Admin Posbankum",
+  }));
+
+  return {
+    id_pengaduan: row.id_pengaduan,
+    nomor_pengaduan: row.nomor_pengaduan || "",
+    nama_pelapor: row.nama_pelapor || "",
+    nik: extra.nik || "",
+    nomor_telepon: row.nomor_telepon || "",
+    email: row.email || "",
+    nama_lurah: extra.nama_lurah || "",
+    jenis_masalah: row.jenis_masalah || "",
+    judul_pengaduan: row.judul_pengaduan || "",
+    kronologi: row.kronologi || "",
+    tanggal_kejadian: row.tanggal_kejadian || "",
+    waktu_kejadian: row.waktu_kejadian || "",
+    lokasi_kejadian: row.lokasi_kejadian || "",
+    provinsi: row.provinsi || "",
+    kabupaten_kota: row.kabupaten_kota || "",
+    kecamatan: row.kecamatan || "",
+    status: row.status || "diproses",
+    prioritas: extra.prioritas || "sedang",
+    created_at: row.created_at || "",
+    paralegal_nama: extra.paralegal_nama || "",
+    paralegal_hp: extra.paralegal_hp || "",
+    lampiran,
+    updates: mappedTimeline.length
+      ? mappedTimeline
+      : Array.isArray(extra.updates) && extra.updates.length
+        ? extra.updates
+        : fallbackUpdates,
+  };
+}
+
+async function generateNomorPengaduan(id_posbankum) {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+
+  const start = new Date(year, now.getMonth(), 1).toISOString();
+  const end = new Date(year, now.getMonth() + 1, 1).toISOString();
+
+  const { count, error } = await supabase
+    .from("pengaduan")
+    .select("id_pengaduan", { count: "exact", head: true })
+    .eq("id_posbankum", id_posbankum)
+    .gte("created_at", start)
+    .lt("created_at", end);
+
+  if (error) throw error;
+
+  const nomorUrut = String((count || 0) + 1).padStart(3, "0");
+  return `PBKT/${year}/${month}/${nomorUrut}`;
+}
+
+function sanitizeFileName(name) {
+  return String(name || "")
+    .replace(/\s+/g, "-")
+    .replace(/[^a-zA-Z0-9._-]/g, "");
+}
+
+export default function KelolaPengaduan({ profile }) {
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [tab, setTab] = useState("aktif");
+  const [search, setSearch] = useState("");
+  const [priorityFilter, setPriorityFilter] = useState("semua");
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [showDetail, setShowDetail] = useState(false);
+  const [previewFile, setPreviewFile] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [deleteTargetId, setDeleteTargetId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
+  const [formData, setFormData] = useState({
+    nama_pelapor: "",
+    nik: "",
+    nomor_telepon: "",
+    email: "",
+    nama_lurah: "",
+    jenis_masalah: "",
+    prioritas: "",
+    judul_pengaduan: "",
+    kronologi: "",
+    tanggal_kejadian: "",
+    waktu_kejadian: "",
+    lokasi_kejadian: "",
+    paralegal_nama: "",
+    paralegal_hp: "",
+    catatan_internal: "",
+    lampiran: [],
+  });
+
+  async function loadReports() {
+    if (!profile?.id_posbankum) {
+      setReports([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setErrorMessage("");
+
+    try {
+      const { data: pengaduanRows, error: pengaduanError } = await supabase
+        .from("pengaduan")
+        .select(
+          `
+          id_pengaduan,
+          id_posbankum,
+          nomor_pengaduan,
+          nama_pelapor,
+          nomor_telepon,
+          email,
+          jenis_masalah,
+          judul_pengaduan,
+          kronologi,
+          tanggal_kejadian,
+          waktu_kejadian,
+          lokasi_kejadian,
+          provinsi,
+          kabupaten_kota,
+          kecamatan,
+          id_kabupaten,
+          id_kecamatan,
+          status,
+          catatan_admin,
+          created_by,
+          created_at,
+          updated_at
+        `,
+        )
+        .eq("id_posbankum", profile.id_posbankum)
+        .order("created_at", { ascending: false });
+
+      if (pengaduanError) throw pengaduanError;
+
+      const ids = (pengaduanRows || []).map((x) => x.id_pengaduan);
+
+      let lampiranRows = [];
+      let timelineRows = [];
+      if (ids.length) {
+        const { data: timelineData, error: timelineError } = await supabase
+          .from("pengaduan_timeline")
+          .select(
+            `
+      id_timeline,
+      id_pengaduan,
+      title,
+      deskripsi,
+      tanggal,
+      created_by,
+      created_at
+    `,
+          )
+          .in("id_pengaduan", ids)
+          .order("tanggal", { ascending: true });
+
+        if (timelineError) throw timelineError;
+        timelineRows = timelineData || [];
+      }
+      const timelineUserIds = Array.from(
+        new Set((timelineRows || []).map((x) => x.created_by).filter(Boolean)),
+      );
+
+      let timelineProfileMap = new Map();
+      if (timelineUserIds.length) {
+        const { data: timelineProfiles, error: timelineProfilesError } =
+          await supabase
+            .from("profiles")
+            .select("id, full_name")
+            .in("id", timelineUserIds);
+
+        if (timelineProfilesError) throw timelineProfilesError;
+
+        timelineProfileMap = new Map(
+          (timelineProfiles || []).map((x) => [x.id, x.full_name]),
+        );
+      }
+      const timelineMap = new Map();
+      for (const item of timelineRows) {
+        const normalized = {
+          ...item,
+          created_by_name:
+            timelineProfileMap.get(item.created_by) || "Admin Posbankum",
+        };
+
+        if (!timelineMap.has(item.id_pengaduan)) {
+          timelineMap.set(item.id_pengaduan, []);
+        }
+        timelineMap.get(item.id_pengaduan).push(normalized);
+      }
+      if (ids.length) {
+        const { data: lampiranData, error: lampiranError } = await supabase
+          .from("pengaduan_lampiran")
+          .select(
+            `
+            id_lampiran,
+            id_pengaduan,
+            nama_file,
+            path_file,
+            mime_type,
+            size_bytes,
+            created_at
+          `,
+          )
+          .in("id_pengaduan", ids)
+          .order("created_at", { ascending: true });
+
+        if (lampiranError) throw lampiranError;
+        lampiranRows = lampiranData || [];
+      }
+
+      const lampiranMap = new Map();
+      for (const item of lampiranRows) {
+        if (!lampiranMap.has(item.id_pengaduan)) {
+          lampiranMap.set(item.id_pengaduan, []);
+        }
+        lampiranMap.get(item.id_pengaduan).push(item);
+      }
+
+      const mapped = (pengaduanRows || []).map((row) =>
+        mapDbToUi(
+          row,
+          lampiranMap.get(row.id_pengaduan) || [],
+          timelineMap.get(row.id_pengaduan) || [],
+        ),
+      );
+
+      setReports(mapped);
+    } catch (err) {
+      console.error("loadReports error:", err);
+      setErrorMessage(err.message || "Gagal memuat data laporan.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (profile?.id_posbankum) {
+      loadReports();
+    } else {
+      setReports([]);
+      setLoading(false);
+    }
+  }, [profile?.id_posbankum]);
+
+  const stats = useMemo(() => buildStats(reports), [reports]);
+
+  const activeReports = useMemo(
+    () => reports.filter((x) => x.status === "diproses"),
+    [reports],
+  );
+
+  const completedReports = useMemo(
+    () => reports.filter((x) => x.status === "selesai"),
+    [reports],
+  );
+
+  const filteredReports = useMemo(() => {
+    const source = tab === "riwayat" ? completedReports : activeReports;
+
+    return source.filter((item) => {
+      const keyword = search.trim().toLowerCase();
+      const matchesSearch =
+        !keyword ||
+        item.nama_pelapor.toLowerCase().includes(keyword) ||
+        item.nik.toLowerCase().includes(keyword) ||
+        item.nomor_pengaduan.toLowerCase().includes(keyword) ||
+        item.judul_pengaduan.toLowerCase().includes(keyword);
+
+      const matchesPriority =
+        priorityFilter === "semua" || item.prioritas === priorityFilter;
+
+      return matchesSearch && matchesPriority;
+    });
+  }, [tab, activeReports, completedReports, search, priorityFilter]);
+
+  const jenisStats = useMemo(() => {
+    const jenisList = [
+      "Pidana",
+      "Perdata",
+      "Ketenagakerjaan",
+      "Keluarga",
+      "Pertanahan",
+      "Konsumen",
+    ];
+
+    return jenisList.map((jenis) => {
+      const count = reports.filter((x) => x.jenis_masalah === jenis).length;
+      const percentage = reports.length
+        ? Math.round((count / reports.length) * 100)
+        : 0;
+      return { jenis, count, percentage };
+    });
+  }, [reports]);
+
+  const priorityStats = useMemo(() => {
+    const priorities = ["tinggi", "sedang", "rendah"];
+    return priorities.map((priority) => {
+      const count = reports.filter((x) => x.prioritas === priority).length;
+      const percentage = reports.length
+        ? Math.round((count / reports.length) * 100)
+        : 0;
+      return { priority, count, percentage };
+    });
+  }, [reports]);
+
+  const handleOpenDetail = (report) => {
+    setSelectedReport(report);
+    setShowDetail(true);
+  };
+
+  const handleCloseDetail = () => {
+    setShowDetail(false);
+    setSelectedReport(null);
+    setShowPreview(false);
+    setPreviewFile(null);
+  };
+  const isImageFile = (file) => {
+    const mime = String(file?.mime_type || "").toLowerCase();
+    const name = String(file?.nama_file || "").toLowerCase();
+
+    return (
+      mime.startsWith("image/") ||
+      name.endsWith(".png") ||
+      name.endsWith(".jpg") ||
+      name.endsWith(".jpeg") ||
+      name.endsWith(".webp") ||
+      name.endsWith(".gif") ||
+      name.endsWith(".bmp")
+    );
+  };
+
+  const handleClosePreview = () => {
+    setShowPreview(false);
+    setPreviewFile(null);
+  };
+
+  const handleOpenLampiran = async (file) => {
+    try {
+      if (!file?.path_file) {
+        alert("File lampiran tidak ditemukan.");
+        return;
+      }
+
+      setPreviewLoading(true);
+
+      const { data, error } = await supabase.storage
+        .from(STORAGE_BUCKET)
+        .createSignedUrl(file.path_file, 3600);
+
+      if (error) throw error;
+
+      const signedUrl = data?.signedUrl;
+      if (!signedUrl) {
+        throw new Error("URL file tidak berhasil dibuat.");
+      }
+
+      if (isImageFile(file)) {
+        setPreviewFile({
+          ...file,
+          signedUrl,
+        });
+        setShowPreview(true);
+        return;
+      }
+
+      window.open(signedUrl, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      console.error("handleOpenLampiran error:", err);
+      alert(err.message || "Gagal membuka lampiran.");
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleDelete = async (id_pengaduan) => {
+    setDeleteTargetId(id_pengaduan);
+  };
+
+  const confirmDelete = async () => {
+    const id_pengaduan = deleteTargetId;
+    if (!id_pengaduan || deleting) return;
+    setDeleting(true);
+
+    try {
+      const { data: lampiranRows, error: lampiranError } = await supabase
+        .from("pengaduan_lampiran")
+        .select("id_lampiran, path_file")
+        .eq("id_pengaduan", id_pengaduan);
+
+      if (lampiranError) throw lampiranError;
+
+      const paths = (lampiranRows || [])
+        .map((x) => x.path_file)
+        .filter(Boolean);
+
+      if (paths.length) {
+        const { error: storageDeleteError } = await supabase.storage
+          .from(STORAGE_BUCKET)
+          .remove(paths);
+
+        if (storageDeleteError) throw storageDeleteError;
+      }
+
+      const { error: lampiranDeleteError } = await supabase
+        .from("pengaduan_lampiran")
+        .delete()
+        .eq("id_pengaduan", id_pengaduan);
+
+      if (lampiranDeleteError) throw lampiranDeleteError;
+
+      const { error: pengaduanDeleteError } = await supabase
+        .from("pengaduan")
+        .delete()
+        .eq("id_pengaduan", id_pengaduan);
+
+      if (pengaduanDeleteError) throw pengaduanDeleteError;
+
+      await loadReports();
+      setDeleteTargetId(null);
+    } catch (err) {
+      console.error("handleDelete error:", err);
+      alert(err.message || "Gagal menghapus laporan.");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handlePrint = () => {
+    if (!selectedReport) return;
+
+    const printWindow = window.open("", "_blank", "width=1000,height=900");
+    if (!printWindow) {
+      alert("Popup diblokir browser. Izinkan popup untuk print.");
+      return;
+    }
+
+    const updatesHtml = (selectedReport.updates || [])
+      .map(
+        (u) => `
+          <div class="print-timeline-item">
+            <div class="print-timeline-title-row">
+              <div class="print-timeline-title">${u.title}</div>
+              <div class="print-timeline-date">${u.date}</div>
+            </div>
+            <div class="print-timeline-desc">${u.desc}</div>
+            <div class="print-timeline-meta">
+              <span>${u.time}</span>
+              <span>${u.by}</span>
+            </div>
+          </div>
+        `,
+      )
+      .join("");
+
+    const lampiranHtml = (selectedReport.lampiran || [])
+      .map(
+        (file) => `
+          <div class="print-attachment-item">${file.nama_file}</div>
+        `,
+      )
+      .join("");
+
+    const html = `
+      <!doctype html>
+      <html>
+        <head>
+          <title>Print Laporan Pelayanan</title>
+          <meta charset="utf-8" />
+          <style>
+            @page {
+              size: A4;
+              margin: 18mm;
+            }
+
+            * {
+              box-sizing: border-box;
+            }
+
+            body {
+              font-family: Arial, Helvetica, sans-serif;
+              color: #374151;
+              margin: 0;
+              background: #ffffff;
+            }
+
+            .print-wrap {
+              width: 100%;
+            }
+
+            .print-header {
+              margin-bottom: 18px;
+            }
+
+            .print-title {
+              font-size: 28px;
+              font-weight: 700;
+              color: #111827;
+              margin-bottom: 6px;
+            }
+
+            .print-sub {
+              font-size: 14px;
+              color: #4b5563;
+            }
+
+            .print-section {
+              margin-top: 18px;
+              page-break-inside: avoid;
+            }
+
+            .print-section-title {
+              font-size: 18px;
+              font-weight: 700;
+              color: #111827;
+              padding-bottom: 8px;
+              border-bottom: 2px solid #1454C4;
+              margin-bottom: 12px;
+            }
+
+            .print-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 16px;
+            }
+
+            .print-card {
+              border: 1px solid #d1d5db;
+              border-radius: 16px;
+              padding: 14px;
+              background: #ffffff;
+            }
+
+            .print-label {
+              font-size: 12px;
+              color: #6b7280;
+              margin-bottom: 4px;
+            }
+
+            .print-value {
+              font-size: 15px;
+              font-weight: 600;
+              color: #111827;
+            }
+
+            .print-text {
+              font-size: 14px;
+              line-height: 1.65;
+              color: #374151;
+            }
+
+            .print-badge {
+              display: inline-block;
+              padding: 7px 12px;
+              border-radius: 999px;
+              font-size: 13px;
+              font-weight: 700;
+              margin-right: 8px;
+            }
+
+            .badge-blue {
+              background: #D1E1FD;
+              color: #0F3F93;
+            }
+
+            .badge-red {
+              background: #FEE2E2;
+              color: #DC2626;
+            }
+
+            .badge-green {
+              background: #DCFCE7;
+              color: #15803D;
+            }
+
+            .print-timeline-item {
+              border: 1px solid #d1d5db;
+              border-radius: 16px;
+              padding: 14px;
+              margin-bottom: 12px;
+              page-break-inside: avoid;
+            }
+
+            .print-timeline-title-row {
+              display: flex;
+              justify-content: space-between;
+              gap: 12px;
+              margin-bottom: 8px;
+            }
+
+            .print-timeline-title {
+              font-size: 16px;
+              font-weight: 700;
+              color: #111827;
+            }
+
+            .print-timeline-date {
+              font-size: 13px;
+              font-weight: 600;
+              color: #4b5563;
+              white-space: nowrap;
+            }
+
+            .print-timeline-desc {
+              font-size: 14px;
+              line-height: 1.6;
+              margin-bottom: 10px;
+            }
+
+            .print-timeline-meta {
+              display: flex;
+              justify-content: space-between;
+              gap: 12px;
+              font-size: 13px;
+              color: #4b5563;
+            }
+
+            .print-attachment-item {
+              border: 1px solid #d1d5db;
+              border-radius: 12px;
+              padding: 10px 12px;
+              margin-bottom: 8px;
+              font-size: 14px;
+            }
+
+            .print-summary {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              gap: 12px;
+              margin-top: 14px;
+            }
+
+            @media print {
+              .print-title {
+                font-size: 24px;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="print-wrap">
+            <div class="print-header">
+              <div class="print-title">Detail Laporan Pelayanan</div>
+              <div class="print-sub">${selectedReport.nomor_pengaduan}</div>
+            </div>
+
+            <div class="print-section">
+              <div class="print-section-title">Status Laporan</div>
+              <span class="print-badge badge-blue">Status: ${getStatusLabel(selectedReport.status)}</span>
+              <span class="print-badge ${
+                selectedReport.prioritas === "tinggi"
+                  ? "badge-red"
+                  : "badge-blue"
+              }">Prioritas: ${getPriorityLabel(selectedReport.prioritas)}</span>
+            </div>
+
+            <div class="print-section">
+              <div class="print-section-title">Data Pelapor</div>
+              <div class="print-grid">
+                <div class="print-card"><div class="print-label">Nama Pelapor</div><div class="print-value">${selectedReport.nama_pelapor}</div></div>
+                <div class="print-card"><div class="print-label">NIK</div><div class="print-value">${selectedReport.nik}</div></div>
+                <div class="print-card"><div class="print-label">Nomor Telepon</div><div class="print-value">${selectedReport.nomor_telepon}</div></div>
+                <div class="print-card"><div class="print-label">Email</div><div class="print-value">${selectedReport.email || "-"}</div></div>
+                <div class="print-card"><div class="print-label">Kelurahan/Kecamatan</div><div class="print-value">${selectedReport.lokasi_kejadian}, ${selectedReport.kecamatan}</div></div>
+                <div class="print-card"><div class="print-label">Nama Lurah/Kepala Desa</div><div class="print-value">${selectedReport.nama_lurah || "-"}</div></div>
+              </div>
+            </div>
+
+            <div class="print-section">
+              <div class="print-section-title">Paralegal yang Mengurus</div>
+              <div class="print-card">
+                <div class="print-value">${selectedReport.paralegal_nama}</div>
+                <div class="print-text" style="margin-top: 6px;">${selectedReport.paralegal_hp}</div>
+              </div>
+            </div>
+
+            <div class="print-section">
+              <div class="print-section-title">Informasi Laporan</div>
+              <div class="print-card" style="margin-bottom: 12px;">
+                <div class="print-label">Judul Laporan</div>
+                <div class="print-value">${selectedReport.judul_pengaduan}</div>
+              </div>
+              <div class="print-card" style="margin-bottom: 12px;">
+                <div class="print-label">Jenis Masalah</div>
+                <div class="print-value">${selectedReport.jenis_masalah}</div>
+              </div>
+              <div class="print-card">
+                <div class="print-label">Kronologi</div>
+                <div class="print-text">${selectedReport.kronologi}</div>
+              </div>
+
+              <div class="print-summary">
+                <div class="print-card">
+                  <div class="print-label">Tanggal Dibuat</div>
+                  <div class="print-value">${formatDateID(selectedReport.tanggal_kejadian)}</div>
+                </div>
+                <div class="print-card">
+                  <div class="print-label">Total Durasi</div>
+                  <div class="print-value">${getDaysDiff(selectedReport.tanggal_kejadian)} hari</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="print-section">
+              <div class="print-section-title">Lampiran (${selectedReport.lampiran?.length || 0})</div>
+              ${lampiranHtml || "<div class='print-text'>Tidak ada lampiran</div>"}
+            </div>
+
+            <div class="print-section">
+              <div class="print-section-title">Timeline Lengkap</div>
+              ${updatesHtml}
+            </div>
+          </div>
+
+          <script>
+            window.onload = function () {
+              window.print();
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.open();
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
+  const handleParalegalChange = (value) => {
+    const selected = PARALEGAL_OPTIONS.find((x) => x.nama === value);
+    setFormData((prev) => ({
+      ...prev,
+      paralegal_nama: value,
+      paralegal_hp: selected?.hp || "",
+    }));
+  };
+
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files || []).map((file) => ({
+      file,
+      nama_file: file.name,
+      mime_type: file.type || "application/octet-stream",
+      size_bytes: file.size || 0,
+    }));
+
+    setFormData((prev) => ({
+      ...prev,
+      lampiran: files,
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (
+      !formData.nama_pelapor ||
+      !formData.nik ||
+      !formData.nomor_telepon ||
+      !formData.nama_lurah ||
+      !formData.jenis_masalah ||
+      !formData.prioritas ||
+      !formData.judul_pengaduan ||
+      !formData.kronologi ||
+      !formData.tanggal_kejadian ||
+      !formData.waktu_kejadian ||
+      !formData.lokasi_kejadian ||
+      !formData.paralegal_nama
+    ) {
+      alert("Lengkapi semua field wajib.");
+      return;
+    }
+
+    if (!profile?.id_posbankum || !profile?.id) {
+      alert("Profile posbankum belum lengkap.");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const nomor_pengaduan = await generateNomorPengaduan(
+        profile.id_posbankum,
+      );
+
+      const payload = {
+        id_posbankum: profile.id_posbankum,
+        nomor_pengaduan,
+        nama_pelapor: formData.nama_pelapor,
+        nomor_telepon: formData.nomor_telepon,
+        email: formData.email || null,
+        jenis_masalah: formData.jenis_masalah,
+        judul_pengaduan: formData.judul_pengaduan,
+        kronologi: formData.kronologi,
+        tanggal_kejadian: formData.tanggal_kejadian,
+        waktu_kejadian: formData.waktu_kejadian,
+        lokasi_kejadian: formData.lokasi_kejadian,
+        provinsi: "Riau",
+        kabupaten_kota: "Kota Pekanbaru",
+        kecamatan: "Sukajadi",
+        id_kabupaten: null,
+        id_kecamatan: null,
+        status: "diproses",
+        catatan_admin: buildCatatanAdmin(formData, profile),
+        created_by: profile.id,
+      };
+
+      const { data: insertedRow, error: insertError } = await supabase
+        .from("pengaduan")
+        .insert(payload)
+        .select("id_pengaduan")
+        .single();
+
+      if (insertError) throw insertError;
+
+      const id_pengaduan = insertedRow.id_pengaduan;
+      const { error: timelineInsertError } = await supabase
+        .from("pengaduan_timeline")
+        .insert({
+          id_pengaduan,
+          title: "Laporan Diterima",
+          deskripsi:
+            "Laporan berhasil dibuat dan masuk ke antrian pemeriksaan awal.",
+          tanggal: new Date().toISOString(),
+          created_by: profile.id,
+        });
+
+      if (timelineInsertError) throw timelineInsertError;
+
+      if (formData.lampiran.length) {
+        const lampiranInsertRows = [];
+
+        for (const item of formData.lampiran) {
+          const safeName = sanitizeFileName(item.nama_file);
+          const path = `${id_pengaduan}/${Date.now()}-${safeName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from(STORAGE_BUCKET)
+            .upload(path, item.file);
+
+          if (uploadError) throw uploadError;
+
+          lampiranInsertRows.push({
+            id_pengaduan,
+            nama_file: item.nama_file,
+            path_file: path,
+            mime_type: item.mime_type,
+            size_bytes: item.size_bytes,
+          });
+        }
+
+        if (lampiranInsertRows.length) {
+          const { error: lampiranInsertError } = await supabase
+            .from("pengaduan_lampiran")
+            .insert(lampiranInsertRows);
+
+          if (lampiranInsertError) throw lampiranInsertError;
+        }
+      }
+
+      setFormData({
+        nama_pelapor: "",
+        nik: "",
+        nomor_telepon: "",
+        email: "",
+        nama_lurah: "",
+        jenis_masalah: "",
+        prioritas: "",
+        judul_pengaduan: "",
+        kronologi: "",
+        tanggal_kejadian: "",
+        waktu_kejadian: "",
+        lokasi_kejadian: "",
+        paralegal_nama: "",
+        paralegal_hp: "",
+        catatan_internal: "",
+        lampiran: [],
+      });
+
+      await loadReports();
+      setTab("aktif");
+      setSuccessMessage("Laporan berhasil disimpan!");
+    } catch (err) {
+      console.error("handleSubmit error:", err);
+      alert(err.message || "Gagal menyimpan laporan.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="lpRoot">
+      <SuccessToast
+        message={successMessage}
+        onClose={() => setSuccessMessage("")}
+      />
+      <div className="lpHeaderTitleWrap">
+        <h2 className="lpPageTitle">Laporan Pelayanan</h2>
+        <div className="lpPageUnderline" />
+      </div>
+
+      {errorMessage ? (
+        <div style={{ marginBottom: 16, color: "red" }}>{errorMessage}</div>
+      ) : null}
+
+      <div className="lpStatsGrid">
+        <div className="lpStatCard is-total">
+          <div className="lpStatIcon">
+            <FiFileText />
+          </div>
+          <div className="lpStatBody">
+            <div className="lpStatLabel">Total Laporan</div>
+            <div className="lpStatValue">{stats.total}</div>
+          </div>
+        </div>
+
+        <div className="lpStatCard is-process">
+          <div className="lpStatIcon">
+            <FiClock />
+          </div>
+          <div className="lpStatBody">
+            <div className="lpStatLabel">Sedang Proses</div>
+            <div className="lpStatValue">{stats.aktif}</div>
+          </div>
+        </div>
+
+        <div className="lpStatCard is-done">
+          <div className="lpStatIcon">
+            <FiCheckCircle />
+          </div>
+          <div className="lpStatBody">
+            <div className="lpStatLabel">Selesai</div>
+            <div className="lpStatValue">{stats.selesai}</div>
+          </div>
+        </div>
+
+        <div className="lpStatCard is-high">
+          <div className="lpStatIcon">
+            <FiAlertTriangle />
+          </div>
+          <div className="lpStatBody">
+            <div className="lpStatLabel">Prioritas Tinggi</div>
+            <div className="lpStatValue">{stats.tinggi}</div>
+          </div>
+        </div>
+
+        <div className="lpStatCard is-rate">
+          <div className="lpStatIcon">
+            <FiTrendingUp />
+          </div>
+          <div className="lpStatBody">
+            <div className="lpStatLabel">Tingkat Selesai</div>
+            <div className="lpStatValue">{stats.tingkatSelesai}%</div>
+          </div>
+        </div>
+
+        <div className="lpStatCard is-average">
+          <div className="lpStatIcon">
+            <FiCalendar />
+          </div>
+          <div className="lpStatBody">
+            <div className="lpStatLabel">Rata-rata</div>
+            <div className="lpStatValue">{stats.avgHari} hari</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="lpTabBar">
+        <button
+          type="button"
+          className={`lpTabBtn ${tab === "buat" ? "is-active" : ""}`}
+          onClick={() => setTab("buat")}
+        >
+          <FiPlus /> Buat Laporan
+        </button>
+
+        <button
+          type="button"
+          className={`lpTabBtn ${tab === "aktif" ? "is-active" : ""}`}
+          onClick={() => setTab("aktif")}
+        >
+          <FiClock /> Laporan Aktif ({activeReports.length})
+        </button>
+
+        <button
+          type="button"
+          className={`lpTabBtn ${tab === "riwayat" ? "is-active" : ""}`}
+          onClick={() => setTab("riwayat")}
+        >
+          <FiRotateCcw /> Riwayat Selesai ({completedReports.length})
+        </button>
+
+        <button
+          type="button"
+          className={`lpTabBtn ${tab === "statistik" ? "is-active" : ""}`}
+          onClick={() => setTab("statistik")}
+        >
+          <FiBarChart2 /> Statistik
+        </button>
+      </div>
+
+      {tab === "buat" ? (
+        <form className="lpFormCard" onSubmit={handleSubmit}>
+          <div className="lpInfoBox">
+            <FiInfo />
+            <div>
+              <div className="lpInfoTitle">Petunjuk Pengisian</div>
+              <div className="lpInfoText">
+                Lengkapi formulir laporan dengan data yang akurat untuk wilayah
+                Pekanbaru, Sukajadi. Field bertanda (*) wajib diisi.
+              </div>
+            </div>
+          </div>
+
+          <section className="lpSection">
+            <div className="lpSectionTitle">
+              <FiUser /> Data Pelapor
+            </div>
+
+            <div className="lpFormGrid two">
+              <div className="lpField">
+                <label>Nama Lengkap *</label>
+                <input
+                  value={formData.nama_pelapor}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      nama_pelapor: e.target.value,
+                    }))
+                  }
+                  placeholder="Masukkan nama lengkap sesuai KTP"
+                />
+              </div>
+
+              <div className="lpField">
+                <label>NIK (Nomor Induk Kependudukan) *</label>
+                <input
+                  value={formData.nik}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, nik: e.target.value }))
+                  }
+                  placeholder="16 digit NIK"
+                />
+              </div>
+
+              <div className="lpField">
+                <label>Nomor Telepon/HP *</label>
+                <input
+                  value={formData.nomor_telepon}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      nomor_telepon: e.target.value,
+                    }))
+                  }
+                  placeholder="081234567890"
+                />
+              </div>
+
+              <div className="lpField">
+                <label>Nama Lurah/Kepala Desa *</label>
+                <input
+                  value={formData.nama_lurah}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      nama_lurah: e.target.value,
+                    }))
+                  }
+                  placeholder="Nama Lurah/Kepala Desa"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="lpSection">
+            <div className="lpSectionTitle">
+              <FiFileText /> Detail Laporan
+            </div>
+
+            <div className="lpFormGrid two">
+              <div className="lpField">
+                <label>Jenis Masalah *</label>
+                <select
+                  value={formData.jenis_masalah}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      jenis_masalah: e.target.value,
+                    }))
+                  }
+                >
+                  <option value="">Pilih Jenis Masalah</option>
+                  <option value="Pidana">Pidana</option>
+                  <option value="Perdata">Perdata</option>
+                  <option value="Ketenagakerjaan">Ketenagakerjaan</option>
+                  <option value="Keluarga">Keluarga</option>
+                  <option value="Pertanahan">Pertanahan</option>
+                  <option value="Konsumen">Konsumen</option>
+                </select>
+              </div>
+
+              <div className="lpField">
+                <label>Prioritas *</label>
+                <select
+                  value={formData.prioritas}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      prioritas: e.target.value,
+                    }))
+                  }
+                >
+                  <option value="">Pilih Prioritas Laporan</option>
+                  <option value="tinggi">Tinggi</option>
+                  <option value="sedang">Sedang</option>
+                  <option value="rendah">Rendah</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="lpField">
+              <label>Judul Laporan *</label>
+              <input
+                value={formData.judul_pengaduan}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    judul_pengaduan: e.target.value,
+                  }))
+                }
+                placeholder="Ringkasan singkat masalah (max 100 karakter)"
+              />
+            </div>
+
+            <div className="lpField">
+              <label>Kronologi Kejadian *</label>
+              <textarea
+                rows={6}
+                value={formData.kronologi}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    kronologi: e.target.value,
+                  }))
+                }
+                placeholder="Jelaskan kronologi kejadian secara detail (kapan, dimana, bagaimana, siapa saja yang terlibat)..."
+              />
+            </div>
+          </section>
+
+          <section className="lpSection">
+            <div className="lpSectionTitle">
+              <FiMapPin /> Lokasi & Waktu Kejadian
+            </div>
+
+            <div className="lpFormGrid two">
+              <div className="lpField">
+                <label>Tanggal Kejadian *</label>
+                <input
+                  type="date"
+                  value={formData.tanggal_kejadian}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      tanggal_kejadian: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+
+              <div className="lpField">
+                <label>Waktu Kejadian *</label>
+                <input
+                  type="time"
+                  value={formData.waktu_kejadian}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      waktu_kejadian: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+
+            <div className="lpField">
+              <label>Lokasi Kejadian *</label>
+              <input
+                value={formData.lokasi_kejadian}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    lokasi_kejadian: e.target.value,
+                  }))
+                }
+                placeholder="Contoh: Jl. Raya Bangkinang KM 15, Kampung Tengah"
+              />
+            </div>
+          </section>
+
+          <section className="lpSection">
+            <div className="lpSectionTitle">
+              <FiUsers /> Data Paralegal yang Mengurus
+            </div>
+
+            <div className="lpFormGrid two">
+              <div className="lpField">
+                <label>Nama Paralegal *</label>
+                <select
+                  value={formData.paralegal_nama}
+                  onChange={(e) => handleParalegalChange(e.target.value)}
+                >
+                  <option value="">Pilih Paralegal</option>
+                  {PARALEGAL_OPTIONS.map((p) => (
+                    <option key={p.nama} value={p.nama}>
+                      {p.nama}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="lpField">
+                <label>Nomor HP Paralegal</label>
+                <input
+                  value={formData.paralegal_hp}
+                  readOnly
+                  placeholder="Otomatis terisi saat pilih paralegal"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="lpSection">
+            <div className="lpSectionTitle">
+              <FiPaperclip /> Lampiran Dokumen/Bukti
+            </div>
+
+            <label className="lpUploadBox">
+              <input type="file" multiple onChange={handleFileChange} />
+              <div className="lpUploadTextMain">
+                Klik untuk upload dokumen/foto
+              </div>
+              <div className="lpUploadTextSub">
+                PNG, JPG, PDF (max 5MB per file)
+              </div>
+            </label>
+
+            {formData.lampiran.length ? (
+              <div className="lpUploadList">
+                {formData.lampiran.map((f, idx) => (
+                  <div className="lpUploadItem" key={`${f.nama_file}-${idx}`}>
+                    {f.nama_file}
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </section>
+
+          <section className="lpSection">
+            <div className="lpSectionTitle">Catatan Internal Paralegal</div>
+            <div className="lpField">
+              <textarea
+                rows={4}
+                value={formData.catatan_internal}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    catatan_internal: e.target.value,
+                  }))
+                }
+                placeholder="Catatan khusus atau tindak lanjut yang diperlukan (opsional)"
+              />
+            </div>
+          </section>
+
+          <div className="lpFormActions">
+            <button
+              type="button"
+              className="lpBtn lpBtnGhost"
+              onClick={() =>
+                setFormData({
+                  nama_pelapor: "",
+                  nik: "",
+                  nomor_telepon: "",
+                  email: "",
+                  nama_lurah: "",
+                  jenis_masalah: "",
+                  prioritas: "",
+                  judul_pengaduan: "",
+                  kronologi: "",
+                  tanggal_kejadian: "",
+                  waktu_kejadian: "",
+                  lokasi_kejadian: "",
+                  paralegal_nama: "",
+                  paralegal_hp: "",
+                  catatan_internal: "",
+                  lampiran: [],
+                })
+              }
+            >
+              Reset Form
+            </button>
+
+            <button
+              type="submit"
+              className="lpBtn lpBtnPrimary"
+              disabled={saving}
+            >
+              <FiSend /> {saving ? "Menyimpan..." : "Kirim Laporan"}
+            </button>
+          </div>
+        </form>
+      ) : null}
+
+      {(tab === "aktif" || tab === "riwayat") && (
+        <>
+          <div className="lpToolbar">
+            <div className="lpSearchWrap">
+              <FiSearch />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Cari laporan (nama, NIK, nomor laporan)..."
+              />
+            </div>
+
+            <div className="lpFilterWrap">
+              <FiFilter />
+              <select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+              >
+                <option value="semua">Semua Prioritas</option>
+                <option value="tinggi">Tinggi</option>
+                <option value="sedang">Sedang</option>
+                <option value="rendah">Rendah</option>
+              </select>
+              <FiChevronDown className="lpFilterChevron" />
+            </div>
+          </div>
+
+          <div className="lpListWrap">
+            {loading ? (
+              <div className="lpEmptyBox">Memuat data laporan...</div>
+            ) : filteredReports.length ? (
+              filteredReports.map((report) => (
+                <div className="lpReportCard" key={report.id_pengaduan}>
+                  <div className="lpReportTop">
+                    <div className="lpReportTitleWrap">
+                      <div className="lpReportTitleRow">
+                        <h3 className="lpReportTitle">
+                          {report.judul_pengaduan}
+                        </h3>
+
+                        <div className="lpBadgeRow">
+                          <span className="lpBadge badgeBlue">
+                            <FiClock />
+                            {getStatusLabel(report.status)}
+                          </span>
+                          <span
+                            className={`lpBadge ${
+                              report.prioritas === "tinggi"
+                                ? "badgeRed"
+                                : report.prioritas === "sedang"
+                                  ? "badgeOrange"
+                                  : "badgeBlue"
+                            }`}
+                          >
+                            <FiAlertTriangle />
+                            {getPriorityLabel(report.prioritas)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="lpReportNo">{report.nomor_pengaduan}</div>
+
+                      <div className="lpReportMeta">
+                        <span>
+                          <FiUser /> {report.nama_pelapor}
+                        </span>
+                        <span>NIK: {report.nik}</span>
+                        <span>
+                          <FiMapPin /> {report.lokasi_kejadian}
+                        </span>
+                        <span>
+                          <FiCalendar /> {formatDateID(report.tanggal_kejadian)}
+                        </span>
+                        <span>
+                          <FiClock /> {getDaysDiff(report.tanggal_kejadian)}{" "}
+                          hari
+                        </span>
+                      </div>
+
+                      <div className="lpNameBadge">{report.paralegal_nama}</div>
+
+                      <div className="lpCategoryRow">
+                        <span className="lpCategoryBadge">
+                          {report.jenis_masalah}
+                        </span>
+                      </div>
+
+                      <p className="lpReportDesc">{report.kronologi}</p>
+                    </div>
+                  </div>
+
+                  <div className="lpUpdateBox">
+                    <div className="lpUpdateTitle">
+                      <FiRotateCcw /> Update Terakhir
+                    </div>
+                    <div className="lpUpdateItem">
+                      <div className="lpUpdateDot" />
+                      <div className="lpUpdateContent">
+                        <div className="lpUpdateHead">
+                          <strong>
+                            {report.updates?.[report.updates.length - 1]
+                              ?.title || "-"}
+                          </strong>
+                          <span>
+                            {report.updates?.[report.updates.length - 1]
+                              ?.date || "-"}{" "}
+                            •{" "}
+                            {report.updates?.[report.updates.length - 1]
+                              ?.time || "-"}
+                          </span>
+                        </div>
+                        <div className="lpUpdateDesc">
+                          {report.updates?.[report.updates.length - 1]?.desc ||
+                            "-"}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="lpReportFooter">
+                    <div className="lpReportFootText">
+                      {report.updates?.length || 0} Update •{" "}
+                      {report.lampiran?.length || 0} Lampiran
+                    </div>
+
+                    <div className="lpActionRow">
+                      {tab === "aktif" ? (
+                        <button
+                          type="button"
+                          className="lpBtn lpBtnDelete"
+                          onClick={() => handleDelete(report.id_pengaduan)}
+                        >
+                          <FiTrash2 /> Hapus
+                        </button>
+                      ) : null}
+
+                      <button
+                        type="button"
+                        className="lpBtn lpBtnDetail"
+                        onClick={() => handleOpenDetail(report)}
+                      >
+                        <FiEye /> Detail
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="lpEmptyBox">Belum ada data laporan.</div>
+            )}
+          </div>
+        </>
+      )}
+
+      {tab === "statistik" ? (
+        <div className="lpStatsPage">
+          <div className="lpStatsBoardGrid">
+            <div className="lpPanelCard">
+              <div className="lpPanelTitle">
+                <FiBarChart2 /> Berdasarkan Jenis Masalah
+              </div>
+
+              <div className="lpBarList">
+                {jenisStats.map((item) => (
+                  <div className="lpBarItem" key={item.jenis}>
+                    <div className="lpBarHead">
+                      <span>{item.jenis}</span>
+                      <strong>
+                        {item.count} ({item.percentage}%)
+                      </strong>
+                    </div>
+                    <div className="lpBarTrack">
+                      <div
+                        className="lpBarFill is-jenis"
+                        style={{ width: `${item.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="lpPanelCard">
+              <div className="lpPanelTitle">
+                <FiAlertTriangle /> Berdasarkan Prioritas
+              </div>
+
+              <div className="lpBarList">
+                {priorityStats.map((item) => (
+                  <div className="lpBarItem" key={item.priority}>
+                    <div className="lpBarHead">
+                      <span>{toTitleCase(item.priority)}</span>
+                      <strong>
+                        {item.count} ({item.percentage}%)
+                      </strong>
+                    </div>
+                    <div className="lpBarTrack">
+                      <div
+                        className={`lpBarFill ${
+                          item.priority === "tinggi"
+                            ? "is-priority-high"
+                            : item.priority === "sedang"
+                              ? "is-priority-mid"
+                              : "is-priority-low"
+                        }`}
+                        style={{ width: `${item.percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="lpPanelCard">
+            <div className="lpPanelTitle">
+              <FiTrendingUp /> Ringkasan Performa
+            </div>
+
+            <div className="lpMiniStats">
+              <div className="lpMiniStat blue">
+                <div className="lpMiniLabel">Total Laporan Februari</div>
+                <div className="lpMiniValue">{stats.total}</div>
+              </div>
+
+              <div className="lpMiniStat green">
+                <div className="lpMiniLabel">Tingkat Penyelesaian</div>
+                <div className="lpMiniValue">{stats.tingkatSelesai}%</div>
+              </div>
+
+              <div className="lpMiniStat slate">
+                <div className="lpMiniLabel">Rata-rata Durasi</div>
+                <div className="lpMiniValue">{stats.avgHari} hari</div>
+              </div>
+
+              <div className="lpMiniStat orange">
+                <div className="lpMiniLabel">Laporan Aktif</div>
+                <div className="lpMiniValue">{stats.aktif}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {showDetail && selectedReport ? (
+        <div className="lpModalOverlay" onClick={handleCloseDetail}>
+          <div className="lpModal" onClick={(e) => e.stopPropagation()}>
+            <div className="lpModalHeader">
+              <div>
+                <div className="lpModalTitle">Detail Laporan Pelayanan</div>
+                <div className="lpModalSub">
+                  {selectedReport.nomor_pengaduan}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="lpModalClose"
+                onClick={handleCloseDetail}
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="lpModalBody">
+              <div className="lpModalStatusRow">
+                <span className="lpBadge badgeBlue">
+                  <FiClock /> Status: {getStatusLabel(selectedReport.status)}
+                </span>
+                <span
+                  className={`lpBadge ${
+                    selectedReport.prioritas === "tinggi"
+                      ? "badgeRed"
+                      : selectedReport.prioritas === "sedang"
+                        ? "badgeOrange"
+                        : "badgeBlue"
+                  }`}
+                >
+                  <FiAlertTriangle />{" "}
+                  {getPriorityLabel(selectedReport.prioritas)}
+                </span>
+              </div>
+
+              <div className="lpModalGrid">
+                <div className="lpModalLeft">
+                  <section className="lpSection compact">
+                    <div className="lpSectionTitle">Data Pelapor</div>
+                    <div className="lpDetailInfoCard">
+                      <div className="lpDetailLine">
+                        <FiUser /> {selectedReport.nama_pelapor}
+                      </div>
+                      <div className="lpDetailLine">
+                        <FiFileText /> NIK: {selectedReport.nik}
+                      </div>
+                      <div className="lpDetailLine">
+                        <FiPhone /> {selectedReport.nomor_telepon}
+                      </div>
+                      <div className="lpDetailLine">
+                        <FiMail /> {selectedReport.email || "-"}
+                      </div>
+                      <div className="lpDetailLine">
+                        <FiMapPin /> {selectedReport.lokasi_kejadian},{" "}
+                        {selectedReport.kecamatan}
+                      </div>
+                      <div className="lpDetailLine">
+                        <FiMapPin /> Lurah/Kades:{" "}
+                        {selectedReport.nama_lurah || "-"}
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="lpSection compact">
+                    <div className="lpSectionTitle">
+                      Paralegal yang Mengurus
+                    </div>
+                    <div className="lpParalegalCard">
+                      <div className="lpParalegalName">
+                        <FiUsers /> {selectedReport.paralegal_nama}
+                      </div>
+                      <div className="lpParalegalPhone">
+                        <FiPhone /> {selectedReport.paralegal_hp}
+                      </div>
+                    </div>
+                  </section>
+
+                  <section className="lpSection compact">
+                    <div className="lpSectionTitle">Informasi Laporan</div>
+                    <div className="lpDetailBlock">
+                      <div className="lpDetailLabel">Judul Laporan</div>
+                      <div className="lpDetailValue">
+                        {selectedReport.judul_pengaduan}
+                      </div>
+                    </div>
+
+                    <div className="lpDetailBlock">
+                      <div className="lpDetailLabel">Jenis Masalah</div>
+                      <div>
+                        <span className="lpCategoryBadge">
+                          {selectedReport.jenis_masalah}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="lpDetailBlock">
+                      <div className="lpDetailLabel">Kronologi</div>
+                      <div className="lpDetailTextBox">
+                        {selectedReport.kronologi}
+                      </div>
+                    </div>
+
+                    <div className="lpDetailMetaBox">
+                      <div>
+                        <div className="lpDetailLabel">Tanggal Dibuat</div>
+                        <div className="lpDetailValue">
+                          {formatDateID(selectedReport.tanggal_kejadian)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="lpDetailLabel">Total Durasi</div>
+                        <div className="lpDetailValue">
+                          {getDaysDiff(selectedReport.tanggal_kejadian)} hari
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="lpDetailBlock">
+                      <div className="lpDetailLabel">
+                        Lampiran ({selectedReport.lampiran?.length || 0})
+                      </div>
+                      <div className="lpAttachmentList">
+                        {(selectedReport.lampiran || []).map((file, idx) => (
+                          <div
+                            className="lpAttachmentItem"
+                            key={`${file.nama_file}-${idx}`}
+                          >
+                            <div className="lpAttachmentInfo">
+                              <FiFileText /> {file.nama_file}
+                            </div>
+
+                            <button
+                              type="button"
+                              className="lpAttachmentEyeBtn"
+                              onClick={() => handleOpenLampiran(file)}
+                              title={
+                                isImageFile(file)
+                                  ? "Lihat foto"
+                                  : "Buka lampiran"
+                              }
+                              disabled={previewLoading}
+                            >
+                              <FiEye />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </section>
+                </div>
+
+                <div className="lpModalRight">
+                  <section className="lpSection compact">
+                    <div className="lpSectionTitle">Timeline Lengkap</div>
+
+                    <div className="lpTimeline">
+                      {(selectedReport.updates || []).map((item, idx) => (
+                        <div
+                          className="lpTimelineItem"
+                          key={`${item.title}-${idx}`}
+                        >
+                          <div className="lpTimelineDot" />
+                          <div className="lpTimelineCard">
+                            <div className="lpTimelineHead">
+                              <div className="lpTimelineTitle">
+                                {item.title}
+                              </div>
+                              <div className="lpTimelineDate">{item.date}</div>
+                            </div>
+
+                            <div className="lpTimelineDesc">{item.desc}</div>
+
+                            <div className="lpTimelineMeta">
+                              <span>
+                                <FiClock /> {item.time}
+                              </span>
+                              <span className="lpTimelineBy">{item.by}</span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+                </div>
+              </div>
+            </div>
+
+            <div className="lpModalFooter">
+              <button
+                type="button"
+                className="lpBtn lpBtnPrint"
+                onClick={handlePrint}
+              >
+                <FiPrinter /> Print
+              </button>
+
+              <button
+                type="button"
+                className="lpBtn lpBtnPrimary"
+                onClick={handleCloseDetail}
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+      <DeleteConfirmModal
+        open={!!deleteTargetId}
+        title="Hapus Laporan?"
+        subtitle="Tindakan ini tidak dapat dibatalkan"
+        description="Apakah Anda yakin ingin menghapus laporan ini? Semua data dan lampiran akan dihapus permanen."
+        confirmLabel="Ya, Hapus"
+        loading={deleting}
+        onCancel={() => !deleting && setDeleteTargetId(null)}
+        onConfirm={confirmDelete}
+      />
+
+      {showPreview && previewFile ? (
+        <div className="lpPreviewOverlay" onClick={handleClosePreview}>
+          <div className="lpPreviewModal" onClick={(e) => e.stopPropagation()}>
+            <div className="lpPreviewHeader">
+              <div className="lpPreviewTitleWrap">
+                <div className="lpPreviewTitle">Preview Lampiran Foto</div>
+                <div className="lpPreviewSub">{previewFile.nama_file}</div>
+              </div>
+
+              <button
+                type="button"
+                className="lpPreviewHeaderClose"
+                onClick={handleClosePreview}
+                title="Tutup"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="lpPreviewBody">
+              <img
+                src={previewFile.signedUrl}
+                alt={previewFile.nama_file}
+                className="lpPreviewImage"
+              />
+            </div>
+
+            <div className="lpPreviewFooter">
+              <button
+                type="button"
+                className="lpBtn lpBtnPrimary lpPreviewCloseBtn"
+                onClick={handleClosePreview}
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}

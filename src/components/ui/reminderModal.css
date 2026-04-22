@@ -1,0 +1,87 @@
+.rmOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.28);
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  z-index: 2100;
+}
+
+.rmCard {
+  width: min(485px, calc(100vw - 32px));
+  background: #ffffff;
+  border-radius: 22px;
+  box-shadow: 0 28px 64px rgba(15, 23, 42, 0.3);
+  padding: 28px;
+}
+
+.rmHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.rmIconWrap {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: #d1e1fd;
+  color: #0f3f93;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.rmIconWrap svg {
+  width: 22px;
+  height: 22px;
+}
+
+.rmHeadText {
+  min-width: 0;
+}
+
+.rmTitle {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+  color: #1f2937;
+}
+
+.rmSubtitle {
+  margin-top: 2px;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.rmDescription {
+  margin-top: 16px;
+  color: #374151;
+  font-size: 15px;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.rmActions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.rmBtn {
+  min-width: 120px;
+  height: 44px;
+  border: 0;
+  border-radius: 16px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rmBtnPrimary {
+  background: #1454c4;
+  color: #ffffff;
+}

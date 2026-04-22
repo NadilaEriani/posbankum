@@ -1,6 +1,7 @@
-import { HiOutlineScale } from "react-icons/hi"; 
+import { HiOutlineScale } from "react-icons/hi";
 import { AiOutlineBarChart } from "react-icons/ai";
 import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabaseClient";
 import {
   FiCheckCircle,
@@ -19,11 +20,18 @@ import {
   FiCalendar,
 } from "react-icons/fi";
 import { BsSliders2, BsTelephone } from "react-icons/bs";
-import { RiScales3Line } from "react-icons/ri";
 import posbankum from "../../assets/icon.png";
 import "./semuaKasus.css";
 
 const PAGE_SIZE = 9;
+
+const MOBILE_SUPABASE_URL = import.meta.env.VITE_MOBILE_SUPABASE_URL;
+const MOBILE_SUPABASE_ANON_KEY = import.meta.env.VITE_MOBILE_SUPABASE_ANON_KEY;
+
+const mobileSupabase =
+  MOBILE_SUPABASE_URL && MOBILE_SUPABASE_ANON_KEY
+    ? createClient(MOBILE_SUPABASE_URL, MOBILE_SUPABASE_ANON_KEY)
+    : null;
 
 const CATEGORY_OPTIONS = [
   "Semua",
@@ -212,7 +220,13 @@ function inferProgress(status, extra) {
   return 45;
 }
 
-function mapPengaduanToCase(row, posbankumRow, kabupatenNama, timelines = []) {
+function mapPengaduanToCase(
+  row,
+  posbankumRow,
+  kabupatenNama,
+  timelines = [],
+  kasusRow = null,
+) {
   const extra = parseCatatanAdmin(row.catatan_admin);
   const status = inferStatus(row, extra, timelines);
   const progress = inferProgress(status, extra);
@@ -246,11 +260,83 @@ function mapPengaduanToCase(row, posbankumRow, kabupatenNama, timelines = []) {
       row.created_at || row.tanggal_kejadian || new Date().toISOString(),
     updateTerakhir:
       lastTimeline?.tanggal ||
+      kasusRow?.last_synced_at ||
       row.updated_at ||
       row.created_at ||
       new Date().toISOString(),
     deskripsi:
       row.kronologi || extra.catatan_internal || "Belum ada deskripsi kasus.",
+    sumberData:
+      String(kasusRow?.source_system || "website").toLowerCase() === "mobile"
+        ? "Mobile"
+        : "Website",
+    globalCaseId: kasusRow?.global_case_id || null,
+    mobilePengaduanId: kasusRow?.mobile_pengaduan_id || null,
+    websiteKasusId: kasusRow?.id_kasus || null,
+    websitePengaduanId: row.id_pengaduan || null,
+  };
+}
+
+function mapWebsiteKasusToCase(row, posbankumRow) {
+  const sourceLabel =
+    String(row.source_system || "").toLowerCase() === "mobile"
+      ? "Mobile"
+      : "Website";
+
+  return {
+    id:
+      row.mobile_pengaduan_id ||
+      row.website_pengaduan_id ||
+      row.id_kasus ||
+      row.global_case_id,
+    judul: row.jenis_kasus || "Tanpa Judul",
+    kategori: normalizeKategori(row.jenis_kasus),
+    status: row.tgl_selesai ? "Selesai" : "Diproses",
+    prioritas: "Sedang",
+    progress: row.tgl_selesai ? 100 : 45,
+    posbankum: ensurePosbankumPrefix(posbankumRow?.nama),
+    kota: posbankumRow?.alamat || "Kota Pekanbaru",
+    pelapor: sourceLabel === "Mobile" ? "Pelapor Mobile" : "Pelapor Website",
+    paralegal: posbankumRow?.nama_paralegal || "Paralegal Belum Diisi",
+    paralegalPhone: posbankumRow?.nomor_tlp || "0812-0000-0000",
+    emailPosbankum: posbankumRow?.email_akun || "posbankum@contoh.go.id",
+    tanggalLapor: row.tgl_upload || new Date().toISOString(),
+    updateTerakhir:
+      row.last_synced_at || row.tgl_upload || new Date().toISOString(),
+    deskripsi: row.deskripsi_kasus || "Belum ada deskripsi kasus.",
+    sumberData: sourceLabel,
+    globalCaseId: row.global_case_id || null,
+    mobilePengaduanId: row.mobile_pengaduan_id || null,
+    websiteKasusId: row.id_kasus || null,
+    websitePengaduanId: row.website_pengaduan_id || null,
+  };
+}
+
+function mapMobilePengaduanToCase(row, paralegalRow) {
+  const statusRaw = String(row.status || "").toLowerCase();
+  const status = statusRaw === "selesai" ? "Selesai" : "Diproses";
+
+  return {
+    id: row.id,
+    judul: row.kategori_masalah || "Tanpa Judul",
+    kategori: normalizeKategori(row.kategori_masalah),
+    status,
+    prioritas: normalizePrioritas(row.prioritas),
+    progress: status === "Selesai" ? 100 : 45,
+    posbankum: "Posbankum Mobile",
+    kota: row.lokasi_kejadian || "Wilayah Mobile",
+    pelapor: "Pelapor Mobile",
+    paralegal: paralegalRow?.nama_posbankum || "Paralegal Mobile",
+    paralegalPhone: paralegalRow?.no_hp || "0812-0000-0000",
+    emailPosbankum: "mobile@posbankum.app",
+    tanggalLapor: row.tgl_lapor || new Date().toISOString(),
+    updateTerakhir: row.synced_at || row.tgl_lapor || new Date().toISOString(),
+    deskripsi: row.kronologi || "Belum ada deskripsi kasus.",
+    sumberData: "Mobile",
+    globalCaseId: row.global_case_id || null,
+    mobilePengaduanId: row.id || null,
+    websiteKasusId: row.website_kasus_id || null,
+    websitePengaduanId: null,
   };
 }
 
@@ -315,23 +401,35 @@ export default function SemuaKasus() {
 
         if (pengaduanError) throw pengaduanError;
 
-        if (!pengaduanRows || !pengaduanRows.length) {
-          if (isMounted) {
-            setCases([]);
-            setLoadError(
-              "Belum ada data kasus di Supabase. Jalankan SQL seed dummy dulu.",
-            );
-          }
-          return;
-        }
+        const { data: websiteKasusRows, error: websiteKasusError } =
+          await supabase
+            .from("kasus")
+            .select(
+              `
+              id_kasus,
+              jenis_kasus,
+              deskripsi_kasus,
+              tgl_upload,
+              tgl_mulai,
+              tgl_selesai,
+              global_case_id,
+              source_system,
+              mobile_pengaduan_id,
+              website_pengaduan_id,
+              last_synced_at
+            `,
+            )
+            .order("tgl_upload", { ascending: false });
+
+        if (websiteKasusError) throw websiteKasusError;
 
         const posbankumIds = [
           ...new Set(
-            pengaduanRows.map((item) => item.id_posbankum).filter(Boolean),
+            (pengaduanRows || [])
+              .map((item) => item.id_posbankum)
+              .filter(Boolean),
           ),
         ];
-
-        const pengaduanIds = pengaduanRows.map((item) => item.id_pengaduan);
 
         let posbankumRows = [];
         let kabupatenRows = [];
@@ -359,9 +457,9 @@ export default function SemuaKasus() {
 
         const kabupatenIds = [
           ...new Set(
-            posbankumRows
+            (posbankumRows || [])
               .map((item) => item.id_kabupaten)
-              .concat(pengaduanRows.map((item) => item.id_kabupaten))
+              .concat((pengaduanRows || []).map((item) => item.id_kabupaten))
               .filter(Boolean),
           ),
         ];
@@ -375,6 +473,10 @@ export default function SemuaKasus() {
           if (error) throw error;
           kabupatenRows = data || [];
         }
+
+        const pengaduanIds = (pengaduanRows || []).map(
+          (item) => item.id_pengaduan,
+        );
 
         if (pengaduanIds.length) {
           const { data, error } = await supabase
@@ -398,38 +500,174 @@ export default function SemuaKasus() {
         }
 
         const posbankumMap = new Map(
-          posbankumRows.map((item) => [item.id_posbankum, item]),
+          (posbankumRows || []).map((item) => [item.id_posbankum, item]),
         );
 
         const kabupatenMap = new Map(
-          kabupatenRows.map((item) => [item.id_kabupaten, item.nama]),
+          (kabupatenRows || []).map((item) => [item.id_kabupaten, item.nama]),
         );
 
         const timelineMap = new Map();
-        for (const item of timelineRows) {
+        for (const item of timelineRows || []) {
           if (!timelineMap.has(item.id_pengaduan)) {
             timelineMap.set(item.id_pengaduan, []);
           }
           timelineMap.get(item.id_pengaduan).push(item);
         }
 
-        const mappedCases = pengaduanRows.map((row) => {
+        const kasusByWebsitePengaduanId = new Map();
+        for (const row of websiteKasusRows || []) {
+          if (row.website_pengaduan_id) {
+            kasusByWebsitePengaduanId.set(row.website_pengaduan_id, row);
+          }
+        }
+
+        const websitePengaduanCases = (pengaduanRows || []).map((row) => {
           const posbankumRow = posbankumMap.get(row.id_posbankum);
           const kabupatenNama =
             kabupatenMap.get(posbankumRow?.id_kabupaten) ||
             kabupatenMap.get(row.id_kabupaten) ||
             row.kabupaten_kota;
 
+          const relatedKasus =
+            kasusByWebsitePengaduanId.get(row.id_pengaduan) || null;
+
           return mapPengaduanToCase(
             row,
             posbankumRow,
             kabupatenNama,
             timelineMap.get(row.id_pengaduan) || [],
+            relatedKasus,
           );
         });
 
+        const pengaduanIdSet = new Set(
+          (pengaduanRows || []).map((row) => row.id_pengaduan),
+        );
+
+        const orphanWebsiteKasusRows = (websiteKasusRows || []).filter(
+          (row) => {
+            if (!row.website_pengaduan_id) return true;
+            return !pengaduanIdSet.has(row.website_pengaduan_id);
+          },
+        );
+
+        const fallbackPosbankumRow = posbankumRows?.[0] || null;
+
+        const websiteKasusCases = orphanWebsiteKasusRows.map((row) =>
+          mapWebsiteKasusToCase(row, fallbackPosbankumRow),
+        );
+
+        let mobileCases = [];
+        let mobileReadError = "";
+
+        if (mobileSupabase) {
+          const { data: mobilePengaduanRows, error: mobilePengaduanError } =
+            await mobileSupabase
+              .from("pengaduan")
+              .select(
+                `
+                id,
+                kategori_masalah,
+                kronologi,
+                lokasi_kejadian,
+                status,
+                prioritas,
+                paralegal_id,
+                tgl_lapor,
+                tgl_selesai,
+                tgl_kejadian,
+                global_case_id,
+                source_system,
+                website_kasus_id,
+                website_posbankum_id,
+                synced_at
+              `,
+              )
+              .order("tgl_lapor", { ascending: false });
+
+          if (mobilePengaduanError) {
+            mobileReadError =
+              mobilePengaduanError.message ||
+              "Gagal membaca data kasus dari Supabase mobile.";
+          } else {
+            const paralegalIds = [
+              ...new Set(
+                (mobilePengaduanRows || [])
+                  .map((item) => item.paralegal_id)
+                  .filter(Boolean),
+              ),
+            ];
+
+            let paralegalRows = [];
+            if (paralegalIds.length) {
+              const { data: paralegalData } = await mobileSupabase
+                .from("paralegal")
+                .select("id, nama_posbankum, no_hp")
+                .in("id", paralegalIds);
+
+              paralegalRows = paralegalData || [];
+            }
+
+            const paralegalMap = new Map(
+              paralegalRows.map((item) => [item.id, item]),
+            );
+
+            mobileCases = (mobilePengaduanRows || []).map((row) =>
+              mapMobilePengaduanToCase(row, paralegalMap.get(row.paralegal_id)),
+            );
+          }
+        }
+
+        const mergedByKey = new Map();
+
+        for (const item of websitePengaduanCases) {
+          const key = item.websitePengaduanId || item.globalCaseId || item.id;
+          mergedByKey.set(`website-pengaduan-${key}`, item);
+        }
+
+        for (const item of websiteKasusCases) {
+          const syncKey =
+            item.globalCaseId ||
+            item.mobilePengaduanId ||
+            item.websiteKasusId ||
+            item.websitePengaduanId ||
+            item.id;
+
+          mergedByKey.set(`website-kasus-${syncKey}`, item);
+        }
+
+        for (const item of mobileCases) {
+          const hasWebsiteSync = Array.from(mergedByKey.values()).some(
+            (websiteItem) =>
+              (websiteItem.globalCaseId &&
+                item.globalCaseId &&
+                websiteItem.globalCaseId === item.globalCaseId) ||
+              (websiteItem.mobilePengaduanId &&
+                item.mobilePengaduanId &&
+                websiteItem.mobilePengaduanId === item.mobilePengaduanId) ||
+              (websiteItem.websiteKasusId &&
+                item.websiteKasusId &&
+                websiteItem.websiteKasusId === item.websiteKasusId),
+          );
+
+          if (!hasWebsiteSync) {
+            const syncKey =
+              item.globalCaseId ||
+              item.mobilePengaduanId ||
+              item.websiteKasusId ||
+              item.id;
+            mergedByKey.set(`mobile-${syncKey}`, item);
+          }
+        }
+
         if (isMounted) {
-          setCases(mappedCases);
+          setCases(Array.from(mergedByKey.values()));
+          if (mobileReadError) {
+            setLoadError(
+              `Data website tampil, tetapi data mobile belum bisa dibaca: ${mobileReadError}`,
+            );
+          }
         }
       } catch (error) {
         console.error("Gagal load semua kasus dari Supabase:", error);
@@ -757,6 +995,9 @@ export default function SemuaKasus() {
                     </span>
 
                     <span className="skCategoryBadge">{item.kategori}</span>
+                    <span className="skCategoryBadge">
+                      Sumber: {item.sumberData || "Website"}
+                    </span>
                   </div>
                 </div>
 
@@ -794,8 +1035,7 @@ export default function SemuaKasus() {
                     </div>
 
                     <div className="skInfoItem">
-                      <HiOutlineScale className="skParalegalIconThin"  />
-                      
+                      <HiOutlineScale className="skParalegalIconThin" />
                       <span>Paralegal: {item.paralegal}</span>
                     </div>
 
@@ -882,6 +1122,9 @@ export default function SemuaKasus() {
                 </span>
 
                 <span className="skCategoryBadge">{selectedCase.kategori}</span>
+                <span className="skCategoryBadge">
+                  Sumber: {selectedCase.sumberData || "Website"}
+                </span>
 
                 <span
                   className={`skPriorityPill skPriority${selectedCase.prioritas}`}

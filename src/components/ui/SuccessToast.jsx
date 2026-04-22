@@ -17,9 +17,14 @@ export default function SuccessToast({ message, onClose }) {
   if (!message) return null;
 
   return (
-    <div className="st-toast" role="status">
+    <div className="st-toast" role="status" aria-live="polite">
       <div className="st-toastIcon">✓</div>
-      <div className="st-toastText">{message}</div>
+
+      <div className="st-toastBody">
+        <div className="st-toastTitle">Berhasil</div>
+        <div className="st-toastText">{message}</div>
+      </div>
+
       <button
         className="st-toastClose"
         type="button"

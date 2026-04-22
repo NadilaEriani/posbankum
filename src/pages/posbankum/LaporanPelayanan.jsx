@@ -1,7 +1,10 @@
+import { AiOutlineBarChart } from "react-icons/ai";
 import { useEffect, useMemo, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabaseClient";
 import SuccessToast from "../../components/ui/SuccessToast";
 import DeleteConfirmModal from "../../components/ui/DeleteConfirmModal";
+import ReminderModal from "../../components/ui/ReminderModal";
 import {
   FiFileText,
   FiClock,
@@ -32,11 +35,58 @@ import "./laporanPelayanan.css";
 
 const STORAGE_BUCKET = "pengaduan-lampiran";
 
+const MOBILE_SUPABASE_URL = import.meta.env.VITE_MOBILE_SUPABASE_URL;
+const MOBILE_SUPABASE_ANON_KEY = import.meta.env.VITE_MOBILE_SUPABASE_ANON_KEY;
+const MOBILE_SYNC_URL = import.meta.env.VITE_MOBILE_SYNC_URL;
+const MOBILE_SYNC_TOKEN = import.meta.env.VITE_MOBILE_SYNC_TOKEN;
+const MOBILE_SYSTEM_MASYARAKAT_ID =
+  import.meta.env.VITE_MOBILE_SYSTEM_MASYARAKAT_ID ||
+  import.meta.env.VITE_MOBILE_DEFAULT_MASYARAKAT_ID;
+
+const mobileSupabase =
+  MOBILE_SUPABASE_URL && MOBILE_SUPABASE_ANON_KEY
+    ? createClient(MOBILE_SUPABASE_URL, MOBILE_SUPABASE_ANON_KEY)
+    : null;
+
 const PARALEGAL_OPTIONS = [
   { nama: "Ahmad Fauzi, S.H.", hp: "0813-7200-3452" },
   { nama: "Siti Rahma, S.H.", hp: "0812-6677-8899" },
   { nama: "Yuni Kartika, S.H.", hp: "0813-9876-1234" },
 ];
+
+const EMPTY_FORM_DATA = {
+  nama_pelapor: "",
+  nik: "",
+  nomor_telepon: "",
+  email: "",
+  nama_lurah: "",
+  jenis_masalah: "",
+  prioritas: "",
+  judul_pengaduan: "",
+  kronologi: "",
+  tanggal_kejadian: "",
+  waktu_kejadian: "",
+  lokasi_kejadian: "",
+  paralegal_nama: "",
+  paralegal_hp: "",
+  catatan_internal: "",
+  lampiran: [],
+};
+
+const ALLOWED_UPLOAD_TYPES = ["image/png", "image/jpeg", "application/pdf"];
+const ALLOWED_UPLOAD_EXTENSIONS = [".png", ".jpg", ".jpeg", ".pdf"];
+const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024;
+const MAX_NIK_LENGTH = 16;
+const MAX_PHONE_LENGTH = 15;
+const MAX_TITLE_LENGTH = 100;
+
+const EMPTY_REMINDER_MODAL = {
+  open: false,
+  title: "Pengingat",
+  subtitle: "Periksa kembali informasi berikut",
+  description: "",
+  buttonLabel: "Mengerti",
+};
 
 function toTitleCase(value) {
   return String(value || "")
@@ -52,6 +102,16 @@ function formatDateID(dateStr) {
     day: "numeric",
     month: "long",
     year: "numeric",
+  });
+}
+
+function formatTimeID(dateStr) {
+  if (!dateStr) return "-";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit",
   });
 }
 
@@ -114,6 +174,7 @@ function parseCatatanAdmin(raw) {
 
   return {};
 }
+
 function buildCatatanAdmin(formData, profile) {
   return JSON.stringify({
     nik: formData.nik || "",
@@ -134,15 +195,6 @@ function buildCatatanAdmin(formData, profile) {
         by: profile?.full_name || "Admin Posbankum",
       },
     ],
-  });
-}
-function formatTimeID(dateStr) {
-  if (!dateStr) return "-";
-  const d = new Date(dateStr);
-  if (Number.isNaN(d.getTime())) return "-";
-  return d.toLocaleTimeString("id-ID", {
-    hour: "2-digit",
-    minute: "2-digit",
   });
 }
 
@@ -198,31 +250,356 @@ function mapDbToUi(row, lampiran = [], timeline = []) {
   };
 }
 
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function getErrorText(error) {
+  return [error?.message, error?.details, error?.hint]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function isDuplicateNomorPengaduanError(error) {
+  const rawMessage = getErrorText(error).toLowerCase();
+
+  return (
+    error?.code === "23505" ||
+    rawMessage.includes("uq_pengaduan_nomor_per_posbankum") ||
+    rawMessage.includes("duplicate key value")
+  );
+}
+
+function isIgnorableMobileSyncError(error) {
+  const rawMessage = getErrorText(error).toLowerCase();
+
+  return (
+    rawMessage.includes("masyarakat_id") ||
+    rawMessage.includes("vite_mobile_system_masyarakat_id") ||
+    rawMessage.includes("sinkron mobile belum aktif") ||
+    rawMessage.includes("vite_mobile_sync_url") ||
+    rawMessage.includes("vite_mobile_supabase_url") ||
+    rawMessage.includes("vite_mobile_supabase_anon_key")
+  );
+}
+
+function renderRequiredLabel(text) {
+  return (
+    <>
+      {text} <span className="lpRequiredMark">*</span>
+    </>
+  );
+}
+
 async function generateNomorPengaduan(id_posbankum) {
   const now = new Date();
   const year = now.getFullYear();
   const month = String(now.getMonth() + 1).padStart(2, "0");
+  const prefix = `PBKT/${year}/${month}/`;
+  const nomorRegex = new RegExp(`^${escapeRegExp(prefix)}(\\d+)$`);
 
-  const start = new Date(year, now.getMonth(), 1).toISOString();
-  const end = new Date(year, now.getMonth() + 1, 1).toISOString();
-
-  const { count, error } = await supabase
+  const { data, error } = await supabase
     .from("pengaduan")
-    .select("id_pengaduan", { count: "exact", head: true })
+    .select("nomor_pengaduan")
     .eq("id_posbankum", id_posbankum)
-    .gte("created_at", start)
-    .lt("created_at", end);
+    .like("nomor_pengaduan", `${prefix}%`);
 
   if (error) throw error;
 
-  const nomorUrut = String((count || 0) + 1).padStart(3, "0");
-  return `PBKT/${year}/${month}/${nomorUrut}`;
+  const nomorTerakhir = (data || []).reduce((maksimum, item) => {
+    const match = String(item?.nomor_pengaduan || "").match(nomorRegex);
+    if (!match) return maksimum;
+
+    const nilai = Number.parseInt(match[1], 10);
+    if (!Number.isFinite(nilai)) return maksimum;
+
+    return Math.max(maksimum, nilai);
+  }, 0);
+
+  return `${prefix}${String(nomorTerakhir + 1).padStart(3, "0")}`;
+}
+
+async function insertPengaduanWithRetry(basePayload, maxAttempts = 5) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const nomor_pengaduan = await generateNomorPengaduan(
+      basePayload.id_posbankum,
+    );
+
+    const { data, error } = await supabase
+      .from("pengaduan")
+      .insert({
+        ...basePayload,
+        nomor_pengaduan,
+      })
+      .select("id_pengaduan, created_at, nomor_pengaduan")
+      .single();
+
+    if (!error) {
+      return data;
+    }
+
+    if (!isDuplicateNomorPengaduanError(error)) {
+      throw error;
+    }
+
+    lastError = error;
+  }
+
+  throw (
+    lastError ||
+    new Error(
+      "Nomor laporan bentrok dengan data yang sudah ada. Silakan coba simpan kembali.",
+    )
+  );
+}
+
+async function syncWebsiteReportToMobile({
+  kasusRow,
+  pengaduanRow,
+  formData,
+  profile,
+}) {
+  const payload = {
+    global_case_id: kasusRow.global_case_id,
+    website_kasus_id: kasusRow.id_kasus,
+    website_pengaduan_id: pengaduanRow.id_pengaduan,
+    website_posbankum_id: profile.id_posbankum,
+    source_system: "website",
+    kategori_masalah: formData.jenis_masalah,
+    kronologi: formData.kronologi,
+    lokasi_kejadian: formData.lokasi_kejadian,
+    lampiran_url: null,
+    status: "Pending",
+    prioritas: formData.prioritas || "sedang",
+    paralegal_id: null,
+    tgl_lapor: pengaduanRow.created_at || new Date().toISOString(),
+    tgl_selesai: null,
+    tgl_kejadian: formData.tanggal_kejadian || null,
+    nama_pelapor: formData.nama_pelapor || "",
+    nomor_telepon: formData.nomor_telepon || "",
+    email: formData.email || "",
+  };
+
+  if (MOBILE_SYNC_URL) {
+    const response = await fetch(MOBILE_SYNC_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(MOBILE_SYNC_TOKEN
+          ? {
+              "x-sync-token": MOBILE_SYNC_TOKEN,
+              Authorization: `Bearer ${MOBILE_SYNC_TOKEN}`,
+            }
+          : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(
+        result?.error ||
+          result?.message ||
+          "Gagal mengirim data laporan pelayanan ke Supabase mobile.",
+      );
+    }
+
+    return result;
+  }
+
+  if (!mobileSupabase) {
+    throw new Error(
+      "Sinkron mobile belum aktif. Isi VITE_MOBILE_SYNC_URL atau VITE_MOBILE_SUPABASE_URL dan VITE_MOBILE_SUPABASE_ANON_KEY.",
+    );
+  }
+
+  if (!MOBILE_SYSTEM_MASYARAKAT_ID) {
+    throw new Error(
+      "Sinkron website ke mobile gagal karena tabel mobile.pengaduan masih mewajibkan masyarakat_id. Isi VITE_MOBILE_SYSTEM_MASYARAKAT_ID atau ubah mobile agar masyarakat_id boleh null.",
+    );
+  }
+
+  const { data: existingRow, error: existingError } = await mobileSupabase
+    .from("pengaduan")
+    .select("id, global_case_id")
+    .eq("global_case_id", kasusRow.global_case_id)
+    .maybeSingle();
+
+  if (existingError) throw existingError;
+
+  const mobileId =
+    existingRow?.id ||
+    `WEB-${String(kasusRow.global_case_id || crypto.randomUUID())
+      .replace(/-/g, "")
+      .toUpperCase()}`;
+
+  const mobileRow = {
+    id: mobileId,
+    masyarakat_id: MOBILE_SYSTEM_MASYARAKAT_ID,
+    kategori_masalah: payload.kategori_masalah,
+    kronologi: payload.kronologi,
+    lokasi_kejadian: payload.lokasi_kejadian,
+    lampiran_url: payload.lampiran_url,
+    status: payload.status,
+    prioritas: payload.prioritas,
+    paralegal_id: payload.paralegal_id,
+    tgl_lapor: payload.tgl_lapor,
+    tgl_selesai: payload.tgl_selesai,
+    tgl_kejadian: payload.tgl_kejadian,
+    global_case_id: payload.global_case_id,
+    source_system: payload.source_system,
+    website_kasus_id: payload.website_kasus_id,
+    website_posbankum_id: payload.website_posbankum_id,
+    synced_at: new Date().toISOString(),
+  };
+
+  const { error: upsertError } = await mobileSupabase
+    .from("pengaduan")
+    .upsert(mobileRow, { onConflict: "global_case_id" });
+
+  if (upsertError) throw upsertError;
+
+  return { id: mobileId, global_case_id: kasusRow.global_case_id };
 }
 
 function sanitizeFileName(name) {
   return String(name || "")
     .replace(/\s+/g, "-")
     .replace(/[^a-zA-Z0-9._-]/g, "");
+}
+
+function digitsOnly(value, maxLength = Infinity) {
+  return String(value || "")
+    .replace(/\D/g, "")
+    .slice(0, maxLength);
+}
+
+function normalizeText(value, maxLength = Infinity) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, maxLength);
+}
+
+function normalizeOptionalEmail(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function isValidEmail(value) {
+  if (!value) return true;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isAllowedFileType(file) {
+  const mimeType = String(file?.type || "").toLowerCase();
+  const fileName = String(file?.name || "").toLowerCase();
+
+  return (
+    ALLOWED_UPLOAD_TYPES.includes(mimeType) ||
+    ALLOWED_UPLOAD_EXTENSIONS.some((ext) => fileName.endsWith(ext))
+  );
+}
+
+function getSanitizedFormData(formData) {
+  return {
+    ...formData,
+    nama_pelapor: normalizeText(formData.nama_pelapor, 120),
+    nik: digitsOnly(formData.nik, MAX_NIK_LENGTH),
+    nomor_telepon: digitsOnly(formData.nomor_telepon, MAX_PHONE_LENGTH),
+    email: normalizeOptionalEmail(formData.email),
+    nama_lurah: normalizeText(formData.nama_lurah, 120),
+    jenis_masalah: normalizeText(formData.jenis_masalah, 80),
+    prioritas: normalizeText(formData.prioritas, 20),
+    judul_pengaduan: normalizeText(formData.judul_pengaduan, MAX_TITLE_LENGTH),
+    kronologi: normalizeText(formData.kronologi, 3000),
+    tanggal_kejadian: String(formData.tanggal_kejadian || "").trim(),
+    waktu_kejadian: String(formData.waktu_kejadian || "").trim(),
+    lokasi_kejadian: normalizeText(formData.lokasi_kejadian, 200),
+    paralegal_nama: normalizeText(formData.paralegal_nama, 120),
+    paralegal_hp: digitsOnly(formData.paralegal_hp, MAX_PHONE_LENGTH),
+    catatan_internal: normalizeText(formData.catatan_internal, 1500),
+    lampiran: Array.isArray(formData.lampiran) ? formData.lampiran : [],
+  };
+}
+
+function validateFormData(formData) {
+  const cleaned = getSanitizedFormData(formData);
+  const requiredFields = [
+    cleaned.nama_pelapor,
+    cleaned.nik,
+    cleaned.nomor_telepon,
+    cleaned.nama_lurah,
+    cleaned.jenis_masalah,
+    cleaned.prioritas,
+    cleaned.judul_pengaduan,
+    cleaned.kronologi,
+    cleaned.tanggal_kejadian,
+    cleaned.waktu_kejadian,
+    cleaned.lokasi_kejadian,
+    cleaned.paralegal_nama,
+  ];
+
+  if (requiredFields.some((value) => !value)) {
+    return "Lengkapi semua field wajib.";
+  }
+
+  if (cleaned.nik.length !== MAX_NIK_LENGTH) {
+    return "NIK harus terdiri dari 16 digit angka.";
+  }
+
+  if (
+    cleaned.nomor_telepon.length < 10 ||
+    cleaned.nomor_telepon.length > MAX_PHONE_LENGTH
+  ) {
+    return "Nomor telepon harus terdiri dari 10 sampai 15 digit angka.";
+  }
+
+  if (!isValidEmail(cleaned.email)) {
+    return "Format email tidak valid.";
+  }
+
+  if (cleaned.judul_pengaduan.length < 8) {
+    return "Judul laporan minimal 8 karakter.";
+  }
+
+  if (cleaned.kronologi.length < 20) {
+    return "Kronologi minimal 20 karakter agar laporan lebih jelas.";
+  }
+
+  if (cleaned.tanggal_kejadian > new Date().toISOString().split("T")[0]) {
+    return "Tanggal kejadian tidak boleh melebihi hari ini.";
+  }
+
+  const selectedParalegal = PARALEGAL_OPTIONS.find(
+    (item) => item.nama === cleaned.paralegal_nama,
+  );
+
+  if (!selectedParalegal) {
+    return "Paralegal yang dipilih tidak valid.";
+  }
+
+  if (
+    cleaned.paralegal_hp &&
+    digitsOnly(selectedParalegal.hp, MAX_PHONE_LENGTH) !== cleaned.paralegal_hp
+  ) {
+    return "Nomor HP paralegal tidak sesuai dengan data pilihan.";
+  }
+
+  for (const file of cleaned.lampiran) {
+    if (!isAllowedFileType(file.file)) {
+      return `File ${file.nama_file} tidak didukung. Hanya PNG, JPG, JPEG, dan PDF yang diperbolehkan.`;
+    }
+
+    if ((file.size_bytes || 0) > MAX_FILE_SIZE_BYTES) {
+      return `Ukuran file ${file.nama_file} melebihi batas 5MB.`;
+    }
+  }
+
+  return "";
 }
 
 export default function KelolaPengaduan({ profile }) {
@@ -241,25 +618,27 @@ export default function KelolaPengaduan({ profile }) {
   const [deleteTargetId, setDeleteTargetId] = useState(null);
   const [deleting, setDeleting] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [reminderModal, setReminderModal] = useState(EMPTY_REMINDER_MODAL);
+  const [formData, setFormData] = useState(EMPTY_FORM_DATA);
 
-  const [formData, setFormData] = useState({
-    nama_pelapor: "",
-    nik: "",
-    nomor_telepon: "",
-    email: "",
-    nama_lurah: "",
-    jenis_masalah: "",
-    prioritas: "",
-    judul_pengaduan: "",
-    kronologi: "",
-    tanggal_kejadian: "",
-    waktu_kejadian: "",
-    lokasi_kejadian: "",
-    paralegal_nama: "",
-    paralegal_hp: "",
-    catatan_internal: "",
-    lampiran: [],
-  });
+  const closeReminderModal = () => {
+    setReminderModal(EMPTY_REMINDER_MODAL);
+  };
+
+  const openReminderModal = ({
+    title = "Pengingat",
+    subtitle = "Periksa kembali informasi berikut",
+    description = "",
+    buttonLabel = "Mengerti",
+  }) => {
+    setReminderModal({
+      open: true,
+      title,
+      subtitle,
+      description,
+      buttonLabel,
+    });
+  };
 
   async function loadReports() {
     if (!profile?.id_posbankum) {
@@ -309,19 +688,20 @@ export default function KelolaPengaduan({ profile }) {
 
       let lampiranRows = [];
       let timelineRows = [];
+
       if (ids.length) {
         const { data: timelineData, error: timelineError } = await supabase
           .from("pengaduan_timeline")
           .select(
             `
-      id_timeline,
-      id_pengaduan,
-      title,
-      deskripsi,
-      tanggal,
-      created_by,
-      created_at
-    `,
+            id_timeline,
+            id_pengaduan,
+            title,
+            deskripsi,
+            tanggal,
+            created_by,
+            created_at
+          `,
           )
           .in("id_pengaduan", ids)
           .order("tanggal", { ascending: true });
@@ -329,6 +709,7 @@ export default function KelolaPengaduan({ profile }) {
         if (timelineError) throw timelineError;
         timelineRows = timelineData || [];
       }
+
       const timelineUserIds = Array.from(
         new Set((timelineRows || []).map((x) => x.created_by).filter(Boolean)),
       );
@@ -347,6 +728,7 @@ export default function KelolaPengaduan({ profile }) {
           (timelineProfiles || []).map((x) => [x.id, x.full_name]),
         );
       }
+
       const timelineMap = new Map();
       for (const item of timelineRows) {
         const normalized = {
@@ -360,6 +742,7 @@ export default function KelolaPengaduan({ profile }) {
         }
         timelineMap.get(item.id_pengaduan).push(normalized);
       }
+
       if (ids.length) {
         const { data: lampiranData, error: lampiranError } = await supabase
           .from("pengaduan_lampiran")
@@ -487,6 +870,7 @@ export default function KelolaPengaduan({ profile }) {
     setShowPreview(false);
     setPreviewFile(null);
   };
+
   const isImageFile = (file) => {
     const mime = String(file?.mime_type || "").toLowerCase();
     const name = String(file?.nama_file || "").toLowerCase();
@@ -510,7 +894,11 @@ export default function KelolaPengaduan({ profile }) {
   const handleOpenLampiran = async (file) => {
     try {
       if (!file?.path_file) {
-        alert("File lampiran tidak ditemukan.");
+        openReminderModal({
+          title: "Lampiran tidak ditemukan",
+          subtitle: "File tidak dapat dibuka",
+          description: "File lampiran tidak ditemukan.",
+        });
         return;
       }
 
@@ -539,7 +927,11 @@ export default function KelolaPengaduan({ profile }) {
       window.open(signedUrl, "_blank", "noopener,noreferrer");
     } catch (err) {
       console.error("handleOpenLampiran error:", err);
-      alert(err.message || "Gagal membuka lampiran.");
+      openReminderModal({
+        title: "Lampiran gagal dibuka",
+        subtitle: "Terjadi kendala saat membuka file",
+        description: err.message || "Gagal membuka lampiran.",
+      });
     } finally {
       setPreviewLoading(false);
     }
@@ -592,7 +984,11 @@ export default function KelolaPengaduan({ profile }) {
       setDeleteTargetId(null);
     } catch (err) {
       console.error("handleDelete error:", err);
-      alert(err.message || "Gagal menghapus laporan.");
+      openReminderModal({
+        title: "Laporan gagal dihapus",
+        subtitle: "Terjadi kendala saat menghapus data",
+        description: err.message || "Gagal menghapus laporan.",
+      });
     } finally {
       setDeleting(false);
     }
@@ -603,7 +999,11 @@ export default function KelolaPengaduan({ profile }) {
 
     const printWindow = window.open("", "_blank", "width=1000,height=900");
     if (!printWindow) {
-      alert("Popup diblokir browser. Izinkan popup untuk print.");
+      openReminderModal({
+        title: "Popup browser diblokir",
+        subtitle: "Preview print tidak bisa dibuka",
+        description: "Popup diblokir browser. Izinkan popup untuk print.",
+      });
       return;
     }
 
@@ -908,7 +1308,43 @@ export default function KelolaPengaduan({ profile }) {
   };
 
   const handleFileChange = (e) => {
-    const files = Array.from(e.target.files || []).map((file) => ({
+    const selectedFiles = Array.from(e.target.files || []);
+
+    if (!selectedFiles.length) {
+      setFormData((prev) => ({
+        ...prev,
+        lampiran: [],
+      }));
+      return;
+    }
+
+    const invalidTypeFile = selectedFiles.find(
+      (file) => !isAllowedFileType(file),
+    );
+    if (invalidTypeFile) {
+      openReminderModal({
+        title: "Format file tidak didukung",
+        subtitle: "Periksa lampiran yang dipilih",
+        description: `File ${invalidTypeFile.name} tidak didukung. Hanya PNG, JPG, JPEG, dan PDF yang diperbolehkan.`,
+      });
+      e.target.value = "";
+      return;
+    }
+
+    const oversizeFile = selectedFiles.find(
+      (file) => (file.size || 0) > MAX_FILE_SIZE_BYTES,
+    );
+    if (oversizeFile) {
+      openReminderModal({
+        title: "Ukuran file terlalu besar",
+        subtitle: "Lampiran melebihi batas maksimum",
+        description: `Ukuran file ${oversizeFile.name} melebihi batas 5MB.`,
+      });
+      e.target.value = "";
+      return;
+    }
+
+    const files = selectedFiles.map((file) => ({
       file,
       nama_file: file.name,
       mime_type: file.type || "application/octet-stream",
@@ -924,67 +1360,55 @@ export default function KelolaPengaduan({ profile }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (
-      !formData.nama_pelapor ||
-      !formData.nik ||
-      !formData.nomor_telepon ||
-      !formData.nama_lurah ||
-      !formData.jenis_masalah ||
-      !formData.prioritas ||
-      !formData.judul_pengaduan ||
-      !formData.kronologi ||
-      !formData.tanggal_kejadian ||
-      !formData.waktu_kejadian ||
-      !formData.lokasi_kejadian ||
-      !formData.paralegal_nama
-    ) {
-      alert("Lengkapi semua field wajib.");
+    const sanitizedFormData = getSanitizedFormData(formData);
+    const validationError = validateFormData(sanitizedFormData);
+
+    if (validationError) {
+      openReminderModal({
+        title: "Data laporan belum lengkap",
+        subtitle: "Periksa kembali formulir laporan",
+        description: validationError,
+      });
       return;
     }
 
     if (!profile?.id_posbankum || !profile?.id) {
-      alert("Profile posbankum belum lengkap.");
+      openReminderModal({
+        title: "Profil belum lengkap",
+        subtitle: "Data akun posbankum belum siap digunakan",
+        description: "Profile posbankum belum lengkap.",
+      });
       return;
     }
 
     setSaving(true);
 
     try {
-      const nomor_pengaduan = await generateNomorPengaduan(
-        profile.id_posbankum,
-      );
-
       const payload = {
         id_posbankum: profile.id_posbankum,
-        nomor_pengaduan,
-        nama_pelapor: formData.nama_pelapor,
-        nomor_telepon: formData.nomor_telepon,
-        email: formData.email || null,
-        jenis_masalah: formData.jenis_masalah,
-        judul_pengaduan: formData.judul_pengaduan,
-        kronologi: formData.kronologi,
-        tanggal_kejadian: formData.tanggal_kejadian,
-        waktu_kejadian: formData.waktu_kejadian,
-        lokasi_kejadian: formData.lokasi_kejadian,
+        nama_pelapor: sanitizedFormData.nama_pelapor,
+        nomor_telepon: sanitizedFormData.nomor_telepon,
+        email: sanitizedFormData.email || null,
+        jenis_masalah: sanitizedFormData.jenis_masalah,
+        judul_pengaduan: sanitizedFormData.judul_pengaduan,
+        kronologi: sanitizedFormData.kronologi,
+        tanggal_kejadian: sanitizedFormData.tanggal_kejadian,
+        waktu_kejadian: sanitizedFormData.waktu_kejadian,
+        lokasi_kejadian: sanitizedFormData.lokasi_kejadian,
         provinsi: "Riau",
         kabupaten_kota: "Kota Pekanbaru",
         kecamatan: "Sukajadi",
         id_kabupaten: null,
         id_kecamatan: null,
         status: "diproses",
-        catatan_admin: buildCatatanAdmin(formData, profile),
+        catatan_admin: buildCatatanAdmin(sanitizedFormData, profile),
         created_by: profile.id,
       };
 
-      const { data: insertedRow, error: insertError } = await supabase
-        .from("pengaduan")
-        .insert(payload)
-        .select("id_pengaduan")
-        .single();
-
-      if (insertError) throw insertError;
+      const insertedRow = await insertPengaduanWithRetry(payload);
 
       const id_pengaduan = insertedRow.id_pengaduan;
+
       const { error: timelineInsertError } = await supabase
         .from("pengaduan_timeline")
         .insert({
@@ -998,10 +1422,56 @@ export default function KelolaPengaduan({ profile }) {
 
       if (timelineInsertError) throw timelineInsertError;
 
-      if (formData.lampiran.length) {
+      const kasusPayload = {
+        jenis_kasus: sanitizedFormData.jenis_masalah,
+        deskripsi_kasus: sanitizedFormData.kronologi,
+        tgl_upload: insertedRow.created_at || new Date().toISOString(),
+        tgl_mulai: sanitizedFormData.tanggal_kejadian || null,
+        tgl_selesai: null,
+        source_system: "website",
+        website_pengaduan_id: id_pengaduan,
+        last_synced_at: new Date().toISOString(),
+      };
+
+      let insertedKasus = null;
+
+      const { data: existingKasus, error: existingKasusError } = await supabase
+        .from("kasus")
+        .select("id_kasus, global_case_id")
+        .eq("website_pengaduan_id", id_pengaduan)
+        .maybeSingle();
+
+      if (existingKasusError) throw existingKasusError;
+
+      if (existingKasus) {
+        insertedKasus = existingKasus;
+      } else {
+        const { data: newKasus, error: kasusInsertError } = await supabase
+          .from("kasus")
+          .insert(kasusPayload)
+          .select("id_kasus, global_case_id")
+          .single();
+
+        if (kasusInsertError) throw kasusInsertError;
+        insertedKasus = newKasus;
+      }
+
+      const { error: linkKasusError } = await supabase
+        .from("lihat_kasus")
+        .upsert(
+          {
+            id_posbankum: profile.id_posbankum,
+            id_kasus: insertedKasus.id_kasus,
+          },
+          { onConflict: "id_posbankum,id_kasus" },
+        );
+
+      if (linkKasusError) throw linkKasusError;
+
+      if (sanitizedFormData.lampiran.length) {
         const lampiranInsertRows = [];
 
-        for (const item of formData.lampiran) {
+        for (const item of sanitizedFormData.lampiran) {
           const safeName = sanitizeFileName(item.nama_file);
           const path = `${id_pengaduan}/${Date.now()}-${safeName}`;
 
@@ -1029,31 +1499,43 @@ export default function KelolaPengaduan({ profile }) {
         }
       }
 
-      setFormData({
-        nama_pelapor: "",
-        nik: "",
-        nomor_telepon: "",
-        email: "",
-        nama_lurah: "",
-        jenis_masalah: "",
-        prioritas: "",
-        judul_pengaduan: "",
-        kronologi: "",
-        tanggal_kejadian: "",
-        waktu_kejadian: "",
-        lokasi_kejadian: "",
-        paralegal_nama: "",
-        paralegal_hp: "",
-        catatan_internal: "",
-        lampiran: [],
-      });
+      try {
+        await syncWebsiteReportToMobile({
+          kasusRow: insertedKasus,
+          pengaduanRow: { ...insertedRow, id_pengaduan },
+          formData: sanitizedFormData,
+          profile,
+        });
+      } catch (syncError) {
+        console.error("Gagal sinkron laporan pelayanan ke mobile:", syncError);
 
+        if (!isIgnorableMobileSyncError(syncError)) {
+          openReminderModal({
+            title: "Sinkronisasi mobile tertunda",
+            subtitle: "Data website tetap berhasil disimpan",
+            description:
+              "Laporan website sudah berhasil disimpan, tetapi sinkronisasi ke mobile sedang bermasalah.",
+          });
+        }
+      }
+
+      setFormData(EMPTY_FORM_DATA);
       await loadReports();
       setTab("aktif");
-      setSuccessMessage("Laporan berhasil disimpan!");
+      setSuccessMessage("Laporan berhasil disimpan.");
     } catch (err) {
       console.error("handleSubmit error:", err);
-      alert(err.message || "Gagal menyimpan laporan.");
+      openReminderModal({
+        title: isDuplicateNomorPengaduanError(err)
+          ? "Nomor laporan bentrok"
+          : "Laporan gagal disimpan",
+        subtitle: isDuplicateNomorPengaduanError(err)
+          ? "Sistem mendeteksi nomor laporan yang sudah dipakai"
+          : "Terjadi kendala saat menyimpan data",
+        description: isDuplicateNomorPengaduanError(err)
+          ? "Nomor laporan bertabrakan dengan data yang sudah ada. Sistem sudah mencoba membuat nomor baru secara otomatis. Silakan klik Kirim Laporan sekali lagi."
+          : err.message || "Gagal menyimpan laporan.",
+      });
     } finally {
       setSaving(false);
     }
@@ -1065,6 +1547,16 @@ export default function KelolaPengaduan({ profile }) {
         message={successMessage}
         onClose={() => setSuccessMessage("")}
       />
+
+      <ReminderModal
+        open={reminderModal.open}
+        title={reminderModal.title}
+        subtitle={reminderModal.subtitle}
+        description={reminderModal.description}
+        buttonLabel={reminderModal.buttonLabel}
+        onClose={closeReminderModal}
+      />
+
       <div className="lpHeaderTitleWrap">
         <h2 className="lpPageTitle">Laporan Pelayanan</h2>
         <div className="lpPageUnderline" />
@@ -1166,7 +1658,8 @@ export default function KelolaPengaduan({ profile }) {
           className={`lpTabBtn ${tab === "statistik" ? "is-active" : ""}`}
           onClick={() => setTab("statistik")}
         >
-          <FiBarChart2 /> Statistik
+          <AiOutlineBarChart />
+          Statistik
         </button>
       </div>
 
@@ -1190,7 +1683,7 @@ export default function KelolaPengaduan({ profile }) {
 
             <div className="lpFormGrid two">
               <div className="lpField">
-                <label>Nama Lengkap *</label>
+                <label>{renderRequiredLabel("Nama Lengkap")}</label>
                 <input
                   value={formData.nama_pelapor}
                   onChange={(e) =>
@@ -1199,37 +1692,50 @@ export default function KelolaPengaduan({ profile }) {
                       nama_pelapor: e.target.value,
                     }))
                   }
+                  maxLength={120}
                   placeholder="Masukkan nama lengkap sesuai KTP"
                 />
               </div>
 
               <div className="lpField">
-                <label>NIK (Nomor Induk Kependudukan) *</label>
+                <label>
+                  {renderRequiredLabel("NIK (Nomor Induk Kependudukan)")}
+                </label>
                 <input
                   value={formData.nik}
                   onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, nik: e.target.value }))
+                    setFormData((prev) => ({
+                      ...prev,
+                      nik: digitsOnly(e.target.value, MAX_NIK_LENGTH),
+                    }))
                   }
+                  inputMode="numeric"
+                  maxLength={MAX_NIK_LENGTH}
                   placeholder="16 digit NIK"
                 />
               </div>
 
               <div className="lpField">
-                <label>Nomor Telepon/HP *</label>
+                <label>{renderRequiredLabel("Nomor Telepon/HP")}</label>
                 <input
                   value={formData.nomor_telepon}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      nomor_telepon: e.target.value,
+                      nomor_telepon: digitsOnly(
+                        e.target.value,
+                        MAX_PHONE_LENGTH,
+                      ),
                     }))
                   }
+                  inputMode="numeric"
+                  maxLength={MAX_PHONE_LENGTH}
                   placeholder="081234567890"
                 />
               </div>
 
               <div className="lpField">
-                <label>Nama Lurah/Kepala Desa *</label>
+                <label>{renderRequiredLabel("Nama Lurah/Kepala Desa")}</label>
                 <input
                   value={formData.nama_lurah}
                   onChange={(e) =>
@@ -1238,6 +1744,7 @@ export default function KelolaPengaduan({ profile }) {
                       nama_lurah: e.target.value,
                     }))
                   }
+                  maxLength={120}
                   placeholder="Nama Lurah/Kepala Desa"
                 />
               </div>
@@ -1251,7 +1758,7 @@ export default function KelolaPengaduan({ profile }) {
 
             <div className="lpFormGrid two">
               <div className="lpField">
-                <label>Jenis Masalah *</label>
+                <label>{renderRequiredLabel("Jenis Masalah")}</label>
                 <select
                   value={formData.jenis_masalah}
                   onChange={(e) =>
@@ -1272,7 +1779,7 @@ export default function KelolaPengaduan({ profile }) {
               </div>
 
               <div className="lpField">
-                <label>Prioritas *</label>
+                <label>{renderRequiredLabel("Prioritas")}</label>
                 <select
                   value={formData.prioritas}
                   onChange={(e) =>
@@ -1291,21 +1798,22 @@ export default function KelolaPengaduan({ profile }) {
             </div>
 
             <div className="lpField">
-              <label>Judul Laporan *</label>
+              <label>{renderRequiredLabel("Judul Laporan")}</label>
               <input
                 value={formData.judul_pengaduan}
                 onChange={(e) =>
                   setFormData((prev) => ({
                     ...prev,
-                    judul_pengaduan: e.target.value,
+                    judul_pengaduan: e.target.value.slice(0, MAX_TITLE_LENGTH),
                   }))
                 }
+                maxLength={MAX_TITLE_LENGTH}
                 placeholder="Ringkasan singkat masalah (max 100 karakter)"
               />
             </div>
 
             <div className="lpField">
-              <label>Kronologi Kejadian *</label>
+              <label>{renderRequiredLabel("Kronologi Kejadian")}</label>
               <textarea
                 rows={6}
                 value={formData.kronologi}
@@ -1315,6 +1823,7 @@ export default function KelolaPengaduan({ profile }) {
                     kronologi: e.target.value,
                   }))
                 }
+                maxLength={3000}
                 placeholder="Jelaskan kronologi kejadian secara detail (kapan, dimana, bagaimana, siapa saja yang terlibat)..."
               />
             </div>
@@ -1327,10 +1836,11 @@ export default function KelolaPengaduan({ profile }) {
 
             <div className="lpFormGrid two">
               <div className="lpField">
-                <label>Tanggal Kejadian *</label>
+                <label>{renderRequiredLabel("Tanggal Kejadian")}</label>
                 <input
                   type="date"
                   value={formData.tanggal_kejadian}
+                  max={new Date().toISOString().split("T")[0]}
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
@@ -1341,7 +1851,7 @@ export default function KelolaPengaduan({ profile }) {
               </div>
 
               <div className="lpField">
-                <label>Waktu Kejadian *</label>
+                <label>{renderRequiredLabel("Waktu Kejadian")}</label>
                 <input
                   type="time"
                   value={formData.waktu_kejadian}
@@ -1356,7 +1866,7 @@ export default function KelolaPengaduan({ profile }) {
             </div>
 
             <div className="lpField">
-              <label>Lokasi Kejadian *</label>
+              <label>{renderRequiredLabel("Lokasi Kejadian")}</label>
               <input
                 value={formData.lokasi_kejadian}
                 onChange={(e) =>
@@ -1365,6 +1875,7 @@ export default function KelolaPengaduan({ profile }) {
                     lokasi_kejadian: e.target.value,
                   }))
                 }
+                maxLength={200}
                 placeholder="Contoh: Jl. Raya Bangkinang KM 15, Kampung Tengah"
               />
             </div>
@@ -1377,7 +1888,7 @@ export default function KelolaPengaduan({ profile }) {
 
             <div className="lpFormGrid two">
               <div className="lpField">
-                <label>Nama Paralegal *</label>
+                <label>{renderRequiredLabel("Nama Paralegal")}</label>
                 <select
                   value={formData.paralegal_nama}
                   onChange={(e) => handleParalegalChange(e.target.value)}
@@ -1396,6 +1907,7 @@ export default function KelolaPengaduan({ profile }) {
                 <input
                   value={formData.paralegal_hp}
                   readOnly
+                  inputMode="numeric"
                   placeholder="Otomatis terisi saat pilih paralegal"
                 />
               </div>
@@ -1408,7 +1920,12 @@ export default function KelolaPengaduan({ profile }) {
             </div>
 
             <label className="lpUploadBox">
-              <input type="file" multiple onChange={handleFileChange} />
+              <input
+                type="file"
+                multiple
+                accept=".png,.jpg,.jpeg,.pdf"
+                onChange={handleFileChange}
+              />
               <div className="lpUploadTextMain">
                 Klik untuk upload dokumen/foto
               </div>
@@ -1449,26 +1966,7 @@ export default function KelolaPengaduan({ profile }) {
             <button
               type="button"
               className="lpBtn lpBtnGhost"
-              onClick={() =>
-                setFormData({
-                  nama_pelapor: "",
-                  nik: "",
-                  nomor_telepon: "",
-                  email: "",
-                  nama_lurah: "",
-                  jenis_masalah: "",
-                  prioritas: "",
-                  judul_pengaduan: "",
-                  kronologi: "",
-                  tanggal_kejadian: "",
-                  waktu_kejadian: "",
-                  lokasi_kejadian: "",
-                  paralegal_nama: "",
-                  paralegal_hp: "",
-                  catatan_internal: "",
-                  lampiran: [],
-                })
-              }
+              onClick={() => setFormData(EMPTY_FORM_DATA)}
             >
               Reset Form
             </button>
@@ -1563,7 +2061,9 @@ export default function KelolaPengaduan({ profile }) {
                         </span>
                       </div>
 
-                      <div className="lpNameBadge">{report.paralegal_nama}</div>
+                      <div className="lpNameBadge">
+                        <FiUsers /> {report.paralegal_nama}
+                      </div>
 
                       <div className="lpCategoryRow">
                         <span className="lpCategoryBadge">
@@ -1939,6 +2439,7 @@ export default function KelolaPengaduan({ profile }) {
           </div>
         </div>
       ) : null}
+
       <DeleteConfirmModal
         open={!!deleteTargetId}
         title="Hapus Laporan?"

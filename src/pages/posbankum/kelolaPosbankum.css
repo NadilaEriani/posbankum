@@ -172,7 +172,7 @@
   align-items: flex-start;
   gap: 12px;
   background: rgba(20, 84, 196, 0.12);
-  color: #0f3f93;
+  color: #051531;
   border-left: 3px solid #2563eb;
   border-radius: 14px;
   padding: 16px;
@@ -198,7 +198,7 @@
   display: grid;
   place-items: center;
   background: transparent;
-  color: #0f3f93;
+  color: #051531;
   flex-shrink: 0;
   margin-top: 1px;
   font-size: 20px;
@@ -208,17 +208,17 @@
   font-size: 16px;
   font-weight: 800;
   margin-bottom: 4px;
-  color: #0f3f93;
+  color: #051531;
 }
 
 .kdpRoot .kpHintText {
   font-size: 14px;
   line-height: 1.65;
-  color: #0f3f93;
+  color: #051531;
 }
 
 .kdpRoot .kpHintText b {
-  color: #0f3f93;
+  color: #051531;
   font-weight: 800;
 }
 
@@ -272,11 +272,33 @@
   background: transparent;
 }
 
+.kdpRoot .kpDocTitleWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
 .kdpRoot .kpDocTitle {
   font-weight: 900;
   font-size: 14px;
   line-height: 1.25;
   color: #1f2937;
+}
+
+.kdpRoot .kpDocCountBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.86);
+  color: #2b3056;
+  font-size: 11px;
+  font-weight: 900;
+  white-space: nowrap;
 }
 
 .kdpRoot .kpDocCard.doc-ok .kpDocTitle {
@@ -630,6 +652,10 @@
   background: #fff;
 }
 
+.kdpRoot .kpDrop.is-sapras {
+  place-items: stretch;
+}
+
 .kdpRoot .kpDropEmpty {
   display: flex;
   align-items: center;
@@ -716,6 +742,98 @@
   font-family: inherit;
 }
 
+.kdpRoot .kpSaprasGridWrap {
+  width: 100%;
+}
+
+.kdpRoot .kpSaprasGridHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.kdpRoot .kpSaprasGridCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.08);
+  color: #2b3056;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.kdpRoot .kpSaprasResetBtn {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 0;
+  background: rgba(15, 23, 42, 0.08);
+  color: #2b3056;
+  font-size: 12px;
+  font-weight: 900;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.kdpRoot .kpSaprasGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.kdpRoot .kpSaprasTile {
+  min-height: 148px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: #f8fafc;
+}
+
+.kdpRoot .kpSaprasTileImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.kdpRoot .kpSaprasTilePdf {
+  height: 148px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  gap: 8px;
+  background: #ffffff;
+}
+
+.kdpRoot .kpSaprasTilePdfLabel {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(15, 63, 147, 0.12);
+  color: #0f3f93;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.kdpRoot .kpSaprasTilePdfName {
+  font-size: 12px;
+  font-weight: 700;
+  color: #374151;
+  word-break: break-word;
+}
+
 .kdpRoot .kpModalErr {
   margin-top: 10px;
   color: #b91c1c;
@@ -736,14 +854,78 @@
 }
 
 /* ====== Detail preview ====== */
+.kdpRoot .kpDetailToolbar {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.kdpRoot .kpDetailCountPill {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 68px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  background: #1f2937;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.kdpRoot .kpDetailNavGroup {
+  justify-self: center;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.kdpRoot .kpDetailNavBtn {
+  width: 40px;
+  height: 34px;
+  border-radius: 10px;
+  border: 0;
+  background: #1f2937;
+  color: #ffffff;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
+}
+
+.kdpRoot .kpDetailNavBtn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.kdpRoot .kpDetailToolbarSpacer {
+  min-height: 1px;
+}
+
 .kdpRoot .kpPreviewBig {
-  height: min(72vh, 760px);
+  height: min(76vh, 820px);
   border-radius: 12px;
   background: #f3f4f6;
   border: 1px solid rgba(15, 23, 42, 0.1);
   overflow: hidden;
-  display: grid;
-  place-items: center;
+  display: block;
+}
+
+.kdpRoot .kpPreviewBigMedia {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  overflow: hidden;
 }
 
 .kdpRoot .kpPreviewBigFrame {
@@ -754,8 +936,9 @@
 }
 
 .kdpRoot .kpPreviewBigImg {
-  max-width: 100%;
-  max-height: 100%;
+  width: 100%;
+  height: 100%;
+  display: block;
   object-fit: contain;
 }
 
@@ -829,13 +1012,78 @@
   margin-top: 16px;
 }
 
+.kdpRoot .kpMapShell {
+  position: relative;
+  min-height: 350px;
+}
+
+.kdpRoot .kpMapInfoCard {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 5;
+  width: min(310px, calc(100% - 24px));
+  border-radius: 12px;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 10px 20px rgba(15, 23, 42, 0.12);
+  padding: 12px 14px;
+}
+
+.kdpRoot .kpMapInfoCoords {
+  font-size: 13px;
+  font-weight: 900;
+  color: #374151;
+  line-height: 1.35;
+}
+
+.kdpRoot .kpMapInfoAddr {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6b7280;
+}
+
+.kdpRoot .kpMapInfoLink {
+  margin-top: 8px;
+  display: inline-flex;
+  align-items: center;
+  color: #1454c4;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
 .kdpRoot .kpMapBox {
   width: 100%;
   height: 350px;
+  min-height: 350px;
+  display: block;
+  position: relative;
+  z-index: 1;
   border-radius: 18px;
   border: 1px solid rgba(15, 23, 42, 0.1);
   overflow: hidden;
   background: #e5e7eb;
+}
+
+.kdpRoot .kpMapBox.has-error {
+  display: grid;
+  place-items: center;
+  background: #f3f4f6;
+}
+
+.kdpRoot .kpMapFallbackText {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  text-align: center;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+  z-index: 0;
 }
 
 .kdpRoot .kpLocFormGrid {
@@ -969,14 +1217,33 @@
 .kdpRoot .leaflet-container {
   width: 100%;
   height: 100%;
+  min-height: 350px;
+  display: block;
   font-family: inherit;
   z-index: 1;
+  background: #e5e7eb;
 }
 
 .kdpRoot .leaflet-pane,
 .kdpRoot .leaflet-top,
 .kdpRoot .leaflet-bottom {
   z-index: 1;
+}
+
+.kdpRoot .kpMapBox .leaflet-tile-pane,
+.kdpRoot .kpMapBox .leaflet-overlay-pane,
+.kdpRoot .kpMapBox .leaflet-shadow-pane,
+.kdpRoot .kpMapBox .leaflet-marker-pane,
+.kdpRoot .kpMapBox .leaflet-tooltip-pane,
+.kdpRoot .kpMapBox .leaflet-popup-pane {
+  z-index: 1;
+}
+
+.kdpRoot .kpMapBox .leaflet-map-pane img,
+.kdpRoot .kpMapBox .leaflet-tile-pane img,
+.kdpRoot .kpMapBox .leaflet-marker-pane img,
+.kdpRoot .kpMapBox .leaflet-shadow-pane img {
+  max-width: none !important;
 }
 
 .kdpRoot .leaflet-control-attribution {
@@ -1011,6 +1278,10 @@
   .kdpRoot .kpDocs {
     grid-template-columns: 1fr;
   }
+
+  .kdpRoot .kpSaprasGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 900px) {
@@ -1021,6 +1292,14 @@
   .kdpRoot .kpLocSearchRow,
   .kdpRoot .kpLocFormGrid {
     grid-template-columns: 1fr;
+  }
+
+  .kdpRoot .kpMapInfoCard {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: 100%;
+    margin-bottom: 12px;
   }
 }
 
@@ -1050,10 +1329,24 @@
   }
 
   .kdpRoot .kpPreviewBig {
-    height: 60vh;
+    height: 62vh;
   }
 
   .kdpRoot .kpUploadPdfFrame {
     height: 220px;
+  }
+
+  .kdpRoot .kpSaprasGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .kdpRoot .kpDetailToolbar {
+    grid-template-columns: 1fr;
+    justify-items: center;
+  }
+
+  .kdpRoot .kpDetailCountPill,
+  .kdpRoot .kpDetailNavGroup {
+    justify-self: center;
   }
 }

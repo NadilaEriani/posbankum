@@ -23,6 +23,20 @@ const TABLE_POS = "posbankum";
 
 const MAX_FILE = 5 * 1024 * 1024;
 const ALLOWED_MIME = new Set(["application/pdf", "image/jpeg", "image/png"]);
+const SAPRAS_PREVIEW_LIMIT = 8;
+const LEAFLET_CSS_URLS = [
+  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
+  "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css",
+];
+const LEAFLET_JS_URLS = [
+  "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+  "https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js",
+];
+const LEAFLET_ICON_URLS = {
+  iconRetina: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
+  icon: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
+  shadow: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
+};
 
 function formatDateID(iso) {
   if (!iso) return "-";
@@ -92,45 +106,121 @@ function buildPdfPreviewUrl(url) {
 }
 
 function ensureLeaflet() {
-  if (window.L) return Promise.resolve(window.L);
-
-  const cssId = "leaflet-css";
-  if (!document.getElementById(cssId)) {
-    const link = document.createElement("link");
-    link.id = cssId;
-    link.rel = "stylesheet";
-    link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
-    document.head.appendChild(link);
+  if (window.L?.map) {
+    return Promise.resolve(window.L);
   }
 
-  return new Promise((resolve, reject) => {
-    const jsId = "leaflet-js";
-    const existed = document.getElementById(jsId);
+  const loadStylesheet = (id, urls) =>
+    new Promise((resolve, reject) => {
+      const existing = document.getElementById(id);
+      if (existing?.dataset?.loaded === "true") {
+        resolve();
+        return;
+      }
 
-    if (existed) {
-      let waited = 0;
-      const timer = setInterval(() => {
-        if (window.L) {
-          clearInterval(timer);
+      let index = 0;
+      const tryLoad = () => {
+        const href = urls[index];
+        if (!href) {
+          reject(new Error("Leaflet CSS gagal dimuat."));
+          return;
+        }
+
+        const link = existing || document.createElement("link");
+        link.id = id;
+        link.rel = "stylesheet";
+        link.href = href;
+        link.dataset.loaded = "false";
+
+        link.onload = () => {
+          link.dataset.loaded = "true";
+          resolve();
+        };
+
+        link.onerror = () => {
+          index += 1;
+          if (index < urls.length) {
+            link.href = urls[index];
+          } else {
+            reject(new Error("Leaflet CSS gagal dimuat."));
+          }
+        };
+
+        if (!existing && !document.getElementById(id)) {
+          document.head.appendChild(link);
+        }
+      };
+
+      tryLoad();
+    });
+
+  const loadScript = (id, urls) =>
+    new Promise((resolve, reject) => {
+      if (window.L?.map) {
+        resolve(window.L);
+        return;
+      }
+
+      const existing = document.getElementById(id);
+      if (existing?.dataset?.loaded === "true" && window.L?.map) {
+        resolve(window.L);
+        return;
+      }
+
+      let index = 0;
+      const tryLoad = () => {
+        const src = urls[index];
+        if (!src) {
+          reject(new Error("Leaflet JS gagal dimuat."));
+          return;
+        }
+
+        const script = existing || document.createElement("script");
+        script.id = id;
+        script.async = true;
+        script.src = src;
+        script.dataset.loaded = "false";
+
+        script.onload = () => {
+          script.dataset.loaded = "true";
           resolve(window.L);
-        }
-        waited += 100;
-        if (waited >= 8000) {
-          clearInterval(timer);
-          reject(new Error("Leaflet gagal dimuat."));
-        }
-      }, 100);
-      return;
-    }
+        };
 
-    const script = document.createElement("script");
-    script.id = jsId;
-    script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
-    script.async = true;
-    script.onload = () => resolve(window.L);
-    script.onerror = () => reject(new Error("Leaflet gagal dimuat."));
-    document.body.appendChild(script);
-  });
+        script.onerror = () => {
+          index += 1;
+          if (index < urls.length) {
+            script.src = urls[index];
+          } else {
+            reject(new Error("Leaflet JS gagal dimuat."));
+          }
+        };
+
+        if (!existing && !document.getElementById(id)) {
+          document.body.appendChild(script);
+        }
+      };
+
+      tryLoad();
+    });
+
+  return loadStylesheet("leaflet-css", LEAFLET_CSS_URLS)
+    .then(() => loadScript("leaflet-js", LEAFLET_JS_URLS))
+    .then((L) => {
+      if (!L?.map) {
+        throw new Error("Leaflet tidak tersedia.");
+      }
+
+      if (L.Icon?.Default) {
+        delete L.Icon.Default.prototype._getIconUrl;
+        L.Icon.Default.mergeOptions({
+          iconRetinaUrl: LEAFLET_ICON_URLS.iconRetina,
+          iconUrl: LEAFLET_ICON_URLS.icon,
+          shadowUrl: LEAFLET_ICON_URLS.shadow,
+        });
+      }
+
+      return L;
+    });
 }
 
 function getLocationStatusRaw(row, hasCoords) {
@@ -147,6 +237,72 @@ function getLocationStatusRaw(row, hasCoords) {
 
   if (raw) return raw;
   return hasCoords ? "proses" : "";
+}
+
+function isSaprasCategory(kategori) {
+  return String(kategori || "").toLowerCase() === "sarpras";
+}
+
+function buildGoogleMapsLink(lat, lng) {
+  const la = Number(lat);
+  const lo = Number(lng);
+  if (!Number.isFinite(la) || !Number.isFinite(lo)) return "";
+  return `https://www.google.com/maps?q=${encodeURIComponent(`${la},${lo}`)}`;
+}
+
+function buildPreviewItem(row, signedUrl, fallbackName = "") {
+  return {
+    id:
+      row?.id_data ||
+      `${row?.kategori || "item"}-${row?.path_berkas || fallbackName}`,
+    row,
+    signedUrl,
+    mime_type: row?.mime_type || "",
+    nama_berkas: row?.nama_berkas || fallbackName || "Dokumen",
+    path_berkas: row?.path_berkas || "",
+    tgl_upload: row?.tgl_upload || "",
+  };
+}
+
+function isImageMime(mimeType) {
+  return String(mimeType || "").startsWith("image/");
+}
+
+function validateOneFile(file) {
+  if (!file) return "Pilih file dulu.";
+  if (!ALLOWED_MIME.has(file.type)) return "Format file harus PDF/JPG/PNG.";
+  if (file.size > MAX_FILE) return "Ukuran maksimal 5MB.";
+  return "";
+}
+
+function collectValidFiles(files, multiple) {
+  const normalized = Array.from(files || []).filter(Boolean);
+  const picked = multiple ? normalized : normalized.slice(0, 1);
+
+  if (!picked.length) {
+    return { files: [], error: "Pilih file dulu." };
+  }
+
+  for (const file of picked) {
+    const msg = validateOneFile(file);
+    if (msg) {
+      return { files: [], error: `${file.name}: ${msg}` };
+    }
+  }
+
+  return { files: picked, error: "" };
+}
+
+function sortRowsForDetail(rows = []) {
+  return [...rows].sort((a, b) => {
+    const timeA = new Date(a?.tgl_upload || a?.created_at || 0).getTime() || 0;
+    const timeB = new Date(b?.tgl_upload || b?.created_at || 0).getTime() || 0;
+    if (timeA !== timeB) return timeB - timeA;
+
+    const nameA = String(a?.nama_berkas || a?.path_berkas || a?.id_data || "");
+    const nameB = String(b?.nama_berkas || b?.path_berkas || b?.id_data || "");
+    return nameA.localeCompare(nameB);
+  });
 }
 
 export default function KelolaDataPosbankum({ profile }) {
@@ -171,6 +327,7 @@ export default function KelolaDataPosbankum({ profile }) {
 
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [docsLatest, setDocsLatest] = useState({});
+  const [docsByCategory, setDocsByCategory] = useState({});
   const [previewUrl, setPreviewUrl] = useState({});
 
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -178,17 +335,16 @@ export default function KelolaDataPosbankum({ profile }) {
   const [uploadTitle, setUploadTitle] = useState("");
   const [uploading, setUploading] = useState(false);
   const [uploadErr, setUploadErr] = useState("");
-  const [selectedFile, setSelectedFile] = useState(null);
-  const [selectedPreviewUrl, setSelectedPreviewUrl] = useState("");
-  const [selectedPreviewType, setSelectedPreviewType] = useState("");
-  const [existingPreviewUrl, setExistingPreviewUrl] = useState("");
-  const [existingPreviewType, setExistingPreviewType] = useState("");
+  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [selectedPreviewItems, setSelectedPreviewItems] = useState([]);
+  const [existingPreviewItems, setExistingPreviewItems] = useState([]);
   const fileRef = useRef(null);
 
   const [detailOpen, setDetailOpen] = useState(false);
   const [detailRow, setDetailRow] = useState(null);
   const [detailTitle, setDetailTitle] = useState("Preview Dokumen");
-  const [detailUrl, setDetailUrl] = useState("");
+  const [detailItems, setDetailItems] = useState([]);
+  const [detailIndex, setDetailIndex] = useState(0);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailErr, setDetailErr] = useState("");
 
@@ -199,6 +355,46 @@ export default function KelolaDataPosbankum({ profile }) {
   const mapBoxRef = useRef(null);
   const mapRef = useRef(null);
   const markerRef = useRef(null);
+  const mapResizeObserverRef = useRef(null);
+
+  const clearBlobPreviewItems = useCallback((items) => {
+    for (const item of items || []) {
+      if (item?.isBlob && item?.signedUrl?.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(item.signedUrl);
+        } catch {}
+      }
+    }
+  }, []);
+
+  const destroyMap = useCallback(() => {
+    if (mapResizeObserverRef.current) {
+      try {
+        mapResizeObserverRef.current.disconnect();
+      } catch {}
+      mapResizeObserverRef.current = null;
+    }
+
+    if (mapRef.current) {
+      try {
+        mapRef.current.off();
+        mapRef.current.remove();
+      } catch {}
+      mapRef.current = null;
+    }
+
+    markerRef.current = null;
+
+    if (mapBoxRef.current) {
+      mapBoxRef.current.innerHTML = "";
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearBlobPreviewItems(selectedPreviewItems);
+    };
+  }, [selectedPreviewItems, clearBlobPreviewItems]);
 
   const pickCoordsFromRow = useCallback((row) => {
     if (!row) return { lat: "", lng: "" };
@@ -235,6 +431,19 @@ export default function KelolaDataPosbankum({ profile }) {
     return { lat: "", lng: "" };
   }, []);
 
+  const createSignedUrl = useCallback(async (path, expiresIn = 600) => {
+    if (!path) return "";
+    try {
+      const { data, error } = await supabase.storage
+        .from(BUCKET)
+        .createSignedUrl(path, expiresIn);
+      if (error) throw error;
+      return data?.signedUrl || "";
+    } catch {
+      return "";
+    }
+  }, []);
+
   const loadPosbankum = useCallback(async () => {
     if (!posbankumId) return;
 
@@ -265,19 +474,6 @@ export default function KelolaDataPosbankum({ profile }) {
     }
   }, [pickCoordsFromRow, posbankumId, editLocOpen]);
 
-  const createSignedUrl = useCallback(async (path, expiresIn = 600) => {
-    if (!path) return "";
-    try {
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrl(path, expiresIn);
-      if (error) throw error;
-      return data?.signedUrl || "";
-    } catch {
-      return "";
-    }
-  }, []);
-
   const loadDocs = useCallback(async () => {
     if (!posbankumId) return;
 
@@ -293,12 +489,19 @@ export default function KelolaDataPosbankum({ profile }) {
       if (error) throw error;
 
       const latest = {};
+      const grouped = {};
       for (const row of data || []) {
         if (row?.kategori && !latest[row.kategori]) {
           latest[row.kategori] = row;
         }
+        if (row?.kategori) {
+          if (!grouped[row.kategori]) grouped[row.kategori] = [];
+          grouped[row.kategori].push(row);
+        }
       }
+
       setDocsLatest(latest);
+      setDocsByCategory(grouped);
 
       const nextPreview = {};
       for (const item of docTypes) {
@@ -312,6 +515,7 @@ export default function KelolaDataPosbankum({ profile }) {
     } catch (e) {
       console.warn("loadDocs:", e);
       setDocsLatest({});
+      setDocsByCategory({});
       setPreviewUrl({});
     } finally {
       setLoadingDocs(false);
@@ -322,14 +526,6 @@ export default function KelolaDataPosbankum({ profile }) {
     loadPosbankum();
     loadDocs();
   }, [loadDocs, loadPosbankum]);
-
-  useEffect(() => {
-    return () => {
-      if (selectedPreviewUrl && selectedPreviewUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(selectedPreviewUrl);
-      }
-    };
-  }, [selectedPreviewUrl]);
 
   const hasSavedCoords =
     Number.isFinite(Number(locSaved.lat)) &&
@@ -368,141 +564,450 @@ export default function KelolaDataPosbankum({ profile }) {
     return { total, ok, wait, bad, none };
   }, [docTypes, docsLatest, hasSavedCoords, locationKind]);
 
+  const moveMarker = useCallback((lat, lng, zoom = 16) => {
+    const map = mapRef.current;
+    const L = window.L;
+    if (!map || !L) return;
+
+    const la = Number(lat);
+    const lo = Number(lng);
+    if (!Number.isFinite(la) || !Number.isFinite(lo)) return;
+
+    map.setView([la, lo], zoom);
+
+    if (markerRef.current) {
+      markerRef.current.setLatLng([la, lo]);
+      markerRef.current.setOpacity(1);
+    } else {
+      markerRef.current = L.marker([la, lo], {
+        draggable: true,
+      }).addTo(map);
+    }
+  }, []);
+
+  const reverseGeocode = useCallback(async (lat, lng) => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(
+          lat,
+        )}&lon=${encodeURIComponent(lng)}`,
+        {
+          headers: {
+            "Accept-Language": "id-ID",
+          },
+        },
+      );
+      const json = await res.json();
+      return json?.display_name || "";
+    } catch {
+      return "";
+    }
+  }, []);
+
+  const applyPickedLocation = useCallback(
+    async (lat, lng, withReverse = true) => {
+      const fixedLat = Number(lat).toFixed(6);
+      const fixedLng = Number(lng).toFixed(6);
+
+      moveMarker(fixedLat, fixedLng, 16);
+      setLocDraft((prev) => ({
+        ...prev,
+        lat: fixedLat,
+        lng: fixedLng,
+      }));
+      setLocDirty(true);
+      setLocErr("");
+
+      if (withReverse) {
+        const alamat = await reverseGeocode(fixedLat, fixedLng);
+        if (alamat) {
+          setLocDraft((prev) => ({
+            ...prev,
+            lat: fixedLat,
+            lng: fixedLng,
+            alamat,
+          }));
+        }
+      }
+    },
+    [moveMarker, reverseGeocode],
+  );
+
+  useEffect(() => {
+    if (!editLocOpen) return;
+
+    let cancelled = false;
+    let bootstrapTimer = null;
+
+    const waitForMapBox = async () => {
+      let attempts = 0;
+      while (!cancelled && attempts < 40) {
+        const box = mapBoxRef.current;
+        if (box && box.clientWidth > 0 && box.clientHeight > 0) {
+          return box;
+        }
+        attempts += 1;
+        await new Promise((resolve) => setTimeout(resolve, 80));
+      }
+      return mapBoxRef.current;
+    };
+
+    const initMap = async () => {
+      try {
+        setLocErr("");
+        destroyMap();
+
+        const box = await waitForMapBox();
+        if (cancelled || !box) return;
+
+        const L = await ensureLeaflet();
+        if (cancelled || !mapBoxRef.current) return;
+
+        const lat = Number(locDraft.lat || locSaved.lat);
+        const lng = Number(locDraft.lng || locSaved.lng);
+        const hasCoord = Number.isFinite(lat) && Number.isFinite(lng);
+
+        const startLat = hasCoord ? lat : 0.5071;
+        const startLng = hasCoord ? lng : 101.4478;
+        const startZoom = hasCoord ? 16 : 11;
+
+        const map = L.map(mapBoxRef.current, {
+          zoomControl: true,
+          scrollWheelZoom: true,
+          dragging: true,
+          tap: true,
+          doubleClickZoom: true,
+          boxZoom: true,
+          keyboard: true,
+          preferCanvas: true,
+        }).setView([startLat, startLng], startZoom);
+
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          maxZoom: 19,
+          attribution: "© OpenStreetMap",
+          crossOrigin: true,
+        }).addTo(map);
+
+        const marker = L.marker([startLat, startLng], {
+          draggable: true,
+        }).addTo(map);
+
+        marker.on("dragend", async (e) => {
+          const pos = e.target.getLatLng();
+          await applyPickedLocation(pos.lat, pos.lng, true);
+        });
+
+        map.on("click", async (e) => {
+          await applyPickedLocation(e.latlng.lat, e.latlng.lng, true);
+        });
+
+        markerRef.current = marker;
+        mapRef.current = map;
+
+        if (!hasCoord) {
+          marker.setOpacity(0.9);
+        }
+
+        if (typeof ResizeObserver !== "undefined" && mapBoxRef.current) {
+          const observer = new ResizeObserver(() => {
+            try {
+              map.invalidateSize(true);
+            } catch {}
+          });
+          observer.observe(mapBoxRef.current);
+          mapResizeObserverRef.current = observer;
+        }
+
+        map.whenReady(() => {
+          requestAnimationFrame(() => {
+            try {
+              map.invalidateSize(true);
+            } catch {}
+          });
+
+          setTimeout(() => {
+            try {
+              map.invalidateSize(true);
+            } catch {}
+          }, 150);
+
+          setTimeout(() => {
+            try {
+              map.invalidateSize(true);
+            } catch {}
+          }, 400);
+
+          setTimeout(() => {
+            try {
+              map.invalidateSize(true);
+            } catch {}
+          }, 900);
+        });
+      } catch (e) {
+        console.warn("init map:", e);
+        setLocErr("Peta gagal dimuat.");
+      }
+    };
+
+    bootstrapTimer = setTimeout(initMap, 30);
+
+    return () => {
+      cancelled = true;
+      if (bootstrapTimer) clearTimeout(bootstrapTimer);
+      destroyMap();
+    };
+  }, [
+    editLocOpen,
+    locSaved.lat,
+    locSaved.lng,
+    locDraft.lat,
+    locDraft.lng,
+    applyPickedLocation,
+    destroyMap,
+  ]);
+
+  const searchLocation = async () => {
+    const q = locQuery.trim();
+    if (!q) return;
+
+    setLocErr("");
+
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(
+          q,
+        )}&limit=1`,
+        {
+          headers: {
+            "Accept-Language": "id-ID",
+          },
+        },
+      );
+
+      const json = await res.json();
+      const hit = json?.[0];
+      if (!hit) {
+        setLocErr("Lokasi tidak ditemukan.");
+        return;
+      }
+
+      const lat = Number(hit.lat);
+      const lng = Number(hit.lon);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        setLocErr("Koordinat lokasi tidak valid.");
+        return;
+      }
+
+      setLocDraft((prev) => ({
+        ...prev,
+        lat: lat.toFixed(6),
+        lng: lng.toFixed(6),
+        alamat: hit.display_name || prev.alamat,
+      }));
+      setLocDirty(true);
+      setLocErr("");
+
+      setTimeout(() => {
+        moveMarker(lat, lng, 16);
+      }, 120);
+    } catch {
+      setLocErr("Pencarian lokasi gagal.");
+    }
+  };
+
+  const useMyLocation = () => {
+    if (!navigator.geolocation) {
+      setLocErr("Browser tidak mendukung geolocation.");
+      return;
+    }
+
+    setLocErr("");
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = Number(position.coords.latitude).toFixed(6);
+        const lng = Number(position.coords.longitude).toFixed(6);
+
+        setLocDraft((prev) => ({
+          ...prev,
+          lat,
+          lng,
+        }));
+        setLocDirty(true);
+        setLocErr("");
+
+        setTimeout(() => {
+          moveMarker(lat, lng, 16);
+        }, 120);
+
+        const alamat = await reverseGeocode(lat, lng);
+        if (alamat) {
+          setLocDraft((prev) => ({
+            ...prev,
+            lat,
+            lng,
+            alamat,
+          }));
+        }
+      },
+      () => {
+        setLocErr("Gagal mengambil lokasi saat ini.");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+      },
+    );
+  };
+
   const openUpload = async (kategori) => {
     const found = docTypes.find((x) => x.key === kategori);
-    const row = docsLatest[kategori];
+    const rows = docsByCategory[kategori] || [];
+    const isSapras = isSaprasCategory(kategori);
 
-    if (selectedPreviewUrl && selectedPreviewUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(selectedPreviewUrl);
-    }
+    clearBlobPreviewItems(selectedPreviewItems);
 
     setUploadKey(kategori);
     setUploadTitle(
       found?.title ? `Upload ${found.title}` : "Upload Dokumentasi Sapras",
     );
-    setSelectedFile(null);
-    setSelectedPreviewUrl("");
-    setSelectedPreviewType("");
-    setExistingPreviewUrl("");
-    setExistingPreviewType("");
+    setSelectedFiles([]);
+    setSelectedPreviewItems([]);
+    setExistingPreviewItems([]);
     setUploadErr("");
     setUploadOpen(true);
 
-    if (row?.path_berkas) {
-      const signedUrl = await createSignedUrl(row.path_berkas, 600);
-      setExistingPreviewUrl(signedUrl);
-      setExistingPreviewType(row?.mime_type || "");
-    }
+    if (!rows.length) return;
+
+    const previewRows = isSapras
+      ? rows.slice(0, SAPRAS_PREVIEW_LIMIT)
+      : rows.slice(0, 1);
+    const signed = await Promise.all(
+      previewRows.map(async (row) => {
+        const signedUrl = await createSignedUrl(row.path_berkas, 600);
+        return signedUrl ? buildPreviewItem(row, signedUrl) : null;
+      }),
+    );
+
+    setExistingPreviewItems(signed.filter(Boolean));
   };
 
   const closeUpload = () => {
     if (uploading) return;
 
-    if (selectedPreviewUrl && selectedPreviewUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(selectedPreviewUrl);
-    }
+    clearBlobPreviewItems(selectedPreviewItems);
 
     setUploadOpen(false);
     setUploadKey("");
     setUploadTitle("");
     setUploadErr("");
-    setSelectedFile(null);
-    setSelectedPreviewUrl("");
-    setSelectedPreviewType("");
-    setExistingPreviewUrl("");
-    setExistingPreviewType("");
+    setSelectedFiles([]);
+    setSelectedPreviewItems([]);
+    setExistingPreviewItems([]);
     if (fileRef.current) fileRef.current.value = "";
   };
 
   const pickFile = () => fileRef.current?.click();
 
-  const validateFile = (file) => {
-    if (!file) return "Pilih file dulu.";
-    if (!ALLOWED_MIME.has(file.type)) return "Format file harus PDF/JPG/PNG.";
-    if (file.size > MAX_FILE) return "Ukuran maksimal 5MB.";
-    return "";
-  };
+  const setPreviewFromFiles = useCallback(
+    (files) => {
+      clearBlobPreviewItems(selectedPreviewItems);
+      const nextItems = files.map((file, index) =>
+        buildPreviewItem(
+          {
+            id_data: `${file.name}-${index}-${file.lastModified || Date.now()}`,
+            mime_type: file.type,
+            nama_berkas: file.name,
+          },
+          URL.createObjectURL(file),
+          file.name,
+        ),
+      );
 
-  const setPreviewFromFile = (file) => {
-    if (selectedPreviewUrl && selectedPreviewUrl.startsWith("blob:")) {
-      URL.revokeObjectURL(selectedPreviewUrl);
-    }
-    const blobUrl = URL.createObjectURL(file);
-    setSelectedPreviewUrl(blobUrl);
-    setSelectedPreviewType(file.type || "");
-  };
+      for (const item of nextItems) {
+        item.isBlob = true;
+      }
+
+      setSelectedPreviewItems(nextItems);
+    },
+    [selectedPreviewItems, clearBlobPreviewItems],
+  );
+
+  const applySelectedFiles = useCallback(
+    (incomingFiles) => {
+      const multiple = isSaprasCategory(uploadKey);
+      const { files, error } = collectValidFiles(incomingFiles, multiple);
+      if (error) {
+        setUploadErr(error);
+        if (fileRef.current) fileRef.current.value = "";
+        return;
+      }
+
+      setUploadErr("");
+      setSelectedFiles(files);
+      setPreviewFromFiles(files);
+    },
+    [uploadKey, setPreviewFromFiles],
+  );
 
   const onFileChange = (e) => {
-    const file = e.target.files?.[0] || null;
-    if (!file) return;
-
-    const msg = validateFile(file);
-    if (msg) {
-      setUploadErr(msg);
-      e.target.value = "";
-      return;
-    }
-
-    setUploadErr("");
-    setSelectedFile(file);
-    setPreviewFromFile(file);
+    applySelectedFiles(e.target.files || []);
   };
 
   const onDrop = (e) => {
     e.preventDefault();
     if (uploading) return;
-
-    const file = e.dataTransfer?.files?.[0] || null;
-    if (!file) return;
-
-    const msg = validateFile(file);
-    if (msg) {
-      setUploadErr(msg);
-      return;
-    }
-
-    setUploadErr("");
-    setSelectedFile(file);
-    setPreviewFromFile(file);
+    applySelectedFiles(e.dataTransfer?.files || []);
   };
 
   const doUpload = async () => {
     if (!posbankumId) return setUploadErr("id_posbankum tidak ditemukan.");
     if (!uploadKey) return setUploadErr("Kategori dokumen tidak valid.");
-    if (!selectedFile) return setUploadErr("Pilih file dulu.");
+    if (!selectedFiles.length) return setUploadErr("Pilih file dulu.");
 
     setUploading(true);
     setUploadErr("");
 
     try {
-      const safeName = selectedFile.name.replace(/[^\w.\-]+/g, "_");
-      const path = `${posbankumId}/${uploadKey}/${Date.now()}_${safeName}`;
+      const rowsToInsert = [];
+      for (const file of selectedFiles) {
+        const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+        const path = `${posbankumId}/${uploadKey}/${Date.now()}_${Math.random()
+          .toString(36)
+          .slice(2, 8)}_${safeName}`;
 
-      const { error: upErr } = await supabase.storage
-        .from(BUCKET)
-        .upload(path, selectedFile, {
-          contentType: selectedFile.type,
-          upsert: false,
+        const { error: upErr } = await supabase.storage
+          .from(BUCKET)
+          .upload(path, file, {
+            contentType: file.type,
+            upsert: false,
+          });
+        if (upErr) throw upErr;
+
+        rowsToInsert.push({
+          id_posbankum: posbankumId,
+          kategori: uploadKey,
+          path_berkas: path,
+          tgl_upload: new Date().toISOString(),
+          status_verifikasi: "menunggu",
+          nama_berkas: file.name,
+          mime_type: file.type,
+          size_bytes: file.size,
         });
-      if (upErr) throw upErr;
+      }
 
-      const payload = {
-        id_posbankum: posbankumId,
-        kategori: uploadKey,
-        path_berkas: path,
-        tgl_upload: new Date().toISOString(),
-        status_verifikasi: "proses",
-        nama_berkas: selectedFile.name,
-        mime_type: selectedFile.type,
-        size_bytes: selectedFile.size,
-      };
-
-      const { error: insErr } = await supabase.from(TABLE_DOC).insert(payload);
+      const { error: insErr } = await supabase
+        .from(TABLE_DOC)
+        .insert(rowsToInsert);
       if (insErr) throw insErr;
 
       await loadDocs();
       closeUpload();
-      setSuccessMessage("Dokumen berhasil diupload!");
+      setSuccessMessage(
+        rowsToInsert.length > 1
+          ? `${rowsToInsert.length} file berhasil diupload!`
+          : "Dokumen berhasil diupload!",
+      );
     } catch (e) {
       console.error(e);
       setUploadErr(e?.message || "Upload gagal.");
@@ -517,14 +1022,34 @@ export default function KelolaDataPosbankum({ profile }) {
     setDetailOpen(true);
     setDetailRow(row);
     setDetailTitle(title || "Preview Dokumen");
-    setDetailUrl("");
+    setDetailItems([]);
+    setDetailIndex(0);
     setDetailErr("");
     setDetailLoading(true);
 
     try {
-      const signedUrl = await createSignedUrl(row.path_berkas, 600);
-      if (!signedUrl) throw new Error("Gagal memuat dokumen.");
-      setDetailUrl(signedUrl);
+      const rows = isSaprasCategory(row.kategori)
+        ? sortRowsForDetail(docsByCategory[row.kategori] || [row])
+        : [row];
+
+      const items = (
+        await Promise.all(
+          rows.map(async (item) => {
+            const signedUrl = await createSignedUrl(item.path_berkas, 600);
+            return signedUrl ? buildPreviewItem(item, signedUrl) : null;
+          }),
+        )
+      ).filter(Boolean);
+
+      if (!items.length) throw new Error("Gagal memuat dokumen.");
+
+      const currentIndex = Math.max(
+        0,
+        items.findIndex((item) => item.row?.id_data === row.id_data),
+      );
+
+      setDetailItems(items);
+      setDetailIndex(currentIndex === -1 ? 0 : currentIndex);
     } catch (e) {
       setDetailErr(e?.message || "Gagal memuat dokumen.");
     } finally {
@@ -536,10 +1061,22 @@ export default function KelolaDataPosbankum({ profile }) {
     setDetailOpen(false);
     setDetailRow(null);
     setDetailTitle("Preview Dokumen");
-    setDetailUrl("");
+    setDetailItems([]);
+    setDetailIndex(0);
     setDetailErr("");
     setDetailLoading(false);
   };
+
+  useEffect(() => {
+    if (!detailItems.length) {
+      if (detailIndex !== 0) setDetailIndex(0);
+      return;
+    }
+
+    if (detailIndex > detailItems.length - 1) {
+      setDetailIndex(detailItems.length - 1);
+    }
+  }, [detailItems, detailIndex]);
 
   const saveLocation = async () => {
     if (!posbankumId) return;
@@ -602,253 +1139,6 @@ export default function KelolaDataPosbankum({ profile }) {
     }
   };
 
-  const moveMarker = useCallback((lat, lng, zoom = 16) => {
-    const m = mapRef.current;
-    const L = window.L;
-    if (!m || !L) return;
-
-    const la = Number(lat);
-    const lo = Number(lng);
-    if (!Number.isFinite(la) || !Number.isFinite(lo)) return;
-
-    m.setView([la, lo], zoom);
-
-    if (markerRef.current) {
-      markerRef.current.setLatLng([la, lo]);
-    } else {
-      markerRef.current = L.marker([la, lo], {
-        draggable: true,
-      }).addTo(m);
-    }
-  }, []);
-
-  const reverseGeocode = useCallback(async (lat, lng) => {
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${encodeURIComponent(
-          lat,
-        )}&lon=${encodeURIComponent(lng)}`,
-        {
-          headers: {
-            "Accept-Language": "id-ID",
-          },
-        },
-      );
-      const json = await res.json();
-      return json?.display_name || "";
-    } catch {
-      return "";
-    }
-  }, []);
-
-  const applyPickedLocation = useCallback(
-    async (lat, lng, withReverse = true) => {
-      const fixedLat = Number(lat).toFixed(6);
-      const fixedLng = Number(lng).toFixed(6);
-
-      moveMarker(fixedLat, fixedLng, 16);
-      setLocDraft((prev) => ({
-        ...prev,
-        lat: fixedLat,
-        lng: fixedLng,
-      }));
-      setLocDirty(true);
-
-      if (withReverse) {
-        const alamat = await reverseGeocode(fixedLat, fixedLng);
-        if (alamat) {
-          setLocDraft((prev) => ({
-            ...prev,
-            lat: fixedLat,
-            lng: fixedLng,
-            alamat,
-          }));
-        }
-      }
-    },
-    [moveMarker, reverseGeocode],
-  );
-
-  useEffect(() => {
-    if (!editLocOpen) return;
-
-    let cancelled = false;
-
-    const initMap = async () => {
-      try {
-        const L = await ensureLeaflet();
-        if (cancelled || !mapBoxRef.current) return;
-
-        if (mapRef.current) {
-          try {
-            mapRef.current.off();
-            mapRef.current.remove();
-          } catch {}
-          mapRef.current = null;
-          markerRef.current = null;
-        }
-
-        const lat = Number(locDraft.lat || locSaved.lat);
-        const lng = Number(locDraft.lng || locSaved.lng);
-        const hasCoord = Number.isFinite(lat) && Number.isFinite(lng);
-
-        const startLat = hasCoord ? lat : 0.5071;
-        const startLng = hasCoord ? lng : 101.4478;
-        const startZoom = hasCoord ? 16 : 11;
-
-        const map = L.map(mapBoxRef.current, {
-          zoomControl: true,
-          scrollWheelZoom: true,
-        }).setView([startLat, startLng], startZoom);
-
-        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          maxZoom: 19,
-          attribution: "© OpenStreetMap",
-        }).addTo(map);
-
-        const marker = L.marker([startLat, startLng], {
-          draggable: true,
-        }).addTo(map);
-
-        marker.on("dragend", async (e) => {
-          const pos = e.target.getLatLng();
-          await applyPickedLocation(pos.lat, pos.lng, true);
-        });
-
-        map.on("click", async (e) => {
-          await applyPickedLocation(e.latlng.lat, e.latlng.lng, true);
-        });
-
-        markerRef.current = marker;
-        mapRef.current = map;
-
-        if (!hasCoord) {
-          marker.setOpacity(0.85);
-        }
-
-        setTimeout(() => {
-          map.invalidateSize();
-        }, 250);
-      } catch (e) {
-        console.warn("init map:", e);
-        setLocErr("Peta gagal dimuat.");
-      }
-    };
-
-    initMap();
-
-    return () => {
-      cancelled = true;
-      if (mapRef.current) {
-        try {
-          mapRef.current.off();
-          mapRef.current.remove();
-        } catch {}
-        mapRef.current = null;
-        markerRef.current = null;
-      }
-    };
-  }, [
-    editLocOpen,
-    locSaved.lat,
-    locSaved.lng,
-    locDraft.lat,
-    locDraft.lng,
-    applyPickedLocation,
-  ]);
-
-  const searchLocation = async () => {
-    const q = locQuery.trim();
-    if (!q) return;
-
-    setLocErr("");
-
-    try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(
-          q,
-        )}&limit=1`,
-        {
-          headers: {
-            "Accept-Language": "id-ID",
-          },
-        },
-      );
-
-      const json = await res.json();
-      const hit = json?.[0];
-      if (!hit) {
-        setLocErr("Lokasi tidak ditemukan.");
-        return;
-      }
-
-      const lat = Number(hit.lat);
-      const lng = Number(hit.lon);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-        setLocErr("Koordinat lokasi tidak valid.");
-        return;
-      }
-
-      setLocDraft((prev) => ({
-        ...prev,
-        lat: lat.toFixed(6),
-        lng: lng.toFixed(6),
-        alamat: hit.display_name || prev.alamat,
-      }));
-      setLocDirty(true);
-
-      setTimeout(() => {
-        moveMarker(lat, lng, 16);
-      }, 120);
-    } catch {
-      setLocErr("Pencarian lokasi gagal.");
-    }
-  };
-
-  const useMyLocation = () => {
-    if (!navigator.geolocation) {
-      setLocErr("Browser tidak mendukung geolocation.");
-      return;
-    }
-
-    setLocErr("");
-
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        const lat = Number(position.coords.latitude).toFixed(6);
-        const lng = Number(position.coords.longitude).toFixed(6);
-
-        setLocDraft((prev) => ({
-          ...prev,
-          lat,
-          lng,
-        }));
-        setLocDirty(true);
-
-        setTimeout(() => {
-          moveMarker(lat, lng, 16);
-        }, 120);
-
-        const alamat = await reverseGeocode(lat, lng);
-        if (alamat) {
-          setLocDraft((prev) => ({
-            ...prev,
-            lat,
-            lng,
-            alamat,
-          }));
-        }
-      },
-      () => {
-        setLocErr("Gagal mengambil lokasi saat ini.");
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 10000,
-      },
-    );
-  };
-
   const getDocToneClass = (kind) => {
     if (kind === "ok") return "doc-ok";
     if (kind === "bad") return "doc-bad";
@@ -888,11 +1178,59 @@ export default function KelolaDataPosbankum({ profile }) {
     return <div className="kpPreviewPh" />;
   };
 
-  const renderUploadPreview = () => {
-    const activeUrl = selectedPreviewUrl || existingPreviewUrl;
-    const activeType = selectedPreviewType || existingPreviewType;
+  const renderSaprasGrid = (items, removable = false) => {
+    if (!items.length) return null;
 
-    if (!activeUrl) {
+    return (
+      <div className="kpSaprasGridWrap">
+        <div className="kpSaprasGridHead">
+          <div className="kpSaprasGridCount">{items.length} File</div>
+          {removable ? (
+            <button
+              type="button"
+              className="kpSaprasResetBtn"
+              onClick={(e) => {
+                e.stopPropagation();
+                clearBlobPreviewItems(selectedPreviewItems);
+                setSelectedFiles([]);
+                setSelectedPreviewItems([]);
+                setUploadErr("");
+                if (fileRef.current) fileRef.current.value = "";
+              }}
+            >
+              Reset Pilihan
+            </button>
+          ) : null}
+        </div>
+
+        <div className="kpSaprasGrid">
+          {items.map((item, index) => (
+            <div className="kpSaprasTile" key={`${item.id}-${index}`}>
+              {isImageMime(item.mime_type) ? (
+                <img
+                  className="kpSaprasTileImg"
+                  src={item.signedUrl}
+                  alt={item.nama_berkas}
+                />
+              ) : (
+                <div className="kpSaprasTilePdf">
+                  <div className="kpSaprasTilePdfLabel">PDF</div>
+                  <div className="kpSaprasTilePdfName">{item.nama_berkas}</div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderUploadPreview = () => {
+    const activeSelected = selectedPreviewItems;
+    const activeExisting = existingPreviewItems;
+    const isSapras = isSaprasCategory(uploadKey);
+
+    if (!activeSelected.length && !activeExisting.length) {
       return (
         <div className="kpDropEmpty">
           <div className="kpDropIcon">
@@ -906,31 +1244,33 @@ export default function KelolaDataPosbankum({ profile }) {
       );
     }
 
-    if (String(activeType).startsWith("image/")) {
+    if (isSapras) {
+      return renderSaprasGrid(
+        activeSelected.length ? activeSelected : activeExisting,
+        activeSelected.length > 0,
+      );
+    }
+
+    const current = activeSelected[0] || activeExisting[0];
+    if (!current) return null;
+
+    if (isImageMime(current.mime_type)) {
       return (
         <div className="kpUploadPreviewWrap">
           <img
             className="kpUploadPreviewImg"
-            src={activeUrl}
+            src={current.signedUrl}
             alt="Preview upload"
           />
-          {selectedFile ? (
+          {activeSelected.length ? (
             <button
               type="button"
               className="kpUploadRemove"
               onClick={(e) => {
                 e.stopPropagation();
-
-                if (
-                  selectedPreviewUrl &&
-                  selectedPreviewUrl.startsWith("blob:")
-                ) {
-                  URL.revokeObjectURL(selectedPreviewUrl);
-                }
-
-                setSelectedFile(null);
-                setSelectedPreviewUrl("");
-                setSelectedPreviewType("");
+                clearBlobPreviewItems(selectedPreviewItems);
+                setSelectedFiles([]);
+                setSelectedPreviewItems([]);
                 setUploadErr("");
                 if (fileRef.current) fileRef.current.value = "";
               }}
@@ -942,16 +1282,16 @@ export default function KelolaDataPosbankum({ profile }) {
       );
     }
 
-    if (activeType === "application/pdf") {
+    if (current.mime_type === "application/pdf") {
       return (
         <div className="kpUploadPdfWrap">
           <iframe
             className="kpUploadPdfFrame"
             title="Preview PDF Upload"
-            src={buildPdfPreviewUrl(activeUrl)}
+            src={buildPdfPreviewUrl(current.signedUrl)}
           />
           <div className="kpDropSub kpPdfName">
-            {selectedFile?.name || "Upload Terbaru"}
+            {current.nama_berkas || "Upload Terbaru"}
           </div>
         </div>
       );
@@ -959,6 +1299,24 @@ export default function KelolaDataPosbankum({ profile }) {
 
     return null;
   };
+
+  const currentDetailItem = useMemo(
+    () => detailItems[detailIndex] || null,
+    [detailItems, detailIndex],
+  );
+  const saprasCount = (docsByCategory.sarpras || []).length;
+  const mapPreviewLink = buildGoogleMapsLink(
+    locDraft.lat || locSaved.lat,
+    locDraft.lng || locSaved.lng,
+  );
+
+  const handlePrevDetail = useCallback(() => {
+    setDetailIndex((prev) => Math.max(0, prev - 1));
+  }, []);
+
+  const handleNextDetail = useCallback(() => {
+    setDetailIndex((prev) => Math.min(detailItems.length - 1, prev + 1));
+  }, [detailItems.length]);
 
   if (!posbankumId) {
     return (
@@ -1077,7 +1435,12 @@ export default function KelolaDataPosbankum({ profile }) {
               key={item.key}
             >
               <div className="kpDocTop">
-                <div className="kpDocTitle">{item.title}</div>
+                <div className="kpDocTitleWrap">
+                  <div className="kpDocTitle">{item.title}</div>
+                  {item.key === "sarpras" && saprasCount > 1 ? (
+                    <div className="kpDocCountBadge">{saprasCount} File</div>
+                  ) : null}
+                </div>
                 <div
                   className={[
                     "kpStatusPill",
@@ -1103,7 +1466,12 @@ export default function KelolaDataPosbankum({ profile }) {
                 </div>
               </div>
 
-              <div className="kpDocMeta">Upload: {uploadAt}</div>
+              <div className="kpDocMeta">
+                Upload: {uploadAt}
+                {item.key === "sarpras" && saprasCount > 0
+                  ? ` • ${saprasCount} File`
+                  : ""}
+              </div>
 
               <div className="kpPreview">{renderCardPreview(item, row)}</div>
 
@@ -1249,11 +1617,14 @@ export default function KelolaDataPosbankum({ profile }) {
                   <li>Pastikan dokumen terbaca dengan jelas</li>
                   <li>Gunakan scan berkualitas tinggi untuk dokumen fisik</li>
                   <li>Pastikan semua informasi terlihat lengkap</li>
+                  {isSaprasCategory(uploadKey) ? (
+                    <li>Dokumentasi Sapras dapat diupload lebih dari 1 file</li>
+                  ) : null}
                 </ul>
               </div>
 
               <div
-                className="kpDrop kpDropPreview"
+                className={`kpDrop kpDropPreview ${isSaprasCategory(uploadKey) ? "is-sapras" : ""}`}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={onDrop}
                 onClick={pickFile}
@@ -1278,7 +1649,7 @@ export default function KelolaDataPosbankum({ profile }) {
                   className="kpBtnSave"
                   type="button"
                   onClick={doUpload}
-                  disabled={uploading || !selectedFile}
+                  disabled={uploading || !selectedFiles.length}
                 >
                   {uploading ? "Upload..." : "Upload"}
                 </button>
@@ -1289,6 +1660,7 @@ export default function KelolaDataPosbankum({ profile }) {
               ref={fileRef}
               type="file"
               accept=".pdf,image/png,image/jpeg"
+              multiple={isSaprasCategory(uploadKey)}
               style={{ display: "none" }}
               onChange={onFileChange}
             />
@@ -1311,23 +1683,60 @@ export default function KelolaDataPosbankum({ profile }) {
             </div>
 
             <div className="kpModalBody kpModalBodyPreview kpModalBodyScroll">
+              {detailItems.length > 0 ? (
+                <div className="kpDetailToolbar">
+                  <div className="kpDetailCountPill">
+                    {detailIndex + 1} / {detailItems.length}
+                  </div>
+
+                  <div className="kpDetailNavGroup">
+                    <button
+                      type="button"
+                      className="kpDetailNavBtn"
+                      onClick={handlePrevDetail}
+                      disabled={detailIndex <= 0}
+                    >
+                      ‹
+                    </button>
+                    <button
+                      type="button"
+                      className="kpDetailNavBtn"
+                      onClick={handleNextDetail}
+                      disabled={detailIndex >= detailItems.length - 1}
+                    >
+                      ›
+                    </button>
+                  </div>
+
+                  <div className="kpDetailToolbarSpacer" />
+                </div>
+              ) : null}
+
               <div className="kpPreviewBig">
                 {detailLoading ? (
                   <div className="kpPreviewBigText">Memuat...</div>
                 ) : detailErr ? (
                   <div className="kpPreviewBigText">{detailErr}</div>
-                ) : detailUrl ? (
-                  String(detailRow?.mime_type || "").startsWith("image/") ? (
-                    <img
-                      className="kpPreviewBigImg"
-                      src={detailUrl}
-                      alt="Preview"
-                    />
+                ) : currentDetailItem?.signedUrl ? (
+                  isImageMime(currentDetailItem.mime_type) ? (
+                    <div
+                      className="kpPreviewBigMedia"
+                      key={`${currentDetailItem.id || "img"}-${detailIndex}`}
+                    >
+                      <img
+                        key={`${currentDetailItem.signedUrl}-${detailIndex}`}
+                        className="kpPreviewBigImg"
+                        src={currentDetailItem.signedUrl}
+                        alt={currentDetailItem.nama_berkas || "Preview"}
+                        loading="eager"
+                      />
+                    </div>
                   ) : (
                     <iframe
+                      key={`${currentDetailItem.id || "pdf"}-${detailIndex}`}
                       className="kpPreviewBigFrame"
                       title="Preview"
-                      src={buildPdfPreviewUrl(detailUrl)}
+                      src={buildPdfPreviewUrl(currentDetailItem.signedUrl)}
                     />
                   )
                 ) : (
@@ -1401,7 +1810,38 @@ export default function KelolaDataPosbankum({ profile }) {
               </div>
 
               <div className="kpMapWrap">
-                <div className="kpMapBox" ref={mapBoxRef} />
+                <div className="kpMapShell">
+                  <div className="kpMapInfoCard">
+                    <div className="kpMapInfoCoords">
+                      {locDraft.lat && locDraft.lng
+                        ? `${locDraft.lat}, ${locDraft.lng}`
+                        : "Klik peta untuk pilih lokasi"}
+                    </div>
+                    <div className="kpMapInfoAddr">
+                      {locDraft.alamat ||
+                        "Alamat akan terisi setelah lokasi dipilih"}
+                    </div>
+                    {mapPreviewLink ? (
+                      <a
+                        className="kpMapInfoLink"
+                        href={mapPreviewLink}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Lihat peta lebih besar
+                      </a>
+                    ) : null}
+                  </div>
+
+                  <div
+                    className={`kpMapBox ${locErr ? "has-error" : ""}`}
+                    ref={mapBoxRef}
+                  >
+                    {locErr ? (
+                      <div className="kpMapFallbackText">{locErr}</div>
+                    ) : null}
+                  </div>
+                </div>
               </div>
 
               <div className="kpLocFormGrid">

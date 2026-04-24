@@ -142,13 +142,10 @@ function cleanHeaderAddress(value) {
   if (!raw) return "";
 
   return raw
-    .split(",")
-    .map((part) => part.trim())
-    .filter((part) => {
-      if (!part) return false;
-      return !/^(kec\.?|kecamatan|kota|kabupaten)\b/i.test(part);
-    })
-    .join(", ");
+    .replace(/\s*,\s*/g, ", ")
+    .replace(/\s+/g, " ")
+    .replace(/,\s*$/g, "")
+    .trim();
 }
 
 function normalizeNotificationCategory(v) {

@@ -250,6 +250,143 @@ function buildGoogleMapsLink(lat, lng) {
   return `https://www.google.com/maps?q=${encodeURIComponent(`${la},${lo}`)}`;
 }
 
+function normalizeAddressChunk(value) {
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s,.-]+|[\s,.-]+$/g, "")
+    .trim();
+}
+
+function stripKnownAddressPrefix(value) {
+  return normalizeAddressChunk(value)
+    .replace(/^(kelurahan|kel\.?|desa|kampung)\s+/i, "")
+    .replace(/^(kecamatan|kec\.?)\s+/i, "")
+    .replace(/^(kota|kabupaten|kab\.?)\s+/i, "")
+    .trim();
+}
+
+function uniqAddressParts(parts) {
+  const seen = new Set();
+  const result = [];
+
+  for (const part of parts) {
+    const clean = normalizeAddressChunk(part);
+    const key = stripKnownAddressPrefix(clean).toLowerCase();
+    if (!clean || !key || seen.has(key)) continue;
+    seen.add(key);
+    result.push(clean);
+  }
+
+  return result;
+}
+
+function formatKelurahan(part) {
+  const clean = normalizeAddressChunk(part);
+  if (!clean) return "";
+  if (/^(kelurahan|kel\.)\s+/i.test(clean)) {
+    return clean.replace(/^kel\.?\s+/i, "Kelurahan ");
+  }
+  if (/^(desa|kampung)\s+/i.test(clean)) return clean;
+  return `Kelurahan ${stripKnownAddressPrefix(clean)}`;
+}
+
+function formatKecamatan(part) {
+  const clean = normalizeAddressChunk(part);
+  if (!clean) return "";
+  return `Kec. ${stripKnownAddressPrefix(clean)}`;
+}
+
+function formatKota(part) {
+  const clean = normalizeAddressChunk(part);
+  if (!clean) return "";
+  if (/^kabupaten\s+/i.test(clean) || /^kab\.?\s+/i.test(clean)) {
+    return `Kabupaten ${stripKnownAddressPrefix(clean)}`;
+  }
+  return `Kota ${stripKnownAddressPrefix(clean)}`;
+}
+
+function simplifyLocationAddress(rawAddress) {
+  const raw = String(rawAddress || "").trim();
+  if (!raw) return "";
+
+  const ignored =
+    /^(indonesia|sumatra|sumatera|riau|pulau sumatra|pulau sumatera)$/i;
+  const parts = uniqAddressParts(
+    raw
+      .split(",")
+      .map((item) => normalizeAddressChunk(item))
+      .filter((item) => item && !ignored.test(item) && !/^\d{5,6}$/.test(item)),
+  );
+
+  if (!parts.length) return raw;
+
+  let kelurahanIndex = parts.findIndex((part) =>
+    /^(kelurahan|kel\.?|desa|kampung)\s+/i.test(part),
+  );
+
+  let kotaIndex = parts.findIndex((part) =>
+    /^(kota|kabupaten|kab\.?)\s+/i.test(part),
+  );
+  if (kotaIndex < 0) {
+    kotaIndex = parts.findIndex((part) => /pekanbaru/i.test(part));
+  }
+
+  if (kelurahanIndex < 0) {
+    kelurahanIndex = parts.findIndex((part) => /air hitam/i.test(part));
+  }
+
+  const kelurahanPart = kelurahanIndex >= 0 ? parts[kelurahanIndex] : "";
+  const kotaPart = kotaIndex >= 0 ? parts[kotaIndex] : "";
+
+  let kecamatanPart = "";
+  const explicitKecIndex = parts.findIndex((part) =>
+    /^(kecamatan|kec\.?)\s+/i.test(part),
+  );
+  if (explicitKecIndex >= 0) {
+    kecamatanPart = parts[explicitKecIndex];
+  } else if (kelurahanIndex >= 0) {
+    const afterKel = parts
+      .slice(kelurahanIndex + 1, kotaIndex >= 0 ? kotaIndex : undefined)
+      .find((part) => {
+        const clean = stripKnownAddressPrefix(part).toLowerCase();
+        if (!clean) return false;
+        if (clean === stripKnownAddressPrefix(kelurahanPart).toLowerCase())
+          return false;
+        if (
+          kotaPart &&
+          clean === stripKnownAddressPrefix(kotaPart).toLowerCase()
+        )
+          return false;
+        return true;
+      });
+    kecamatanPart = afterKel || "";
+  }
+
+  if (!kecamatanPart && kotaIndex > 0) {
+    kecamatanPart = parts
+      .slice(0, kotaIndex)
+      .reverse()
+      .find((part) => {
+        const clean = stripKnownAddressPrefix(part).toLowerCase();
+        return (
+          clean &&
+          clean !== stripKnownAddressPrefix(kelurahanPart).toLowerCase() &&
+          clean !== stripKnownAddressPrefix(kotaPart).toLowerCase()
+        );
+      });
+  }
+
+  const result = [
+    kelurahanPart ? formatKelurahan(kelurahanPart) : "",
+    kecamatanPart ? formatKecamatan(kecamatanPart) : "",
+    kotaPart ? formatKota(kotaPart) : "",
+  ].filter(Boolean);
+
+  if (result.length >= 2) return result.join(", ");
+
+  return parts.slice(0, 3).join(", ");
+}
+
 function buildPreviewItem(row, signedUrl, fallbackName = "") {
   return {
     id:
@@ -460,7 +597,7 @@ export default function KelolaDataPosbankum({ profile }) {
       setPosName(data?.nama || "Posbankum");
 
       const coords = pickCoordsFromRow(data || {});
-      const alamat = data?.alamat ? String(data.alamat) : "";
+      const alamat = simplifyLocationAddress(data?.alamat || "");
 
       setLocSaved({ lat: coords.lat, lng: coords.lng, alamat });
       setLocDraft((prev) => {
@@ -598,7 +735,7 @@ export default function KelolaDataPosbankum({ profile }) {
         },
       );
       const json = await res.json();
-      return json?.display_name || "";
+      return simplifyLocationAddress(json?.display_name || "");
     } catch {
       return "";
     }
@@ -802,7 +939,7 @@ export default function KelolaDataPosbankum({ profile }) {
         ...prev,
         lat: lat.toFixed(6),
         lng: lng.toFixed(6),
-        alamat: hit.display_name || prev.alamat,
+        alamat: simplifyLocationAddress(hit.display_name || prev.alamat),
       }));
       setLocDirty(true);
       setLocErr("");
@@ -1091,9 +1228,11 @@ export default function KelolaDataPosbankum({ profile }) {
       const latNum = Number(locDraft.lat);
       const lngNum = Number(locDraft.lng);
 
+      const savedAddress = simplifyLocationAddress(locDraft.alamat);
+
       const patch = {};
 
-      if (keys.has("alamat")) patch.alamat = locDraft.alamat || "";
+      if (keys.has("alamat")) patch.alamat = savedAddress;
       if (keys.has("latitude"))
         patch.latitude = Number.isFinite(latNum) ? latNum : null;
       if (keys.has("longitude"))
@@ -1126,7 +1265,7 @@ export default function KelolaDataPosbankum({ profile }) {
 
       if (error) throw error;
 
-      setLocSaved({ ...locDraft });
+      setLocSaved({ ...locDraft, alamat: savedAddress });
       setLocDirty(false);
       setEditLocOpen(false);
       await loadPosbankum();
@@ -1578,12 +1717,16 @@ export default function KelolaDataPosbankum({ profile }) {
               onClick={() => {
                 setLocErr("");
                 setLocQuery("");
+                const rawAlamat = String(
+                  posRow?.alamat || locSaved.alamat || "",
+                );
+                const cleanAlamat = simplifyLocationAddress(rawAlamat);
                 setLocDraft({
                   lat: locSaved.lat || "",
                   lng: locSaved.lng || "",
-                  alamat: locSaved.alamat || "",
+                  alamat: cleanAlamat,
                 });
-                setLocDirty(false);
+                setLocDirty(cleanAlamat !== rawAlamat.trim());
                 setEditLocOpen(true);
               }}
             >
@@ -1873,9 +2016,10 @@ export default function KelolaDataPosbankum({ profile }) {
               </div>
 
               <div className="kpField kpFieldAlamat">
-                <div className="kpFieldLabel">Alamat Lengkap</div>
+                <div className="kpFieldLabel">Alamat Singkat</div>
                 <textarea
                   className="kpFieldTextarea"
+                  placeholder="Contoh: Kelurahan Air Hitam, Kec. Payung Sekaki, Kota Pekanbaru"
                   value={locDraft.alamat}
                   onChange={(e) => {
                     setLocDraft((prev) => ({

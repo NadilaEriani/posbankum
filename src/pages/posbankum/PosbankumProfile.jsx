@@ -454,6 +454,13 @@ export default function PosbankumProfile({
       .filter((id) => isUuid(id) && !keepIds.includes(id));
 
     if (deleteIds.length) {
+      const { error: unlinkError } = await supabase
+        .from("pengaduan")
+        .update({ id_paralegal: null })
+        .in("id_paralegal", deleteIds);
+
+      if (unlinkError) throw unlinkError;
+
       const { error } = await supabase
         .from("paralegal_members")
         .delete()

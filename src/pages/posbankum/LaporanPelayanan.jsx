@@ -48,11 +48,46 @@ const mobileSupabase =
     ? createClient(MOBILE_SUPABASE_URL, MOBILE_SUPABASE_ANON_KEY)
     : null;
 
-const PARALEGAL_OPTIONS = [
-  { nama: "Ahmad Fauzi, S.H.", hp: "0813-7200-3452" },
-  { nama: "Siti Rahma, S.H.", hp: "0812-6677-8899" },
-  { nama: "Yuni Kartika, S.H.", hp: "0813-9876-1234" },
-];
+function getParalegalLookupKey(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
+function normalizeParalegalOption(item, index = 0) {
+  return {
+    id: item?.id_paralegal || item?.id || `paralegal-${index}`,
+    nama: item?.nama_paralegal || item?.nama || "",
+    hp: item?.nomor_telepon || item?.hp || "",
+    is_primary: index === 0 ? true : !!item?.is_primary,
+  };
+}
+
+function buildParalegalLookup(options) {
+  const byId = new Map();
+  const byName = new Map();
+
+  (options || []).forEach((item) => {
+    if (item?.id) byId.set(item.id, item);
+    if (item?.nama) byName.set(getParalegalLookupKey(item.nama), item);
+  });
+
+  return { byId, byName };
+}
+
+function resolveParalegal(row, extra, paralegalLookup) {
+  const byId = paralegalLookup?.byId || new Map();
+  const byName = paralegalLookup?.byName || new Map();
+  const fromId = row?.id_paralegal ? byId.get(row.id_paralegal) : null;
+  const fromName = extra?.paralegal_nama
+    ? byName.get(getParalegalLookupKey(extra.paralegal_nama))
+    : null;
+  const selected = fromId || fromName || null;
+
+  return {
+    id: selected?.id || row?.id_paralegal || extra?.id_paralegal || "",
+    nama: selected?.nama || extra?.paralegal_nama || "",
+    hp: selected?.hp || extra?.paralegal_hp || "",
+  };
+}
 
 const EMPTY_FORM_DATA = {
   nama_pelapor: "",
@@ -67,6 +102,7 @@ const EMPTY_FORM_DATA = {
   tanggal_kejadian: "",
   waktu_kejadian: "",
   lokasi_kejadian: "",
+  id_paralegal: "",
   paralegal_nama: "",
   paralegal_hp: "",
   catatan_internal: "",
@@ -180,6 +216,7 @@ function buildCatatanAdmin(formData, profile) {
     nik: formData.nik || "",
     nama_lurah: formData.nama_lurah || "",
     prioritas: formData.prioritas || "sedang",
+    id_paralegal: formData.id_paralegal || "",
     paralegal_nama: formData.paralegal_nama || "",
     paralegal_hp: formData.paralegal_hp || "",
     catatan_internal: formData.catatan_internal || "",
@@ -198,8 +235,9 @@ function buildCatatanAdmin(formData, profile) {
   });
 }
 
-function mapDbToUi(row, lampiran = [], timeline = []) {
+function mapDbToUi(row, lampiran = [], timeline = [], paralegalLookup = {}) {
   const extra = parseCatatanAdmin(row.catatan_admin);
+  const resolvedParalegal = resolveParalegal(row, extra, paralegalLookup);
 
   const fallbackUpdates = [
     {
@@ -207,7 +245,7 @@ function mapDbToUi(row, lampiran = [], timeline = []) {
       date: formatDateID(row.created_at || row.tanggal_kejadian),
       time: row.waktu_kejadian || "-",
       desc: extra.catatan_internal || "Laporan telah masuk ke sistem.",
-      by: extra.paralegal_nama || "Admin Posbankum",
+      by: resolvedParalegal.nama || "Admin Posbankum",
     },
   ];
 
@@ -221,6 +259,7 @@ function mapDbToUi(row, lampiran = [], timeline = []) {
 
   return {
     id_pengaduan: row.id_pengaduan,
+    id_paralegal: resolvedParalegal.id,
     nomor_pengaduan: row.nomor_pengaduan || "",
     nama_pelapor: row.nama_pelapor || "",
     nik: extra.nik || "",
@@ -239,8 +278,8 @@ function mapDbToUi(row, lampiran = [], timeline = []) {
     status: row.status || "diproses",
     prioritas: extra.prioritas || "sedang",
     created_at: row.created_at || "",
-    paralegal_nama: extra.paralegal_nama || "",
-    paralegal_hp: extra.paralegal_hp || "",
+    paralegal_nama: resolvedParalegal.nama,
+    paralegal_hp: resolvedParalegal.hp,
     lampiran,
     updates: mappedTimeline.length
       ? mappedTimeline
@@ -519,6 +558,7 @@ function getSanitizedFormData(formData) {
     tanggal_kejadian: String(formData.tanggal_kejadian || "").trim(),
     waktu_kejadian: String(formData.waktu_kejadian || "").trim(),
     lokasi_kejadian: normalizeText(formData.lokasi_kejadian, 200),
+    id_paralegal: String(formData.id_paralegal || "").trim(),
     paralegal_nama: normalizeText(formData.paralegal_nama, 120),
     paralegal_hp: digitsOnly(formData.paralegal_hp, MAX_PHONE_LENGTH),
     catatan_internal: normalizeText(formData.catatan_internal, 1500),
@@ -526,7 +566,7 @@ function getSanitizedFormData(formData) {
   };
 }
 
-function validateFormData(formData) {
+function validateFormData(formData, paralegalOptions = []) {
   const cleaned = getSanitizedFormData(formData);
   const requiredFields = [
     cleaned.nama_pelapor,
@@ -540,8 +580,13 @@ function validateFormData(formData) {
     cleaned.tanggal_kejadian,
     cleaned.waktu_kejadian,
     cleaned.lokasi_kejadian,
+    cleaned.id_paralegal,
     cleaned.paralegal_nama,
   ];
+
+  if (!paralegalOptions.length) {
+    return "Belum ada data paralegal pada Profil Posbankum. Tambahkan paralegal terlebih dahulu melalui menu Profil Posbankum.";
+  }
 
   if (requiredFields.some((value) => !value)) {
     return "Lengkapi semua field wajib.";
@@ -574,19 +619,23 @@ function validateFormData(formData) {
     return "Tanggal kejadian tidak boleh melebihi hari ini.";
   }
 
-  const selectedParalegal = PARALEGAL_OPTIONS.find(
-    (item) => item.nama === cleaned.paralegal_nama,
+  const selectedParalegal = paralegalOptions.find(
+    (item) => item.id === cleaned.id_paralegal,
   );
 
   if (!selectedParalegal) {
-    return "Paralegal yang dipilih tidak valid.";
+    return "Paralegal yang dipilih tidak valid atau sudah dihapus dari Profil Posbankum.";
+  }
+
+  if (selectedParalegal.nama !== cleaned.paralegal_nama) {
+    return "Nama paralegal tidak sesuai dengan data pilihan terbaru.";
   }
 
   if (
     cleaned.paralegal_hp &&
     digitsOnly(selectedParalegal.hp, MAX_PHONE_LENGTH) !== cleaned.paralegal_hp
   ) {
-    return "Nomor HP paralegal tidak sesuai dengan data pilihan.";
+    return "Nomor HP paralegal tidak sesuai dengan data pilihan terbaru.";
   }
 
   for (const file of cleaned.lampiran) {
@@ -620,6 +669,7 @@ export default function KelolaPengaduan({ profile }) {
   const [successMessage, setSuccessMessage] = useState("");
   const [reminderModal, setReminderModal] = useState(EMPTY_REMINDER_MODAL);
   const [formData, setFormData] = useState(EMPTY_FORM_DATA);
+  const [paralegalOptions, setParalegalOptions] = useState([]);
 
   const closeReminderModal = () => {
     setReminderModal(EMPTY_REMINDER_MODAL);
@@ -640,9 +690,35 @@ export default function KelolaPengaduan({ profile }) {
     });
   };
 
+  async function loadParalegalOptions() {
+    if (!profile?.id_posbankum) {
+      setParalegalOptions([]);
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .from("paralegal_members")
+      .select(
+        "id_paralegal, nama_paralegal, nomor_telepon, is_primary, created_at",
+      )
+      .eq("id_posbankum", profile.id_posbankum)
+      .order("is_primary", { ascending: false })
+      .order("created_at", { ascending: true });
+
+    if (error) throw error;
+
+    const options = (data || [])
+      .map((item, index) => normalizeParalegalOption(item, index))
+      .filter((item) => item.id && item.nama && item.hp);
+
+    setParalegalOptions(options);
+    return options;
+  }
+
   async function loadReports() {
     if (!profile?.id_posbankum) {
       setReports([]);
+      setParalegalOptions([]);
       setLoading(false);
       return;
     }
@@ -651,6 +727,9 @@ export default function KelolaPengaduan({ profile }) {
     setErrorMessage("");
 
     try {
+      const loadedParalegals = await loadParalegalOptions();
+      const paralegalLookup = buildParalegalLookup(loadedParalegals);
+
       const { data: pengaduanRows, error: pengaduanError } = await supabase
         .from("pengaduan")
         .select(
@@ -673,6 +752,7 @@ export default function KelolaPengaduan({ profile }) {
           id_kabupaten,
           id_kecamatan,
           status,
+          id_paralegal,
           catatan_admin,
           created_by,
           created_at,
@@ -777,6 +857,7 @@ export default function KelolaPengaduan({ profile }) {
           row,
           lampiranMap.get(row.id_pengaduan) || [],
           timelineMap.get(row.id_pengaduan) || [],
+          paralegalLookup,
         ),
       );
 
@@ -794,9 +875,42 @@ export default function KelolaPengaduan({ profile }) {
       loadReports();
     } else {
       setReports([]);
+      setParalegalOptions([]);
       setLoading(false);
     }
   }, [profile?.id_posbankum]);
+
+  useEffect(() => {
+    setFormData((prev) => {
+      if (!prev.id_paralegal) return prev;
+
+      const selected = paralegalOptions.find(
+        (item) => item.id === prev.id_paralegal,
+      );
+
+      if (!selected) {
+        return {
+          ...prev,
+          id_paralegal: "",
+          paralegal_nama: "",
+          paralegal_hp: "",
+        };
+      }
+
+      if (
+        prev.paralegal_nama === selected.nama &&
+        prev.paralegal_hp === selected.hp
+      ) {
+        return prev;
+      }
+
+      return {
+        ...prev,
+        paralegal_nama: selected.nama,
+        paralegal_hp: selected.hp,
+      };
+    });
+  }, [paralegalOptions]);
 
   const stats = useMemo(() => buildStats(reports), [reports]);
 
@@ -1348,10 +1462,12 @@ export default function KelolaPengaduan({ profile }) {
   };
 
   const handleParalegalChange = (value) => {
-    const selected = PARALEGAL_OPTIONS.find((x) => x.nama === value);
+    const selected = paralegalOptions.find((x) => x.id === value);
+
     setFormData((prev) => ({
       ...prev,
-      paralegal_nama: value,
+      id_paralegal: selected?.id || "",
+      paralegal_nama: selected?.nama || "",
       paralegal_hp: selected?.hp || "",
     }));
   };
@@ -1410,7 +1526,10 @@ export default function KelolaPengaduan({ profile }) {
     e.preventDefault();
 
     const sanitizedFormData = getSanitizedFormData(formData);
-    const validationError = validateFormData(sanitizedFormData);
+    const validationError = validateFormData(
+      sanitizedFormData,
+      paralegalOptions,
+    );
 
     if (validationError) {
       openReminderModal({
@@ -1450,6 +1569,7 @@ export default function KelolaPengaduan({ profile }) {
         id_kabupaten: null,
         id_kecamatan: null,
         status: "diproses",
+        id_paralegal: sanitizedFormData.id_paralegal,
         catatan_admin: buildCatatanAdmin(sanitizedFormData, profile),
         created_by: profile.id,
       };
@@ -1939,12 +2059,17 @@ export default function KelolaPengaduan({ profile }) {
               <div className="lpField">
                 <label>{renderRequiredLabel("Nama Paralegal")}</label>
                 <select
-                  value={formData.paralegal_nama}
+                  value={formData.id_paralegal}
                   onChange={(e) => handleParalegalChange(e.target.value)}
+                  disabled={!paralegalOptions.length}
                 >
-                  <option value="">Pilih Paralegal</option>
-                  {PARALEGAL_OPTIONS.map((p) => (
-                    <option key={p.nama} value={p.nama}>
+                  <option value="">
+                    {paralegalOptions.length
+                      ? "Pilih Paralegal"
+                      : "Belum ada paralegal di profil"}
+                  </option>
+                  {paralegalOptions.map((p) => (
+                    <option key={p.id} value={p.id}>
                       {p.nama}
                     </option>
                   ))}

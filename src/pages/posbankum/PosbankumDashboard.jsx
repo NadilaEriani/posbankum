@@ -1104,16 +1104,18 @@ export default function PosbankumDashboard() {
                 <span className="pb2BellBadge">{notifCount}</span>
               ) : null}
             </button>
-
-            <button
-              className="pb2TopLogoutBtn"
-              type="button"
-              onClick={handleLogout}
-              disabled={loggingOut}
-              title={loggingOut ? "Sedang logout..." : "Keluar"}
-            >
-              <FiLogOut /> {loggingOut ? "Keluar..." : "Keluar"}
-            </button>
+            <div className="pb2TopRight">
+              <button
+                className="pb2TopLogoutBtn"
+                type="button"
+                onClick={handleLogout}
+                disabled={loggingOut}
+                title={loggingOut ? "Sedang logout..." : "Keluar"}
+              >
+                <FiLogOut />
+                {loggingOut ? "Keluar..." : "Keluar"}
+              </button>
+            </div>
           </div>
         </header>
 

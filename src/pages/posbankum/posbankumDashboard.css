@@ -241,6 +241,9 @@
   font-size: 10px;
   font-weight: 800;
 }
+.pb2TopLogoutBtn svg {
+  color: #f2c23a;
+}
 
 .pb2TopLogoutBtn {
   min-height: 42px;

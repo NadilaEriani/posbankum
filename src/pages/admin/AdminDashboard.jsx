@@ -13,11 +13,16 @@ import {
   FiDownload,
   FiChevronDown,
   FiSearch,
-  FiActivity,
   FiX,
   FiMapPin,
+  FiExternalLink,
+  FiPhone,
   FiAlertCircle,
+  FiUserPlus,
 } from "react-icons/fi";
+import { TbFileCheck } from "react-icons/tb";
+import { BsCheck2Circle } from "react-icons/bs";
+import { HiOutlineNewspaper } from "react-icons/hi2";
 import "./adminDashboard.css";
 import DataPosbankum from "./DataPosbankum";
 import ManajemenAkun from "./ManajemenAkun";
@@ -33,11 +38,34 @@ function toDateStr(d) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
+function stripPosbankumPrefix(name) {
+  const raw = String(name || "Posbankum").trim();
+  return raw.replace(/^posbankum\s+/i, "") || raw;
+}
+
+function formatPosbankumName(name) {
+  const cleanName = stripPosbankumPrefix(name);
+  return `Posbankum ${cleanName}`.trim();
+}
+
+function formatDateID(value) {
+  if (!value) return "-";
+  try {
+    return new Intl.DateTimeFormat("id-ID", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    }).format(new Date(value));
+  } catch {
+    return "-";
+  }
+}
+
 function relativeTimeID(dateLike) {
   if (!dateLike) return "";
   const d = new Date(dateLike);
   const diffMs = Date.now() - d.getTime();
-  const sec = Math.floor(diffMs / 1000);
+  const sec = Math.max(0, Math.floor(diffMs / 1000));
 
   if (sec < 60) return `${sec} detik lalu`;
   const min = Math.floor(sec / 60);
@@ -55,21 +83,89 @@ function relativeTimeID(dateLike) {
   return `${yr} tahun lalu`;
 }
 
-function pickToneFromStatus(status) {
-  const s = String(status || "").toLowerCase();
-  if (s.includes("verif") || s.includes("setuju") || s.includes("approve"))
-    return "green";
-  if (s.includes("tolak") || s.includes("reject")) return "red";
-  if (s.includes("menunggu") || s.includes("pending") || s.includes("wait"))
-    return "orange";
-  return "blue";
-}
-
 function periodLabel(rangeDays) {
   if (rangeDays === 7) return "dari minggu lalu";
   if (rangeDays === 30) return "dari bulan lalu";
   if (rangeDays === 90) return "dari 3 bulan lalu";
   return `dari ${rangeDays} hari sebelumnya`;
+}
+
+function pickToneFromStatus(status) {
+  const s = String(status || "").toLowerCase();
+  if (s.includes("verif") || s.includes("setuju") || s.includes("approve")) {
+    return "green";
+  }
+  if (s.includes("tolak") || s.includes("reject")) return "orange";
+  if (s.includes("menunggu") || s.includes("pending") || s.includes("wait")) {
+    return "orange";
+  }
+  return "blue";
+}
+
+function normalizeWhatsAppNumber(phone) {
+  const raw = String(phone || "").trim();
+  if (!raw) return "";
+
+  let cleaned = raw.replace(/[^\d+]/g, "");
+  if (cleaned.startsWith("+")) cleaned = cleaned.slice(1);
+  if (cleaned.startsWith("0")) cleaned = `62${cleaned.slice(1)}`;
+  if (!cleaned.startsWith("62") && cleaned.length >= 8)
+    cleaned = `62${cleaned}`;
+
+  return cleaned.replace(/\D/g, "");
+}
+
+function getWhatsAppUrl(phone, posName) {
+  const waNumber = normalizeWhatsAppNumber(phone);
+  if (!waNumber) return "";
+
+  const message = `Halo, saya ingin menghubungi paralegal ${posName || "Posbankum"}.`;
+  return `https://wa.me/${waNumber}?text=${encodeURIComponent(message)}`;
+}
+
+function getMapsUrl(detail) {
+  const lat = Number(String(detail?.latitude ?? "").replace(",", "."));
+  const lng = Number(String(detail?.longitude ?? "").replace(",", "."));
+
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+  }
+
+  const alamat = String(detail?.alamat || detail?.nama || "").trim();
+  return alamat
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(alamat)}`
+    : "https://www.google.com/maps";
+}
+
+function buildPreferredHomeActivities(list) {
+  const preferredTitles = [
+    "Pengajuan kegiatan baru",
+    "Data Posbankum diverifikasi",
+    "Berita dipublikasikan",
+    "Perubahan data paralegal",
+  ];
+
+  const chosen = [];
+  const used = new Set();
+
+  preferredTitles.forEach((title) => {
+    const match = list.find(
+      (item) => item.title === title && !used.has(item.key),
+    );
+    if (match) {
+      used.add(match.key);
+      chosen.push(match);
+    }
+  });
+
+  list.forEach((item) => {
+    if (chosen.length >= 4) return;
+    if (used.has(item.key)) return;
+    used.add(item.key);
+    chosen.push(item);
+  });
+
+  return chosen.slice(0, 4);
 }
 
 export default function AdminDashboard() {
@@ -98,20 +194,30 @@ export default function AdminDashboard() {
 
   const [topActive, setTopActive] = useState([]);
   const [activities, setActivities] = useState([]);
-
-  const [, setPosNameByIdState] = useState(new Map());
+  const [activityAll, setActivityAll] = useState([]);
+  const [detailRows, setDetailRows] = useState([]);
 
   const chartPanelRef = useRef(null);
   const [hoverTip, setHoverTip] = useState(null);
   const TIP_W = 260;
 
+  const [detailSearch, setDetailSearch] = useState("");
+  const [detailPage, setDetailPage] = useState(1);
+  const detailPageSize = 6;
+
+  const [activityOpen, setActivityOpen] = useState(false);
+  const [activityLoading, setActivityLoading] = useState(false);
+  const [activityTab, setActivityTab] = useState("all");
+
+  const [selectedPosDetail, setSelectedPosDetail] = useState(null);
+
   const showTip = (e, row) => {
-    if (!chartPanelRef.current) return;
+    if (!chartPanelRef.current || !row) return;
     const panelRect = chartPanelRef.current.getBoundingClientRect();
     const itemRect = e.currentTarget.getBoundingClientRect();
 
     let x = itemRect.left - panelRect.left + itemRect.width / 2;
-    const y = itemRect.top - panelRect.top + 10;
+    const y = itemRect.top - panelRect.top + 8;
 
     const pad = 14;
     const half = TIP_W / 2;
@@ -121,389 +227,6 @@ export default function AdminDashboard() {
   };
 
   const hideTip = () => setHoverTip(null);
-
-  const [detailRows, setDetailRows] = useState([]);
-  const [detailSearch, setDetailSearch] = useState("");
-  const [detailPage, setDetailPage] = useState(1);
-  const detailPageSize = 6;
-
-  const [activityOpen, setActivityOpen] = useState(false);
-  const [activityLoading, setActivityLoading] = useState(false);
-  const [activityAll, setActivityAll] = useState([]);
-  const [activityTab, setActivityTab] = useState("all");
-  const [activityQuery, setActivityQuery] = useState("");
-  const activitySearchRef = useRef(null);
-
-  const openActivityModal = () => {
-    setActivityOpen(true);
-  };
-
-  const closeActivityModal = () => {
-    setActivityOpen(false);
-  };
-
-  useEffect(() => {
-    if (!activityOpen) return;
-    const t = setTimeout(() => activitySearchRef.current?.focus?.(), 60);
-    return () => clearTimeout(t);
-  }, [activityOpen]);
-
-  useEffect(() => {
-    if (!activityOpen) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev || "";
-    };
-  }, [activityOpen]);
-
-  useEffect(() => {
-    if (!activityOpen) return;
-    const onEsc = (e) => {
-      if (e.key === "Escape") closeActivityModal();
-    };
-    document.addEventListener("keydown", onEsc);
-    return () => document.removeEventListener("keydown", onEsc);
-  }, [activityOpen]);
-
-  useEffect(() => {
-    if (activityOpen) return;
-    setActivityTab("all");
-    setActivityQuery("");
-  }, [activityOpen]);
-
-  function pickActivityIcon(ev) {
-    const src = ev?.source;
-    if (src === "kegiatan") return <FiCalendar />;
-    if (src === "kasus") return <FiUsers />;
-    if (src === "data_posbankum") {
-      if (ev?.tone === "green") return <FiCheckCircle />;
-      if (ev?.tone === "orange") return <FiAlertCircle />;
-      return <FiFileText />;
-    }
-    if (src === "berita") return <FiFileText />;
-    if (src === "posbankum") return <FiUsers />;
-    return <FiActivity />;
-  }
-
-  const activityFiltered = useMemo(() => {
-    const q = activityQuery.trim().toLowerCase();
-    const tab = activityTab;
-
-    return (activityAll || []).filter((it) => {
-      const group = it?.group || "administratif";
-      const okTab =
-        tab === "all"
-          ? true
-          : tab === "kk"
-            ? group === "kegiatan_kasus"
-            : group === "administratif";
-
-      if (!okTab) return false;
-
-      if (!q) return true;
-      const hay =
-        `${it?.title || ""} ${it?.desc || ""} ${it?.actor || ""} ${it?.kind || ""}`.toLowerCase();
-      return hay.includes(q);
-    });
-  }, [activityAll, activityQuery, activityTab]);
-
-  async function fetchAllActivitiesForModal() {
-    setActivityLoading(true);
-    try {
-      const { data: posList, error: posErr } = await supabase
-        .from("posbankum")
-        .select("id_posbankum,nama,updated_at")
-        .limit(5000);
-
-      if (posErr) throw posErr;
-
-      const posNameById = new Map();
-      (posList || []).forEach((p) =>
-        posNameById.set(p.id_posbankum, p.nama || "Posbankum"),
-      );
-
-      setPosNameByIdState(posNameById);
-
-      const LIMIT = 200;
-
-      const [kegRes, dataRes, beritaRes, posUpdRes, lihatKasusRes] =
-        await Promise.all([
-          supabase
-            .from("kegiatan")
-            .select(
-              "id_kegiatan,id_posbankum,judul,deskripsi,tgl_upload,status",
-            )
-            .order("tgl_upload", { ascending: false })
-            .limit(LIMIT),
-
-          supabase
-            .from("data_posbankum")
-            .select(
-              "id_data,id_posbankum,kategori,nama_berkas,tgl_upload,tgl_verifikasi,status_verifikasi",
-            )
-            .order("tgl_upload", { ascending: false })
-            .limit(LIMIT),
-
-          supabase
-            .from("berita")
-            .select("id_berita,judul,isi,tgl_publish,id_user")
-            .order("tgl_publish", { ascending: false })
-            .limit(LIMIT),
-
-          supabase
-            .from("posbankum")
-            .select("id_posbankum,nama,updated_at")
-            .order("updated_at", { ascending: false })
-            .limit(LIMIT),
-
-          supabase
-            .from("lihat_kasus")
-            .select("id_posbankum,id_kasus,created_at")
-            .order("created_at", { ascending: false })
-            .limit(LIMIT),
-        ]);
-
-      if (kegRes.error) throw kegRes.error;
-      if (dataRes.error) throw dataRes.error;
-      if (beritaRes.error) throw beritaRes.error;
-      if (posUpdRes.error) throw posUpdRes.error;
-      if (lihatKasusRes.error) throw lihatKasusRes.error;
-
-      const kasusIds = Array.from(
-        new Set(
-          (lihatKasusRes.data || []).map((r) => r.id_kasus).filter(Boolean),
-        ),
-      );
-
-      let kasusMap = new Map();
-      if (kasusIds.length > 0) {
-        const { data: kasusData, error: kasusErr } = await supabase
-          .from("kasus")
-          .select("id_kasus,jenis_kasus,deskripsi_kasus,tgl_upload")
-          .in("id_kasus", kasusIds.slice(0, 500));
-        if (!kasusErr && Array.isArray(kasusData)) {
-          kasusMap = new Map(
-            kasusData.map((k) => [
-              k.id_kasus,
-              {
-                jenis_kasus: k.jenis_kasus,
-                deskripsi_kasus: k.deskripsi_kasus,
-                tgl_upload: k.tgl_upload,
-              },
-            ]),
-          );
-        }
-      }
-
-      const ev = [];
-
-      (kegRes.data || []).forEach((r) => {
-        const nama = posNameById.get(r.id_posbankum) || "Posbankum";
-        ev.push({
-          key: `kegiatan:${r.id_kegiatan}`,
-          source: "kegiatan",
-          group: "kegiatan_kasus",
-          title: "Pengajuan kegiatan baru",
-          desc: r.judul || r.deskripsi || "",
-          actor: `Posbankum ${nama}`,
-          time: relativeTimeID(r.tgl_upload),
-          kind: "Pengajuan",
-          tone: "blue",
-          at: r.tgl_upload,
-        });
-      });
-
-      (dataRes.data || []).forEach((r) => {
-        const nama = posNameById.get(r.id_posbankum) || "Posbankum";
-        const at = r.tgl_verifikasi || r.tgl_upload;
-
-        const s = String(r.status_verifikasi || "").toLowerCase();
-        const isVerified =
-          s.includes("verif") || s.includes("setuju") || s.includes("approve");
-
-        const tone = pickToneFromStatus(r.status_verifikasi);
-        const safeTone = tone === "red" ? "orange" : tone;
-
-        ev.push({
-          key: `data:${r.id_data}`,
-          source: "data_posbankum",
-          group: "administratif",
-          title: isVerified
-            ? "Data Posbankum diverifikasi"
-            : "Data Posbankum masuk",
-          desc: isVerified
-            ? "Data Posbankum telah diverifikasi dan disetujui oleh admin"
-            : `Pengajuan data Posbankum ${r.kategori || ""}`.trim(),
-          actor: `Posbankum ${nama}`,
-          time: relativeTimeID(at),
-          kind: isVerified ? "Verifikasi" : "Pengajuan",
-          tone: safeTone,
-          at,
-        });
-      });
-
-      (beritaRes.data || []).forEach((r) => {
-        ev.push({
-          key: `berita:${r.id_berita}`,
-          source: "berita",
-          group: "administratif",
-          title: "Berita dipublikasikan",
-          desc: r.judul || "",
-          actor: "Admin",
-          time: relativeTimeID(r.tgl_publish),
-          kind: "Publikasi",
-          tone: "purple",
-          at: r.tgl_publish,
-        });
-      });
-
-      (posUpdRes.data || []).forEach((r) => {
-        ev.push({
-          key: `posbankum:${r.id_posbankum}:${r.updated_at || ""}`,
-          source: "posbankum",
-          group: "administratif",
-          title: "Perubahan data paralegal",
-          desc: "Data paralegal diperbarui",
-          actor: `Posbankum ${r.nama || "Posbankum"}`,
-          time: relativeTimeID(r.updated_at),
-          kind: "Perubahan Data",
-          tone: "orange",
-          at: r.updated_at,
-        });
-      });
-
-      (lihatKasusRes.data || []).forEach((r) => {
-        const nama = posNameById.get(r.id_posbankum) || "Posbankum";
-        const k = kasusMap.get(r.id_kasus) || {};
-        const jenis = k.jenis_kasus ? `Kasus: ${k.jenis_kasus}` : "Kasus baru";
-        const desc = k.deskripsi_kasus || jenis;
-
-        ev.push({
-          key: `kasus:${r.id_posbankum}:${r.id_kasus}:${r.created_at || ""}`,
-          source: "kasus",
-          group: "kegiatan_kasus",
-          title: "Kasus ditangani",
-          desc,
-          actor: `Posbankum ${nama}`,
-          time: relativeTimeID(r.created_at),
-          kind: "Kasus",
-          tone: "blue",
-          at: r.created_at,
-        });
-      });
-
-      ev.sort(
-        (a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime(),
-      );
-
-      setActivityAll(ev.slice(0, 400));
-    } catch (e) {
-      console.error(e);
-      setActivityAll([]);
-    } finally {
-      setActivityLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    if (!activityOpen) return;
-    if (!sessionUser) return;
-    if (active !== "Beranda") return;
-    fetchAllActivitiesForModal();
-  }, [activityOpen, sessionUser, active]);
-
-  useEffect(() => {
-    let alive = true;
-
-    (async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        if (!alive) return;
-
-        if (!data?.session) {
-          navigate("/", { replace: true });
-          return;
-        }
-
-        setSessionUser(data.session.user);
-      } finally {
-        if (alive) setCheckingSession(false);
-      }
-    })();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) {
-        navigate("/", { replace: true });
-        return;
-      }
-      setSessionUser(session.user);
-    });
-
-    return () => {
-      alive = false;
-      subscription?.unsubscribe();
-    };
-  }, [navigate]);
-
-  useEffect(() => {
-    let alive = true;
-    (async () => {
-      if (!sessionUser?.id) return;
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", sessionUser.id)
-        .maybeSingle();
-
-      if (!alive) return;
-      if (!error && data?.full_name) setAdminName(data.full_name);
-    })();
-
-    return () => {
-      alive = false;
-    };
-  }, [sessionUser?.id]);
-
-  useEffect(() => {
-    function onDocClick(e) {
-      if (!rangeOpen) return;
-      if (!rangeWrapRef.current) return;
-      if (!rangeWrapRef.current.contains(e.target)) setRangeOpen(false);
-    }
-    function onEsc(e) {
-      if (e.key === "Escape") setRangeOpen(false);
-    }
-    document.addEventListener("mousedown", onDocClick);
-    document.addEventListener("keydown", onEsc);
-    return () => {
-      document.removeEventListener("mousedown", onDocClick);
-      document.removeEventListener("keydown", onEsc);
-    };
-  }, [rangeOpen]);
-
-  useEffect(() => {
-    setDetailPage(1);
-  }, [detailSearch]);
-
-  const handleLogout = async () => {
-    if (loggingOut) return;
-    setLoggingOut(true);
-
-    try {
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
-
-      navigate("/", { replace: true });
-    } catch (err) {
-      console.error(err);
-      alert("Logout gagal. Coba lagi.");
-    } finally {
-      setLoggingOut(false);
-    }
-  };
 
   const menu = useMemo(
     () => [
@@ -531,8 +254,8 @@ export default function AdminDashboard() {
       {
         key: "totalPosbankum",
         title: "Total Posbankum",
-        icon: <FiUsers />,
-        tone: "green",
+        icon: <PosbankumAssetIcon className="ad-cardAssetIcon" />,
+        tone: "blue",
       },
       {
         key: "waitingVerification",
@@ -542,13 +265,58 @@ export default function AdminDashboard() {
       },
       {
         key: "monthKegiatan",
-        title: "Kesiapan Bulan Ini",
+        title: "Kegiatan Bulan Ini",
         icon: <FiTrendingUp />,
-        tone: "blue",
+        tone: "green",
       },
     ],
     [],
   );
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      navigate("/", { replace: true });
+    } catch (err) {
+      console.error(err);
+      alert("Logout gagal. Coba lagi.");
+    } finally {
+      setLoggingOut(false);
+    }
+  };
+
+  const openActivityModal = () => setActivityOpen(true);
+  const closeActivityModal = () => setActivityOpen(false);
+  const closeDetailModal = () => setSelectedPosDetail(null);
+
+  function PosbankumAssetIcon({ className = "ad-assetIcon" }) {
+    return (
+      <img src={posbankum} alt="" className={className} aria-hidden="true" />
+    );
+  }
+
+  function pickActivityIcon(ev) {
+    const title = String(ev?.title || "").toLowerCase();
+    const src = String(ev?.source || "").toLowerCase();
+
+    if (title.includes("pengajuan kegiatan") || src === "kegiatan") {
+      return <TbFileCheck />;
+    }
+    if (title.includes("diverifikasi") || src === "data_posbankum") {
+      return <BsCheck2Circle />;
+    }
+    if (title.includes("berita") || src === "berita") {
+      return <HiOutlineNewspaper />;
+    }
+    if (title.includes("paralegal") || src === "paralegal") {
+      return <FiUserPlus />;
+    }
+    return <TbFileCheck />;
+  }
 
   async function countRows(table, applyFilters) {
     let q = supabase.from(table).select("*", { count: "exact", head: true });
@@ -558,6 +326,195 @@ export default function AdminDashboard() {
     return count ?? 0;
   }
 
+  async function fetchActivitiesData(posList) {
+    const posById = new Map();
+    (posList || []).forEach((p) => posById.set(p.id_posbankum, p));
+
+    const LIMIT = 200;
+    const [
+      kegiatanRes,
+      dataPosRes,
+      beritaRes,
+      paralegalRes,
+      lihatKasusRes,
+      kasusRes,
+    ] = await Promise.all([
+      supabase
+        .from("kegiatan")
+        .select("id_kegiatan,id_posbankum,judul,deskripsi,tgl_upload,status")
+        .order("tgl_upload", { ascending: false })
+        .limit(LIMIT),
+      supabase
+        .from("data_posbankum")
+        .select(
+          "id_data,id_posbankum,kategori,nama_berkas,tgl_upload,tgl_verifikasi,status_verifikasi",
+        )
+        .order("tgl_upload", { ascending: false })
+        .limit(LIMIT),
+      supabase
+        .from("berita")
+        .select("id_berita,judul,isi,tgl_publish")
+        .order("tgl_publish", { ascending: false })
+        .limit(LIMIT),
+      supabase
+        .from("paralegal_members")
+        .select(
+          "id_paralegal,id_posbankum,nama_paralegal,updated_at,created_at",
+        )
+        .order("updated_at", { ascending: false })
+        .limit(LIMIT),
+      supabase
+        .from("lihat_kasus")
+        .select("id_posbankum,id_kasus,created_at")
+        .order("created_at", { ascending: false })
+        .limit(LIMIT),
+      supabase
+        .from("kasus")
+        .select("id_kasus,jenis_kasus,deskripsi_kasus")
+        .limit(LIMIT),
+    ]);
+
+    if (kegiatanRes.error) throw kegiatanRes.error;
+    if (dataPosRes.error) throw dataPosRes.error;
+    if (beritaRes.error) throw beritaRes.error;
+    if (paralegalRes.error) throw paralegalRes.error;
+    if (lihatKasusRes.error) throw lihatKasusRes.error;
+    if (kasusRes.error) throw kasusRes.error;
+
+    const kasusMap = new Map(
+      (kasusRes.data || []).map((k) => [
+        k.id_kasus,
+        {
+          jenis_kasus: k.jenis_kasus,
+          deskripsi_kasus: k.deskripsi_kasus,
+        },
+      ]),
+    );
+
+    const events = [];
+
+    (kegiatanRes.data || []).forEach((item) => {
+      const pos = posById.get(item.id_posbankum);
+      const posName = pos?.nama || "Posbankum";
+      const at = item.tgl_upload;
+      events.push({
+        key: `kegiatan:${item.id_kegiatan}`,
+        source: "kegiatan",
+        group: "kegiatan_kasus",
+        title: "Pengajuan kegiatan baru",
+        desc:
+          item.judul || item.deskripsi || "Pengajuan kegiatan dari Posbankum",
+        actor: posName,
+        actorLabel: posName,
+        dateLabel: formatDateID(at),
+        time: relativeTimeID(at),
+        kind: "Pengajuan",
+        tone: "blue",
+        at,
+      });
+    });
+
+    (dataPosRes.data || []).forEach((item) => {
+      const pos = posById.get(item.id_posbankum);
+      const posName = pos?.nama || "Posbankum";
+      const at = item.tgl_verifikasi || item.tgl_upload;
+      const status = String(item.status_verifikasi || "").toLowerCase();
+      const verified =
+        status.includes("verif") ||
+        status.includes("setuju") ||
+        status.includes("approve");
+
+      if (!verified) return;
+
+      events.push({
+        key: `data:${item.id_data}`,
+        source: "data_posbankum",
+        group: "administratif",
+        title: "Data Posbankum diverifikasi",
+        desc: `Data ${item.kategori || "Posbankum"} sudah diverifikasi admin`,
+        actor: posName,
+        actorLabel: posName,
+        dateLabel: formatDateID(at),
+        time: relativeTimeID(at),
+        kind: "Verifikasi",
+        tone: pickToneFromStatus(item.status_verifikasi),
+        at,
+      });
+    });
+
+    (beritaRes.data || []).forEach((item) => {
+      const at = item.tgl_publish;
+      events.push({
+        key: `berita:${item.id_berita}`,
+        source: "berita",
+        group: "administratif",
+        title: "Berita dipublikasikan",
+        desc: item.judul || item.isi || "Berita Posbankum telah dipublikasikan",
+        actor: "Admin",
+        actorLabel: "Admin",
+        dateLabel: formatDateID(at),
+        time: relativeTimeID(at),
+        kind: "Publikasi",
+        tone: "blue",
+        at,
+      });
+    });
+
+    const latestParalegalByPos = new Map();
+    (paralegalRes.data || []).forEach((item) => {
+      if (!item?.id_posbankum || latestParalegalByPos.has(item.id_posbankum))
+        return;
+      latestParalegalByPos.set(item.id_posbankum, item);
+    });
+    Array.from(latestParalegalByPos.values()).forEach((item) => {
+      const pos = posById.get(item.id_posbankum);
+      const posName = pos?.nama || "Posbankum";
+      const at = item.updated_at || item.created_at;
+      events.push({
+        key: `paralegal:${item.id_paralegal}`,
+        source: "paralegal",
+        group: "administratif",
+        title: "Perubahan data paralegal",
+        desc: `Update informasi paralegal ${item.nama_paralegal || "Posbankum"}`,
+        actor: posName,
+        actorLabel: posName,
+        dateLabel: formatDateID(at),
+        time: relativeTimeID(at),
+        kind: "Perubahan Data",
+        tone: "orange",
+        at,
+      });
+    });
+
+    (lihatKasusRes.data || []).forEach((item) => {
+      const pos = posById.get(item.id_posbankum);
+      const posName = pos?.nama || "Posbankum";
+      const kasus = kasusMap.get(item.id_kasus) || {};
+      const at = item.created_at;
+      events.push({
+        key: `kasus:${item.id_posbankum}:${item.id_kasus}:${item.created_at || ""}`,
+        source: "kasus",
+        group: "kegiatan_kasus",
+        title: kasus.jenis_kasus
+          ? `Penanganan ${kasus.jenis_kasus}`
+          : "Kasus ditangani",
+        desc: kasus.deskripsi_kasus || "Kasus baru sedang diproses Posbankum",
+        actor: posName,
+        actorLabel: posName,
+        dateLabel: formatDateID(at),
+        time: relativeTimeID(at),
+        kind: "Kegiatan",
+        tone: "blue",
+        at,
+      });
+    });
+
+    events.sort(
+      (a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime(),
+    );
+    return events;
+  }
+
   async function fetchDashboard() {
     setDashError("");
     setDashLoading(true);
@@ -565,16 +522,39 @@ export default function AdminDashboard() {
     try {
       const { data: posList, error: posErr } = await supabase
         .from("posbankum")
-        .select("id_posbankum,nama,updated_at")
+        .select(
+          "id_posbankum,nama,alamat,nomor_tlp,nama_paralegal,latitude,longitude,updated_at",
+        )
+        .order("nama", { ascending: true })
         .limit(5000);
 
       if (posErr) throw posErr;
 
-      const posNameById = new Map();
-      (posList || []).forEach((p) =>
-        posNameById.set(p.id_posbankum, p.nama || "Posbankum"),
-      );
-      setPosNameByIdState(posNameById);
+      const { data: paralegalList, error: paralegalErr } = await supabase
+        .from("paralegal_members")
+        .select(
+          "id_posbankum,nama_paralegal,nomor_telepon,is_primary,updated_at,created_at",
+        )
+        .order("is_primary", { ascending: false })
+        .order("updated_at", { ascending: false })
+        .limit(5000);
+
+      if (paralegalErr) throw paralegalErr;
+
+      const paralegalByPosId = new Map();
+      (paralegalList || []).forEach((item) => {
+        if (!item?.id_posbankum || paralegalByPosId.has(item.id_posbankum))
+          return;
+        paralegalByPosId.set(item.id_posbankum, item);
+      });
+
+      const posById = new Map();
+      (posList || []).forEach((p) => {
+        posById.set(p.id_posbankum, {
+          ...p,
+          nama_pendek: stripPosbankumPrefix(p.nama),
+        });
+      });
 
       const now = new Date();
       const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -642,8 +622,7 @@ export default function AdminDashboard() {
 
       const agg = new Map();
       (posList || []).forEach((p) => {
-        if (p?.id_posbankum)
-          agg.set(p.id_posbankum, { k: 0, ka: 0, pk: 0, pka: 0, d: 0 });
+        agg.set(p.id_posbankum, { k: 0, ka: 0, pk: 0, pka: 0, d: 0 });
       });
 
       function ensure(id) {
@@ -672,7 +651,7 @@ export default function AdminDashboard() {
         a.d += 1;
       });
 
-      const rowsForChart = Array.from(agg.entries()).map(([id, v]) => {
+      const rows = Array.from(agg.entries()).map(([id, v]) => {
         const total = v.k + v.ka;
         const prevTotal = v.pk + v.pka;
         const growthPct =
@@ -682,185 +661,247 @@ export default function AdminDashboard() {
               ? 100
               : 0;
 
+        const pos = posById.get(id) || {};
+        const paralegal = paralegalByPosId.get(id) || {};
         return {
           id_posbankum: id,
-          nama: posNameById.get(id) || "Posbankum",
-          kegiatan: v.k,
-          kasus: v.ka,
-          total,
-          growthPct,
-        };
-      });
-
-      rowsForChart.sort((a, b) => b.total - a.total);
-      const top = rowsForChart.slice(0, 6);
-      const maxTotal = top.reduce((m, r) => Math.max(m, r.total), 0) || 1;
-
-      const topWithBar = top.map((r) => {
-        const ratio = r.total / maxTotal;
-        const barPct = Math.round(38 + ratio * 57);
-        return { ...r, barPct };
-      });
-      setTopActive(topWithBar);
-
-      const [kegActRes, dataActRes, beritaRes, posUpdRes] = await Promise.all([
-        supabase
-          .from("kegiatan")
-          .select("id_kegiatan,id_posbankum,judul,tgl_upload,status")
-          .order("tgl_upload", { ascending: false })
-          .limit(8),
-        supabase
-          .from("data_posbankum")
-          .select(
-            "id_data,id_posbankum,kategori,tgl_upload,tgl_verifikasi,status_verifikasi",
-          )
-          .order("tgl_upload", { ascending: false })
-          .limit(8),
-        supabase
-          .from("berita")
-          .select("id_berita,judul,tgl_publish,id_user")
-          .order("tgl_publish", { ascending: false })
-          .limit(8),
-        supabase
-          .from("posbankum")
-          .select("id_posbankum,nama,updated_at")
-          .order("updated_at", { ascending: false })
-          .limit(8),
-      ]);
-
-      if (kegActRes.error) throw kegActRes.error;
-      if (dataActRes.error) throw dataActRes.error;
-      if (beritaRes.error) throw beritaRes.error;
-      if (posUpdRes.error) throw posUpdRes.error;
-
-      const ev = [];
-
-      (kegActRes.data || []).forEach((r) => {
-        const nama = posNameById.get(r.id_posbankum) || "Posbankum";
-        ev.push({
-          title: "Pengajuan kegiatan baru",
-          actor: `Posbankum ${nama}`,
-          time: relativeTimeID(r.tgl_upload),
-          kind: "Pengajuan",
-          tone: "blue",
-          at: r.tgl_upload,
-        });
-      });
-
-      (dataActRes.data || []).forEach((r) => {
-        const nama = posNameById.get(r.id_posbankum) || "Posbankum";
-        const at = r.tgl_verifikasi || r.tgl_upload;
-
-        const s = String(r.status_verifikasi || "").toLowerCase();
-        const isVerified =
-          s.includes("verif") || s.includes("setuju") || s.includes("approve");
-
-        const tone = pickToneFromStatus(r.status_verifikasi);
-        ev.push({
-          title: isVerified
-            ? "Data Posbankum diverifikasi"
-            : "Data Posbankum masuk",
-          actor: `Posbankum ${nama}`,
-          time: relativeTimeID(at),
-          kind: isVerified ? "Verifikasi" : "Pengajuan",
-          tone: tone === "red" ? "orange" : tone,
-          at,
-        });
-      });
-
-      (beritaRes.data || []).forEach((r) => {
-        ev.push({
-          title: "Berita dipublikasikan",
-          actor: "Admin",
-          time: relativeTimeID(r.tgl_publish),
-          kind: "Publikasi",
-          tone: "purple",
-          at: r.tgl_publish,
-        });
-      });
-
-      (posUpdRes.data || []).forEach((r) => {
-        ev.push({
-          title: "Perubahan data paralegal",
-          actor: `Posbankum ${r.nama || "Posbankum"}`,
-          time: relativeTimeID(r.updated_at),
-          kind: "Perubahan Data",
-          tone: "orange",
-          at: r.updated_at,
-        });
-      });
-
-      ev.sort(
-        (a, b) => new Date(b.at || 0).getTime() - new Date(a.at || 0).getTime(),
-      );
-      setActivities(ev.slice(0, 4));
-
-      const rowsForDetail = Array.from(agg.entries()).map(([id, v]) => {
-        const total = v.k + v.ka;
-        return {
-          id_posbankum: id,
-          nama: posNameById.get(id) || "Posbankum",
-          total,
+          nama: formatPosbankumName(pos.nama),
+          namaPendek: pos.nama_pendek || stripPosbankumPrefix(pos.nama),
+          alamat: pos.alamat || "-",
+          nomor_tlp: pos.nomor_tlp || "-",
+          nama_paralegal: paralegal.nama_paralegal || pos.nama_paralegal || "-",
+          nomor_paralegal: paralegal.nomor_telepon || pos.nomor_tlp || "",
+          latitude: pos.latitude,
+          longitude: pos.longitude,
           kegiatan: v.k,
           kasus: v.ka,
           dokumen: v.d,
+          total,
+          growthPct,
           status: "Aktif",
         };
       });
 
-      rowsForDetail.sort((a, b) => b.total - a.total);
-      setDetailRows(rowsForDetail);
+      rows.sort((a, b) => b.total - a.total || a.nama.localeCompare(b.nama));
+
+      const top = rows.slice(0, 6);
+      const maxTotal =
+        top.reduce((max, item) => Math.max(max, item.total), 0) || 1;
+      const topWithBar = top.map((item) => ({
+        ...item,
+        barPct: Math.max(36, Math.round((item.total / maxTotal) * 100)),
+      }));
+
+      setTopActive(topWithBar);
+      setDetailRows(rows);
+
+      const allActivities = await fetchActivitiesData(posList || []);
+      setActivityAll(allActivities);
+      setActivities(buildPreferredHomeActivities(allActivities));
     } catch (e) {
       console.error(e);
       setDashError(e?.message || "Gagal memuat dashboard dari database.");
+      setTopActive([]);
+      setDetailRows([]);
+      setActivities([]);
+      setActivityAll([]);
     } finally {
       setDashLoading(false);
     }
   }
 
+  async function fetchAllActivitiesForModal() {
+    setActivityLoading(true);
+    try {
+      const { data: posList, error: posErr } = await supabase
+        .from("posbankum")
+        .select("id_posbankum,nama")
+        .order("nama", { ascending: true })
+        .limit(5000);
+      if (posErr) throw posErr;
+      const events = await fetchActivitiesData(posList || []);
+      setActivityAll(events);
+    } catch (error) {
+      console.error(error);
+      setActivityAll([]);
+    } finally {
+      setActivityLoading(false);
+    }
+  }
+
   useEffect(() => {
-    if (active !== "Beranda") return;
-    if (!sessionUser) return;
+    let alive = true;
+
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!alive) return;
+
+        if (!data?.session) {
+          navigate("/", { replace: true });
+          return;
+        }
+
+        setSessionUser(data.session.user);
+      } finally {
+        if (alive) setCheckingSession(false);
+      }
+    })();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        navigate("/", { replace: true });
+        return;
+      }
+      setSessionUser(session.user);
+    });
+
+    return () => {
+      alive = false;
+      subscription?.unsubscribe();
+    };
+  }, [navigate]);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      if (!sessionUser?.id) return;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", sessionUser.id)
+        .maybeSingle();
+
+      if (!alive) return;
+      if (!error && data?.full_name) setAdminName(data.full_name);
+    })();
+
+    return () => {
+      alive = false;
+    };
+  }, [sessionUser?.id]);
+
+  useEffect(() => {
+    function onDocClick(e) {
+      if (!rangeOpen || !rangeWrapRef.current) return;
+      if (!rangeWrapRef.current.contains(e.target)) setRangeOpen(false);
+    }
+
+    function onEsc(e) {
+      if (e.key === "Escape") setRangeOpen(false);
+    }
+
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onEsc);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onEsc);
+    };
+  }, [rangeOpen]);
+
+  useEffect(() => {
+    setDetailPage(1);
+  }, [detailSearch]);
+
+  useEffect(() => {
+    if (active !== "Beranda" || !sessionUser) return;
     fetchDashboard();
   }, [active, sessionUser, rangeDays]);
 
-  function handleExport() {
-    const header = ["Posbankum", "Total", "Kegiatan", "Kasus", "Growth(%)"];
-    const lines = [
-      header.join(","),
-      ...topActive.map((r) =>
-        [
-          `"${String(r.nama || "").replaceAll('"', '""')}"`,
-          r.total,
-          r.kegiatan,
-          r.kasus,
-          r.growthPct,
-        ].join(","),
-      ),
-    ];
-    const csv = lines.join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `posbankum-paling-aktif-${rangeDays}hari.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+  useEffect(() => {
+    if (!sessionUser || active !== "Beranda") return;
+
+    const channel = supabase
+      .channel(`admin-dashboard-${sessionUser.id}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "posbankum" },
+        () => fetchDashboard(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "kegiatan" },
+        () => fetchDashboard(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "data_posbankum" },
+        () => fetchDashboard(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "lihat_kasus" },
+        () => fetchDashboard(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "berita" },
+        () => fetchDashboard(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "paralegal_members" },
+        () => fetchDashboard(),
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [sessionUser, active, rangeDays]);
+
+  useEffect(() => {
+    if (!activityOpen || !sessionUser || active !== "Beranda") return;
+    fetchAllActivitiesForModal();
+  }, [activityOpen, sessionUser, active]);
+
+  useEffect(() => {
+    if (!activityOpen && !selectedPosDetail) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev || "";
+    };
+  }, [activityOpen, selectedPosDetail]);
+
+  useEffect(() => {
+    if (!activityOpen && !selectedPosDetail) return;
+    const onEsc = (e) => {
+      if (e.key !== "Escape") return;
+      if (selectedPosDetail) {
+        closeDetailModal();
+        return;
+      }
+      if (activityOpen) closeActivityModal();
+    };
+    document.addEventListener("keydown", onEsc);
+    return () => document.removeEventListener("keydown", onEsc);
+  }, [activityOpen, selectedPosDetail]);
+
+  const activityFiltered = useMemo(() => {
+    if (activityTab === "all") return activityAll;
+    if (activityTab === "kk") {
+      return activityAll.filter((item) => item.group === "kegiatan_kasus");
+    }
+    return activityAll.filter((item) => item.group === "administratif");
+  }, [activityAll, activityTab]);
 
   const detailFiltered = useMemo(() => {
     const q = detailSearch.trim().toLowerCase();
     if (!q) return detailRows;
-    return detailRows.filter((r) =>
-      String(r.nama || "")
+    return detailRows.filter((row) =>
+      String(row.nama || "")
         .toLowerCase()
         .includes(q),
     );
   }, [detailRows, detailSearch]);
 
-  const detailPageCount = useMemo(() => {
-    return Math.max(1, Math.ceil(detailFiltered.length / detailPageSize));
-  }, [detailFiltered.length]);
+  const detailPageCount = useMemo(
+    () => Math.max(1, Math.ceil(detailFiltered.length / detailPageSize)),
+    [detailFiltered.length],
+  );
 
   const detailPageSafe = Math.min(Math.max(1, detailPage), detailPageCount);
 
@@ -869,6 +910,35 @@ export default function AdminDashboard() {
     return detailFiltered.slice(startIdx, startIdx + detailPageSize);
   }, [detailFiltered, detailPageSafe]);
 
+  function handleExport() {
+    const header = ["Posbankum", "Total", "Kegiatan", "Kasus", "Growth(%)"];
+    const lines = [
+      header.join(","),
+      ...topActive.map((row) =>
+        [
+          `"${String(row.nama || "").replaceAll('"', '""')}"`,
+          row.total,
+          row.kegiatan,
+          row.kasus,
+          row.growthPct,
+        ].join(","),
+      ),
+    ];
+
+    const blob = new Blob([lines.join("\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `posbankum-paling-aktif-${rangeDays}hari.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const totalActivityAll = activityAll.length;
+  const totalActivityFiltered = activityFiltered.length;
+
   if (checkingSession) {
     return (
       <div className="ad" style={{ padding: 24 }}>
@@ -876,9 +946,6 @@ export default function AdminDashboard() {
       </div>
     );
   }
-
-  const totalActivityAll = activityAll.length;
-  const totalActivityFiltered = activityFiltered.length;
 
   return (
     <div className="ad">
@@ -899,18 +966,18 @@ export default function AdminDashboard() {
         <div className="ad-brandDivider" aria-hidden="true" />
 
         <nav className="ad-nav">
-          {menu.map((m) => (
+          {menu.map((item) => (
             <button
-              key={m.label}
-              className={`ad-navItem ${active === m.label ? "is-active" : ""}`}
+              key={item.label}
+              className={`ad-navItem ${active === item.label ? "is-active" : ""}`}
               onClick={() => {
                 setShowProfile(false);
-                setActive(m.label);
+                setActive(item.label);
               }}
               type="button"
             >
-              <span className="ad-navIcon">{m.icon}</span>
-              <span className="ad-navLabel">{m.label}</span>
+              <span className="ad-navIcon">{item.icon}</span>
+              <span className="ad-navLabel">{item.label}</span>
             </button>
           ))}
         </nav>
@@ -949,17 +1016,19 @@ export default function AdminDashboard() {
           />
         ) : active === "Beranda" ? (
           <section className="ad-grid">
+            <div className="ad-wireTitle">Dashboard</div>
+
             <div className="ad-cards">
-              {statDefs.map((s) => (
-                <div key={s.key} className={`ad-card tone-${s.tone}`}>
-                  <div className="ad-cardIcon">{s.icon}</div>
+              {statDefs.map((item) => (
+                <div key={item.key} className={`ad-card tone-${item.tone}`}>
+                  <div className="ad-cardIcon">{item.icon}</div>
                   <div className="ad-cardBody">
-                    <div className="ad-cardTitle">{s.title}</div>
+                    <div className="ad-cardTitle">{item.title}</div>
                     <div className="ad-cardValue">
                       {dashLoading ? (
                         <span className="ad-skel sk-num" />
                       ) : (
-                        statsValue[s.key]
+                        statsValue[item.key]
                       )}
                     </div>
                     <div className="ad-cardHint">Update real-time</div>
@@ -968,13 +1037,15 @@ export default function AdminDashboard() {
               ))}
             </div>
 
+            {dashError ? <div className="ad-errorBox">{dashError}</div> : null}
+
             <div className="ad-panels">
               <section className="ad-panel ad-panelChart" ref={chartPanelRef}>
                 <div className="ad-panelHead">
                   <div>
                     <div className="ad-panelTitle">Posbankum Paling Aktif</div>
                     <div className="ad-panelSub">
-                      Total kegiatan & kasus ditangani
+                      Total Kegiatan &amp; Kasus Diselesaikan
                     </div>
                   </div>
 
@@ -983,7 +1054,7 @@ export default function AdminDashboard() {
                       <button
                         className={`ad-filterBtn ${rangeOpen ? "is-open" : ""}`}
                         type="button"
-                        onClick={() => setRangeOpen((v) => !v)}
+                        onClick={() => setRangeOpen((prev) => !prev)}
                         aria-haspopup="menu"
                         aria-expanded={rangeOpen}
                       >
@@ -994,18 +1065,18 @@ export default function AdminDashboard() {
 
                       {rangeOpen ? (
                         <div className="ad-ddMenu" role="menu">
-                          {[7, 30, 90].map((d) => (
+                          {[7, 30, 90].map((day) => (
                             <button
-                              key={d}
-                              className={`ad-ddItem ${rangeDays === d ? "is-active" : ""}`}
+                              key={day}
+                              className={`ad-ddItem ${rangeDays === day ? "is-active" : ""}`}
                               type="button"
                               role="menuitem"
                               onClick={() => {
-                                setRangeDays(d);
+                                setRangeDays(day);
                                 setRangeOpen(false);
                               }}
                             >
-                              {d} Hari
+                              {day} Hari
                             </button>
                           ))}
                         </div>
@@ -1023,10 +1094,6 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {dashError ? (
-                  <div className="ad-errorBox">{dashError}</div>
-                ) : null}
-
                 {hoverTip && !dashLoading ? (
                   <div
                     className="ad-hoverTip"
@@ -1034,27 +1101,21 @@ export default function AdminDashboard() {
                     role="tooltip"
                     aria-hidden="true"
                   >
-                    <div className="ad-tipTitle">
-                      Posbankum {hoverTip.row?.nama}
-                    </div>
-
+                    <div className="ad-tipTitle">{hoverTip.row?.nama}</div>
                     <div className="ad-tipGrid">
                       <div className="ad-tipLabel">Total:</div>
                       <div className="ad-tipVal">
                         {hoverTip.row?.total ?? 0}
                       </div>
-
                       <div className="ad-tipLabel">Kegiatan:</div>
                       <div className="ad-tipVal">
                         {hoverTip.row?.kegiatan ?? 0}
                       </div>
-
                       <div className="ad-tipLabel">Kasus:</div>
                       <div className="ad-tipVal">
                         {hoverTip.row?.kasus ?? 0}
                       </div>
                     </div>
-
                     <div
                       className={`ad-tipGrowth ${(hoverTip.row?.growthPct ?? 0) >= 0 ? "is-up" : "is-down"}`}
                     >
@@ -1066,17 +1127,15 @@ export default function AdminDashboard() {
 
                 <div className="ad-activeBars">
                   {(dashLoading ? Array.from({ length: 6 }) : topActive).map(
-                    (r, idx) => (
+                    (row, idx) => (
                       <div
-                        key={r?.id_posbankum || idx}
+                        key={row?.id_posbankum || idx}
                         className="ad-activeItem"
-                        onMouseEnter={(e) => {
-                          if (!dashLoading && r) showTip(e, r);
-                        }}
+                        onMouseEnter={(e) =>
+                          !dashLoading && row && showTip(e, row)
+                        }
                         onMouseLeave={hideTip}
-                        onFocus={(e) => {
-                          if (!dashLoading && r) showTip(e, r);
-                        }}
+                        onFocus={(e) => !dashLoading && row && showTip(e, row)}
                         onBlur={hideTip}
                         tabIndex={dashLoading ? -1 : 0}
                       >
@@ -1084,7 +1143,7 @@ export default function AdminDashboard() {
                           {dashLoading ? (
                             <span className="ad-skel sk-mini" />
                           ) : (
-                            r.total
+                            row.total
                           )}
                         </div>
 
@@ -1092,7 +1151,7 @@ export default function AdminDashboard() {
                           <div
                             className="ad-pillBar"
                             style={{
-                              height: dashLoading ? "88%" : `${r.barPct}%`,
+                              height: dashLoading ? "88%" : `${row.barPct}%`,
                             }}
                           />
                         </div>
@@ -1101,7 +1160,7 @@ export default function AdminDashboard() {
                           {dashLoading ? (
                             <span className="ad-skel sk-line" />
                           ) : (
-                            r.nama
+                            row.namaPendek
                           )}
                         </div>
 
@@ -1110,10 +1169,12 @@ export default function AdminDashboard() {
                             <span className="ad-skel sk-mini" />
                           ) : (
                             <span
-                              className={r.growthPct >= 0 ? "is-up" : "is-down"}
+                              className={
+                                row.growthPct >= 0 ? "is-up" : "is-down"
+                              }
                             >
-                              {r.growthPct >= 0 ? "+" : ""}
-                              {r.growthPct}%
+                              {row.growthPct >= 0 ? "+" : ""}
+                              {row.growthPct}%
                             </span>
                           )}
                         </div>
@@ -1124,7 +1185,7 @@ export default function AdminDashboard() {
               </section>
 
               <section className="ad-panel ad-panelActivity">
-                <div className="ad-panelHead">
+                <div className="ad-panelHead ad-panelHeadActivity">
                   <div>
                     <div className="ad-panelTitle">Aktivitas Terbaru</div>
                   </div>
@@ -1139,52 +1200,42 @@ export default function AdminDashboard() {
                 </div>
 
                 <div className="ad-activityList">
-                  {(dashLoading ? Array.from({ length: 5 }) : activities).map(
-                    (a, idx) => (
-                      <div key={idx} className="ad-activityItem">
+                  {(dashLoading ? Array.from({ length: 4 }) : activities).map(
+                    (item, idx) => (
+                      <div key={item?.key || idx} className="ad-activityItem">
                         <div
-                          className={`ad-stripe tone-${a?.tone || "blue"}`}
-                          aria-hidden="true"
-                        />
+                          className={`ad-activityIconWrap tone-${item?.tone || "blue"}`}
+                        >
+                          {dashLoading ? (
+                            <span className="ad-skel sk-mini" />
+                          ) : (
+                            pickActivityIcon(item)
+                          )}
+                        </div>
+
                         <div className="ad-activityText">
                           <div className="ad-activityTitle">
                             {dashLoading ? (
                               <span className="ad-skel sk-line" />
                             ) : (
-                              a.title
+                              item.title
                             )}
                           </div>
-
-                          <div className="ad-activityMeta">
+                          <div className="ad-activityMetaInline">
                             {dashLoading ? (
-                              <>
-                                <div className="ad-activityActor">
-                                  <span
-                                    className="ad-skel sk-line"
-                                    style={{ width: 150 }}
-                                  />
-                                </div>
-                                <div className="ad-activityTime">
-                                  <span
-                                    className="ad-skel sk-line"
-                                    style={{ width: 110 }}
-                                  />
-                                </div>
-                                <div className="ad-activityKind">
-                                  <span
-                                    className="ad-skel sk-line"
-                                    style={{ width: 120 }}
-                                  />
-                                </div>
-                              </>
+                              <span
+                                className="ad-skel sk-line"
+                                style={{ width: 140 }}
+                              />
                             ) : (
-                              <>
-                                <div className="ad-activityActor">
-                                  {a.actor}
-                                </div>
-                                <div className="ad-activityTime">{a.time}</div>
-                                <div className="ad-activityKind">{a.kind}</div>
-                              </>
+                              item.actorLabel
+                            )}
+                          </div>
+                          <div className="ad-activityTime">
+                            {dashLoading ? (
+                              <span className="ad-skel sk-mini" />
+                            ) : (
+                              item.time
                             )}
                           </div>
                         </div>
@@ -1218,17 +1269,16 @@ export default function AdminDashboard() {
               <div className="ad-tableWrap">
                 <table className="ad-table">
                   <colgroup>
-                    <col style={{ width: "46%" }} />
-                    <col style={{ width: "14%" }} />
-                    <col style={{ width: "10%" }} />
-                    <col style={{ width: "10%" }} />
-                    <col style={{ width: "10%" }} />
-                    <col style={{ width: "10%" }} />
+                    <col className="ad-colPosbankum" />
+                    <col className="ad-colTotal" />
+                    <col className="ad-colKegiatan" />
+                    <col className="ad-colKasus" />
+                    <col className="ad-colDokumen" />
+                    <col className="ad-colStatus" />
                   </colgroup>
-
                   <thead>
                     <tr>
-                      <th>POSBANKUM</th>
+                      <th align="left">POSBANKUM</th>
                       <th className="is-center">TOTAL KEGIATAN</th>
                       <th className="is-center">KEGIATAN</th>
                       <th className="is-center">KASUS</th>
@@ -1236,72 +1286,76 @@ export default function AdminDashboard() {
                       <th className="is-center">STATUS</th>
                     </tr>
                   </thead>
-
                   <tbody>
                     {(dashLoading
                       ? Array.from({ length: detailPageSize })
                       : detailPageRows
-                    ).map((r, idx) => (
-                      <tr key={r?.id_posbankum || idx}>
+                    ).map((row, idx) => (
+                      <tr
+                        key={row?.id_posbankum || idx}
+                        className={!dashLoading ? "ad-tableRowClickable" : ""}
+                        onClick={() =>
+                          !dashLoading && row && setSelectedPosDetail(row)
+                        }
+                        onKeyDown={(e) => {
+                          if (
+                            !dashLoading &&
+                            row &&
+                            (e.key === "Enter" || e.key === " ")
+                          ) {
+                            e.preventDefault();
+                            setSelectedPosDetail(row);
+                          }
+                        }}
+                        tabIndex={dashLoading ? -1 : 0}
+                      >
                         <td>
                           <div className="ad-posCell">
-                            <span className="ad-posDot" />
                             <span className="ad-posName">
                               {dashLoading ? (
-                                <span
-                                  className="ad-skel sk-line"
-                                  style={{ width: 260 }}
-                                />
+                                <span className="ad-skel sk-line" />
                               ) : (
-                                `Posbankum ${r.nama}`
+                                row.nama
                               )}
                             </span>
                           </div>
                         </td>
-
+                        <td className="is-center">
+                          {dashLoading ? (
+                            <span className="ad-skel sk-mini" />
+                          ) : (
+                            <span className="ad-totalNum">{row.total}</span>
+                          )}
+                        </td>
+                        <td className="is-center">
+                          {dashLoading ? (
+                            <span className="ad-skel sk-mini" />
+                          ) : (
+                            row.kegiatan
+                          )}
+                        </td>
+                        <td className="is-center">
+                          {dashLoading ? (
+                            <span className="ad-skel sk-mini" />
+                          ) : (
+                            row.kasus
+                          )}
+                        </td>
+                        <td className="is-center">
+                          {dashLoading ? (
+                            <span className="ad-skel sk-mini" />
+                          ) : (
+                            row.dokumen
+                          )}
+                        </td>
                         <td className="is-center">
                           {dashLoading ? (
                             <span
                               className="ad-skel sk-mini"
-                              style={{ width: 46, height: 28 }}
+                              style={{ width: 60, height: 28 }}
                             />
                           ) : (
-                            <span className="ad-pillBlue">{r.total}</span>
-                          )}
-                        </td>
-
-                        <td className="is-center">
-                          {dashLoading ? (
-                            <span className="ad-skel sk-mini" />
-                          ) : (
-                            r.kegiatan
-                          )}
-                        </td>
-
-                        <td className="is-center">
-                          {dashLoading ? (
-                            <span className="ad-skel sk-mini" />
-                          ) : (
-                            r.kasus
-                          )}
-                        </td>
-
-                        <td className="is-center">
-                          {dashLoading ? (
-                            <span className="ad-skel sk-mini" />
-                          ) : (
-                            r.dokumen
-                          )}
-                        </td>
-
-                        <td className="is-center">
-                          {dashLoading ? (
-                            <span
-                              className="ad-skel sk-mini"
-                              style={{ width: 66, height: 28 }}
-                            />
-                          ) : (
-                            <span className="ad-pillGreen">{r.status}</span>
+                            <span className="ad-pillGreen">{row.status}</span>
                           )}
                         </td>
                       </tr>
@@ -1314,7 +1368,7 @@ export default function AdminDashboard() {
                 <button
                   className="ad-pagerBtn"
                   type="button"
-                  onClick={() => setDetailPage((p) => Math.max(1, p - 1))}
+                  onClick={() => setDetailPage((prev) => Math.max(1, prev - 1))}
                   disabled={detailPageSafe <= 1}
                 >
                   Sebelumnya
@@ -1328,7 +1382,7 @@ export default function AdminDashboard() {
                   className="ad-pagerBtn"
                   type="button"
                   onClick={() =>
-                    setDetailPage((p) => Math.min(detailPageCount, p + 1))
+                    setDetailPage((prev) => Math.min(detailPageCount, prev + 1))
                   }
                   disabled={detailPageSafe >= detailPageCount}
                 >
@@ -1367,6 +1421,162 @@ export default function AdminDashboard() {
         )}
       </main>
 
+      {selectedPosDetail ? (
+        <div
+          className="ad-modalOverlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Detail Posbankum"
+        >
+          <div className="ad-modalBackdrop" onClick={closeDetailModal} />
+
+          <div
+            className="ad-detailModalCard"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="ad-detailModalHead">
+              <div className="ad-detailModalHeadText">
+                <div className="ad-detailModalTitle">
+                  {selectedPosDetail.nama}
+                </div>
+                <div className="ad-detailModalSub">
+                  Detail informasi dan statistik
+                </div>
+              </div>
+
+              <button
+                className="ad-detailModalCloseBtn"
+                type="button"
+                onClick={closeDetailModal}
+                aria-label="Tutup"
+              >
+                <FiX />
+              </button>
+            </div>
+
+            <div className="ad-detailModalBody">
+              <div className="ad-detailStatGrid">
+                <div className="ad-detailStatCard tone-blue">
+                  <div className="ad-detailStatIcon">
+                    <FiFileText />
+                  </div>
+                  <div className="ad-detailStatValue">
+                    {selectedPosDetail.total}
+                  </div>
+                  <div className="ad-detailStatLabel">Total</div>
+                </div>
+
+                <div className="ad-detailStatCard tone-orange">
+                  <div className="ad-detailStatIcon">
+                    <FiCheckCircle />
+                  </div>
+                  <div className="ad-detailStatValue">
+                    {selectedPosDetail.kegiatan}
+                  </div>
+                  <div className="ad-detailStatLabel">Kegiatan</div>
+                </div>
+
+                <div className="ad-detailStatCard tone-green">
+                  <div className="ad-detailStatIcon">
+                    <FiAlertCircle />
+                  </div>
+                  <div className="ad-detailStatValue">
+                    {selectedPosDetail.kasus}
+                  </div>
+                  <div className="ad-detailStatLabel">Kasus</div>
+                </div>
+
+                <div className="ad-detailStatCard tone-blueAlt">
+                  <div className="ad-detailStatIcon">
+                    <TbFileCheck />
+                  </div>
+                  <div className="ad-detailStatValue">
+                    {selectedPosDetail.dokumen}
+                  </div>
+                  <div className="ad-detailStatLabel">Dokumen</div>
+                </div>
+              </div>
+
+              <div className="ad-detailInfoCard">
+                <div className="ad-detailInfoTitle">Informasi Kontak</div>
+
+                <div className="ad-detailInfoList">
+                  <div className="ad-detailInfoItem">
+                    <div className="ad-detailInfoIcon is-blue">
+                      <FiMapPin />
+                    </div>
+                    <div>
+                      <div className="ad-detailInfoLabel">Alamat</div>
+                      <div className="ad-detailInfoValue">
+                        {selectedPosDetail.alamat || "-"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="ad-detailInfoItem">
+                    <div className="ad-detailInfoIcon is-green">
+                      <FiPhone />
+                    </div>
+                    <div>
+                      <div className="ad-detailInfoLabel">Telepon</div>
+                      <div className="ad-detailInfoValue">
+                        {selectedPosDetail.nomor_tlp || "-"}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="ad-detailInfoItem">
+                    <div className="ad-detailInfoIcon is-orange">
+                      <PosbankumAssetIcon className="ad-detailInfoAssetIcon" />
+                    </div>
+                    <div>
+                      <div className="ad-detailInfoLabel">Kepala Posbankum</div>
+                      <div className="ad-detailInfoValue">
+                        {selectedPosDetail.nama_paralegal || "-"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="ad-detailActionRow">
+                <button
+                  type="button"
+                  className="ad-detailActionBtn is-green"
+                  onClick={() => {
+                    const url = getWhatsAppUrl(
+                      selectedPosDetail.nomor_paralegal ||
+                        selectedPosDetail.nomor_tlp,
+                      selectedPosDetail.nama,
+                    );
+
+                    if (!url) {
+                      alert("Nomor WhatsApp paralegal belum tersedia.");
+                      return;
+                    }
+
+                    window.open(url, "_blank", "noopener,noreferrer");
+                  }}
+                >
+                  <FiPhone /> Hubungi Sekarang
+                </button>
+
+                <button
+                  type="button"
+                  className="ad-detailActionBtn is-navy"
+                  onClick={() => {
+                    const url = getMapsUrl(selectedPosDetail);
+                    window.open(url, "_blank", "noopener,noreferrer");
+                  }}
+                >
+                  <FiExternalLink /> Lihat di Peta
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {activityOpen ? (
         <div
           className="ad-modalOverlay"
@@ -1378,16 +1588,12 @@ export default function AdminDashboard() {
 
           <div className="ad-modalCard" onClick={(e) => e.stopPropagation()}>
             <div className="ad-modalHead">
-              <div className="ad-modalHeadIcon" aria-hidden="true">
-                <FiActivity />
-              </div>
-
               <div className="ad-modalHeadText">
                 <div className="ad-modalTitle">Semua Aktivitas Terbaru</div>
                 <div className="ad-modalSub">
                   {activityLoading
                     ? "Memuat aktivitas..."
-                    : `${totalActivityAll} Aktivitas dari semua Posbankum`}
+                    : `${totalActivityAll} Aktivitas dari sistem`}
                 </div>
               </div>
 
@@ -1430,45 +1636,31 @@ export default function AdminDashboard() {
                   role="tab"
                   aria-selected={activityTab === "admin"}
                 >
-                  Administratif
+                  Administrasi
                 </button>
-              </div>
-
-              <div className="ad-modalSearch">
-                <FiSearch className="ad-modalSearchIcon" />
-                <input
-                  ref={activitySearchRef}
-                  className="ad-modalSearchInput"
-                  placeholder="Cari judul atau lokasi..."
-                  value={activityQuery}
-                  onChange={(e) => setActivityQuery(e.target.value)}
-                />
               </div>
             </div>
 
             <div className="ad-modalList">
               {(activityLoading
-                ? Array.from({ length: 6 })
+                ? Array.from({ length: 5 })
                 : activityFiltered
-              ).map((it, idx) => {
-                const tone = it?.tone || "blue";
-                const badge = it?.kind || "Aktivitas";
-
+              ).map((item, idx) => {
+                const tone = item?.tone || "blue";
+                const badge = item?.kind || "Aktivitas";
                 return (
                   <div
-                    key={it?.key || idx}
+                    key={item?.key || idx}
                     className={`ad-modalItem tone-${tone}`}
                   >
                     <div
-                      className={`ad-modalStripe tone-${tone}`}
+                      className={`ad-modalIconWrap tone-${tone}`}
                       aria-hidden="true"
-                    />
-
-                    <div className="ad-modalIconWrap" aria-hidden="true">
+                    >
                       {activityLoading ? (
                         <span className="ad-skel sk-mini" />
                       ) : (
-                        pickActivityIcon(it)
+                        pickActivityIcon(item)
                       )}
                     </div>
 
@@ -1480,7 +1672,7 @@ export default function AdminDashboard() {
                             style={{ width: 240 }}
                           />
                         ) : (
-                          it?.title
+                          item?.title
                         )}
                       </div>
 
@@ -1488,35 +1680,45 @@ export default function AdminDashboard() {
                         {activityLoading ? (
                           <span
                             className="ad-skel sk-line"
-                            style={{ width: 360 }}
+                            style={{ width: 320 }}
                           />
                         ) : (
-                          it?.desc || ""
+                          item?.desc || ""
                         )}
                       </div>
 
                       <div className="ad-modalMeta">
                         <div className="ad-modalMetaChip">
-                          <FiMapPin />{" "}
+                          <FiMapPin />
                           {activityLoading ? (
                             <span
                               className="ad-skel sk-line"
-                              style={{ width: 140 }}
+                              style={{ width: 120 }}
                             />
                           ) : (
-                            it?.actor || "-"
+                            item?.actorLabel || "-"
                           )}
                         </div>
-
                         <div className="ad-modalMetaChip">
-                          <FiClock />{" "}
+                          <FiCalendar />
                           {activityLoading ? (
                             <span
                               className="ad-skel sk-line"
                               style={{ width: 90 }}
                             />
                           ) : (
-                            it?.time || ""
+                            item?.dateLabel || "-"
+                          )}
+                        </div>
+                        <div className="ad-modalMetaChip">
+                          <FiClock />
+                          {activityLoading ? (
+                            <span
+                              className="ad-skel sk-line"
+                              style={{ width: 90 }}
+                            />
+                          ) : (
+                            item?.time || ""
                           )}
                         </div>
                       </div>
@@ -1531,24 +1733,9 @@ export default function AdminDashboard() {
 
               {!activityLoading && totalActivityFiltered === 0 ? (
                 <div className="ad-modalEmpty">
-                  Tidak ada aktivitas yang cocok dengan filter/pencarian.
+                  Tidak ada aktivitas pada kategori ini.
                 </div>
               ) : null}
-            </div>
-
-            <div className="ad-modalFoot">
-              <div className="ad-modalCount">
-                Menampilkan <b>{totalActivityFiltered}</b> dari{" "}
-                <b>{totalActivityAll}</b> total aktivitas
-              </div>
-
-              <button
-                className="ad-modalCloseBtn"
-                type="button"
-                onClick={closeActivityModal}
-              >
-                Tutup
-              </button>
             </div>
           </div>
         </div>

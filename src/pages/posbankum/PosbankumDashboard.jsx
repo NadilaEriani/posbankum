@@ -155,6 +155,15 @@ function normalizeNotificationPriority(v) {
   return "sedang";
 }
 
+function normalizeNotificationRow(item) {
+  return {
+    ...item,
+    kategori: normalizeNotificationCategory(item?.kategori),
+    prioritas: normalizeNotificationPriority(item?.prioritas),
+    is_read: !!item?.is_read,
+  };
+}
+
 function formatNotificationRelative(v) {
   if (!v) return "";
   const d = new Date(v);
@@ -235,7 +244,11 @@ export default function PosbankumDashboard() {
   const [notifLoading, setNotifLoading] = useState(false);
   const [notifErr, setNotifErr] = useState("");
   const [notifBusy, setNotifBusy] = useState(false);
-  const [notifDeleteState, setNotifDeleteState] = useState({ open: false, mode: "single", id: null });
+  const [notifDeleteState, setNotifDeleteState] = useState({
+    open: false,
+    mode: "single",
+    id: null,
+  });
   const [notifications, setNotifications] = useState([]);
   const [notifReadFilter, setNotifReadFilter] = useState("semua");
   const [notifTypeFilter, setNotifTypeFilter] = useState("semua");
@@ -487,12 +500,7 @@ export default function PosbankumDashboard() {
 
       if (error) throw error;
 
-      const mapped = (data || []).map((item) => ({
-        ...item,
-        kategori: normalizeNotificationCategory(item.kategori),
-        prioritas: normalizeNotificationPriority(item.prioritas),
-        is_read: !!item.is_read,
-      }));
+      const mapped = (data || []).map(normalizeNotificationRow);
 
       setNotifications(mapped);
       setNotifCount(mapped.filter((item) => !item.is_read).length);
@@ -868,6 +876,89 @@ export default function PosbankumDashboard() {
     }
   }
 
+  useEffect(() => {
+    const id_posbankum = profile?.id_posbankum;
+    if (!id_posbankum) return undefined;
+
+    const channel = supabase
+      .channel(`notifikasi-posbankum-${id_posbankum}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifikasi",
+          filter: `id_posbankum=eq.${id_posbankum}`,
+        },
+        (payload) => {
+          setNotifErr("");
+
+          if (payload.eventType === "INSERT") {
+            const nextItem = normalizeNotificationRow(payload.new);
+            setNotifications((prev) => {
+              const withoutDuplicate = prev.filter(
+                (item) => item.id_notifikasi !== nextItem.id_notifikasi,
+              );
+              const next = [nextItem, ...withoutDuplicate].sort(
+                (a, b) => new Date(b.created_at) - new Date(a.created_at),
+              );
+              setNotifCount(next.filter((item) => !item.is_read).length);
+              return next;
+            });
+            return;
+          }
+
+          if (payload.eventType === "UPDATE") {
+            const nextItem = normalizeNotificationRow(payload.new);
+            setNotifications((prev) => {
+              const exists = prev.some(
+                (item) => item.id_notifikasi === nextItem.id_notifikasi,
+              );
+              const next = exists
+                ? prev.map((item) =>
+                    item.id_notifikasi === nextItem.id_notifikasi
+                      ? nextItem
+                      : item,
+                  )
+                : [nextItem, ...prev];
+              const sorted = next.sort(
+                (a, b) => new Date(b.created_at) - new Date(a.created_at),
+              );
+              setNotifCount(sorted.filter((item) => !item.is_read).length);
+              return sorted;
+            });
+            return;
+          }
+
+          if (payload.eventType === "DELETE") {
+            const deletedId = payload.old?.id_notifikasi;
+            if (!deletedId) return;
+
+            setNotifications((prev) => {
+              const next = prev.filter(
+                (item) => item.id_notifikasi !== deletedId,
+              );
+              setNotifCount(next.filter((item) => !item.is_read).length);
+              return next;
+            });
+
+            setNotifSelectedId((selected) =>
+              selected === deletedId ? null : selected,
+            );
+          }
+        },
+      )
+      .subscribe((status) => {
+        if (status === "SUBSCRIBED") {
+          loadNotif(id_posbankum);
+        }
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id_posbankum]);
+
   const filteredNotifications = useMemo(() => {
     return notifications.filter((item) => {
       const matchRead =
@@ -893,9 +984,10 @@ export default function PosbankumDashboard() {
   }, [notifications, notifSelectedId]);
 
   const notifSummaryText = useMemo(() => {
+    if (!notifications.length) return "Belum ada notifikasi";
     if (!notifCount) return "Semua notifikasi sudah dibaca";
     return `${notifCount} notifikasi belum dibaca`;
-  }, [notifCount]);
+  }, [notifications.length, notifCount]);
 
   const hasUnreadNotifications = useMemo(
     () => notifications.some((item) => !item.is_read),
@@ -1422,18 +1514,20 @@ export default function PosbankumDashboard() {
                                 {item.is_read ? <FiEyeOff /> : <FiEye />}
                               </button>
 
-                              <button
-                                className="pb2NotifRoundAction danger"
-                                type="button"
-                                title="Hapus notifikasi"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  deleteNotification(item.id_notifikasi);
-                                }}
-                                disabled={notifBusy}
-                              >
-                                <FiTrash2 />
-                              </button>
+                              {!selectedNotification ? (
+                                <button
+                                  className="pb2NotifRoundAction danger"
+                                  type="button"
+                                  title="Hapus notifikasi"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    deleteNotification(item.id_notifikasi);
+                                  }}
+                                  disabled={notifBusy}
+                                >
+                                  <FiTrash2 />
+                                </button>
+                              ) : null}
                             </div>
                           </div>
                         );
@@ -1446,9 +1540,6 @@ export default function PosbankumDashboard() {
                       </div>
                       <div className="pb2NotifEmptyTitle">
                         Tidak Ada Notifikasi
-                      </div>
-                      <div className="pb2NotifEmptyText">
-                        Semua notifikasi sudah dibaca
                       </div>
                     </div>
                   )}
@@ -1579,6 +1670,36 @@ export default function PosbankumDashboard() {
             </div>
           </div>
         ) : null}
+
+        <DeleteConfirmModal
+          open={notifDeleteState.open}
+          title={
+            notifDeleteState.mode === "all"
+              ? "Hapus Semua Notifikasi?"
+              : "Hapus Notifikasi?"
+          }
+          subtitle="Tindakan ini tidak dapat dibatalkan"
+          description={
+            notifDeleteState.mode === "all"
+              ? "Apakah Anda yakin ingin menghapus semua notifikasi? Semua data notifikasi akan dihapus permanen."
+              : "Apakah Anda yakin ingin menghapus notifikasi ini? Data notifikasi akan dihapus permanen."
+          }
+          confirmLabel={
+            notifDeleteState.mode === "all" ? "Ya, Hapus Semua" : "Ya, Hapus"
+          }
+          cancelLabel="Batal"
+          loading={notifBusy}
+          onCancel={() => {
+            if (!notifBusy) {
+              setNotifDeleteState({ open: false, mode: "single", id: null });
+            }
+          }}
+          onConfirm={
+            notifDeleteState.mode === "all"
+              ? confirmDeleteAllNotifications
+              : confirmDeleteNotification
+          }
+        />
       </main>
     </div>
   );

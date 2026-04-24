@@ -1,7 +1,24 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap");
+
 .ppf-page {
   display: grid;
   gap: 22px;
   padding: 24px;
+  font-family:
+    "Outfit",
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    Arial,
+    sans-serif;
+}
+
+.ppf-page *,
+.ppf-page *::before,
+.ppf-page *::after {
+  box-sizing: border-box;
+  font-family: inherit;
 }
 
 .ppf-pageGate {
@@ -247,7 +264,6 @@
   background: #1454c4;
   color: #fff;
 }
-
 
 .ppf-headEditBtn {
   min-height: 42px;

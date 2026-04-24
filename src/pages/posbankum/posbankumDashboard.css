@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap");
+
 :root {
   --pb-nav-blue: #2f3569;
   --pb-nav-blue-deep: #2b3056;
@@ -26,6 +28,7 @@
   background: var(--pb-page-bg);
   color: var(--pb-text);
   font-family:
+    "Outfit",
     system-ui,
     -apple-system,
     "Segoe UI",
@@ -38,6 +41,7 @@
 .pb2Root *::before,
 .pb2Root *::after {
   box-sizing: border-box;
+  font-family: inherit;
 }
 
 .pb2Side {
@@ -835,7 +839,9 @@
   grid-template-columns: 52px minmax(0, 1fr) auto;
   gap: 14px;
   align-items: center;
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .pb2NotifCard.is-unread {

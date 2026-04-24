@@ -947,6 +947,21 @@ export default function KelolaPengaduan({ profile }) {
     setDeleting(true);
 
     try {
+      const { data: relatedKasusRows, error: relatedKasusError } =
+        await supabase
+          .from("kasus")
+          .select("id_kasus, global_case_id")
+          .eq("website_pengaduan_id", id_pengaduan);
+
+      if (relatedKasusError) throw relatedKasusError;
+
+      const relatedKasusIds = (relatedKasusRows || [])
+        .map((item) => item.id_kasus)
+        .filter(Boolean);
+      const relatedGlobalCaseIds = (relatedKasusRows || [])
+        .map((item) => item.global_case_id)
+        .filter(Boolean);
+
       const { data: lampiranRows, error: lampiranError } = await supabase
         .from("pengaduan_lampiran")
         .select("id_lampiran, path_file")
@@ -966,12 +981,46 @@ export default function KelolaPengaduan({ profile }) {
         if (storageDeleteError) throw storageDeleteError;
       }
 
+      if (relatedGlobalCaseIds.length) {
+        const { error: kasusProgressDeleteError } = await supabase
+          .from("kasus_progress")
+          .delete()
+          .in("global_case_id", relatedGlobalCaseIds);
+
+        if (kasusProgressDeleteError) throw kasusProgressDeleteError;
+      }
+
+      if (relatedKasusIds.length) {
+        const { error: lihatKasusDeleteError } = await supabase
+          .from("lihat_kasus")
+          .delete()
+          .in("id_kasus", relatedKasusIds);
+
+        if (lihatKasusDeleteError) throw lihatKasusDeleteError;
+      }
+
+      const { error: timelineDeleteError } = await supabase
+        .from("pengaduan_timeline")
+        .delete()
+        .eq("id_pengaduan", id_pengaduan);
+
+      if (timelineDeleteError) throw timelineDeleteError;
+
       const { error: lampiranDeleteError } = await supabase
         .from("pengaduan_lampiran")
         .delete()
         .eq("id_pengaduan", id_pengaduan);
 
       if (lampiranDeleteError) throw lampiranDeleteError;
+
+      if (relatedKasusIds.length) {
+        const { error: kasusDeleteError } = await supabase
+          .from("kasus")
+          .delete()
+          .in("id_kasus", relatedKasusIds);
+
+        if (kasusDeleteError) throw kasusDeleteError;
+      }
 
       const { error: pengaduanDeleteError } = await supabase
         .from("pengaduan")
@@ -982,6 +1031,7 @@ export default function KelolaPengaduan({ profile }) {
 
       await loadReports();
       setDeleteTargetId(null);
+      setSuccessMessage("Laporan berhasil dihapus.");
     } catch (err) {
       console.error("handleDelete error:", err);
       openReminderModal({
@@ -993,7 +1043,6 @@ export default function KelolaPengaduan({ profile }) {
       setDeleting(false);
     }
   };
-
   const handlePrint = () => {
     if (!selectedReport) return;
 

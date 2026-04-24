@@ -51,11 +51,12 @@
 
 .lpHeaderTitleWrap {
   margin-bottom: 28px;
+  margin-top: 15px;
 }
 
 .lpPageTitle {
   margin: 0;
-  font-size: 34px;
+  font-size: 24px;
   font-weight: 800;
   color: var(--lp-text-dark);
   line-height: 1.15;

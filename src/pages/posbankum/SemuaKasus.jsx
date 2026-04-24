@@ -209,15 +209,16 @@ function inferStatus(row, extra, timelines = []) {
   return "Diproses";
 }
 
-function inferProgress(status, extra) {
+function inferProgress(status, extra, timelines = []) {
   const numericProgress = Number(extra.progress);
   if (Number.isFinite(numericProgress) && numericProgress >= 0) {
     return Math.max(0, Math.min(100, Math.round(numericProgress)));
   }
 
   if (status === "Selesai") return 100;
-  if (status === "Mediasi") return 65;
-  return 45;
+
+  const aktivitasCount = Math.max(0, (timelines || []).length - 1);
+  return Math.max(0, Math.min(100, aktivitasCount * 25));
 }
 
 function mapPengaduanToCase(
@@ -229,7 +230,7 @@ function mapPengaduanToCase(
 ) {
   const extra = parseCatatanAdmin(row.catatan_admin);
   const status = inferStatus(row, extra, timelines);
-  const progress = inferProgress(status, extra);
+  const progress = inferProgress(status, extra, timelines);
   const lastTimeline = timelines.length
     ? timelines[timelines.length - 1]
     : null;
@@ -293,7 +294,7 @@ function mapWebsiteKasusToCase(row, posbankumRow) {
     kategori: normalizeKategori(row.jenis_kasus),
     status: row.tgl_selesai ? "Selesai" : "Diproses",
     prioritas: "Sedang",
-    progress: row.tgl_selesai ? 100 : 45,
+    progress: row.tgl_selesai ? 100 : 0,
     posbankum: ensurePosbankumPrefix(posbankumRow?.nama),
     kota: posbankumRow?.alamat || "Kota Pekanbaru",
     pelapor: sourceLabel === "Mobile" ? "Pelapor Mobile" : "Pelapor Website",
@@ -322,7 +323,7 @@ function mapMobilePengaduanToCase(row, paralegalRow) {
     kategori: normalizeKategori(row.kategori_masalah),
     status,
     prioritas: normalizePrioritas(row.prioritas),
-    progress: status === "Selesai" ? 100 : 45,
+    progress: status === "Selesai" ? 100 : 0,
     posbankum: "Posbankum Mobile",
     kota: row.lokasi_kejadian || "Wilayah Mobile",
     pelapor: "Pelapor Mobile",

@@ -137,6 +137,20 @@ function normalizeKabupatenLabel(nama) {
   return raw.replace(/^(kota|kabupaten)\s+/i, "").trim();
 }
 
+function cleanHeaderAddress(value) {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+
+  return raw
+    .split(",")
+    .map((part) => part.trim())
+    .filter((part) => {
+      if (!part) return false;
+      return !/^(kec\.?|kecamatan|kota|kabupaten)\b/i.test(part);
+    })
+    .join(", ");
+}
+
 function normalizeNotificationCategory(v) {
   const raw = String(v || "")
     .trim()
@@ -1000,14 +1014,8 @@ export default function PosbankumDashboard() {
   }, [pbInfo.nama]);
 
   const headerSub = useMemo(() => {
-    const a = (pbInfo.alamat || "").trim();
-    const kc = (pbInfo.kecamatan || "").trim();
-    const kb = normalizeKabupatenLabel(pbInfo.kabupaten);
-    const parts = [a, kc ? `Kec. ${kc}` : "", kb ? `Kota ${kb}` : ""].filter(
-      Boolean,
-    );
-    return parts.join(", ");
-  }, [pbInfo]);
+    return cleanHeaderAddress(pbInfo.alamat);
+  }, [pbInfo.alamat]);
 
   if (checking) {
     return (

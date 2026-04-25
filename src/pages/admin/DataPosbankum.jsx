@@ -136,6 +136,8 @@ export default function DataPosbankum() {
   const [previewMime, setPreviewMime] = useState("");
   const [previewName, setPreviewName] = useState("");
   const [previewKategori, setPreviewKategori] = useState("");
+  const [previewItems, setPreviewItems] = useState([]);
+  const [previewIndex, setPreviewIndex] = useState(0);
 
   const tabs = useMemo(
     () => [
@@ -169,13 +171,18 @@ export default function DataPosbankum() {
 
       // === SARPRAS
       "dokumentasi sarpras": "sarpras",
+      "dokumentasi sapras": "sarpras",
       dokumentasi_sarpras: "sarpras",
+      dokumentasi_sapras: "sarpras",
       "dok sarpras": "sarpras",
+      "dok sapras": "sarpras",
       sarpras: "sarpras",
+      sapras: "sarpras",
 
       // === TAGGING AREA
       "tagging area": "tagging_area",
       "tag area": "tagging_area",
+      "topping area": "tagging_area",
       tagging_area: "tagging_area",
     }),
     [],
@@ -190,8 +197,8 @@ export default function DataPosbankum() {
     () => [
       { label: "SK Posbankum", key: "sk_posbankum" },
       { label: "SK Kab/Kota", key: "sk_kadarkum" },
-      { label: "Dokumentasi Sarana", key: "sarpras" },
-      { label: "Topping Area", key: "tagging_area" },
+      { label: "Sapras", key: "sarpras" },
+      { label: "Tagging Area", key: "tagging_area" },
     ],
     [],
   );
@@ -298,6 +305,82 @@ export default function DataPosbankum() {
     }
   };
 
+  const hasTaggingArea = (pos) => {
+    const lat = Number(pos?.latitude);
+    const lng = Number(pos?.longitude);
+    return Number.isFinite(lat) && Number.isFinite(lng);
+  };
+
+  const isChangedAfterCreate = (createdAt, updatedAt) => {
+    if (!createdAt || !updatedAt) return false;
+
+    const createdMs = new Date(createdAt).getTime();
+    const updatedMs = new Date(updatedAt).getTime();
+
+    if (!Number.isFinite(createdMs) || !Number.isFinite(updatedMs)) {
+      return false;
+    }
+
+    // updated_at di tabel posbankum biasanya ikut terisi saat data dibuat.
+    // Karena itu tanggal tagging area hanya tampil kalau memang sudah pernah di-update.
+    return updatedMs - createdMs > 1000;
+  };
+
+  const pickTaggingTanggal = (pos, taggingLatest) => {
+    if (taggingLatest) return pickTimestamp(taggingLatest);
+    if (!hasTaggingArea(pos)) return null;
+    return isChangedAfterCreate(pos?.created_at, pos?.updated_at)
+      ? pos?.updated_at
+      : null;
+  };
+
+  const buildOsmEmbed = (lat, lng) => {
+    const la = Number(lat);
+    const lo = Number(lng);
+    if (!Number.isFinite(la) || !Number.isFinite(lo)) return "";
+
+    const delta = 0.004;
+    const left = lo - delta;
+    const right = lo + delta;
+    const top = la + delta;
+    const bottom = la - delta;
+
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${left}%2C${bottom}%2C${right}%2C${top}&layer=mapnik&marker=${la}%2C${lo}`;
+  };
+
+  const buildGoogleMapsLink = (lat, lng) => {
+    const la = Number(lat);
+    const lo = Number(lng);
+    if (!Number.isFinite(la) || !Number.isFinite(lo)) return "";
+    return `https://www.google.com/maps?q=${encodeURIComponent(`${la},${lo}`)}`;
+  };
+
+  const sortUploads = (items = []) => {
+    return [...items].sort((a, b) => {
+      const timeA = new Date(pickTimestamp(a) || 0).getTime() || 0;
+      const timeB = new Date(pickTimestamp(b) || 0).getTime() || 0;
+      if (timeA !== timeB) return timeB - timeA;
+
+      const nameA = String(
+        a?.nama_berkas || a?.path_berkas || a?.id_data || "",
+      );
+      const nameB = String(
+        b?.nama_berkas || b?.path_berkas || b?.id_data || "",
+      );
+      return nameA.localeCompare(nameB);
+    });
+  };
+
+  const isImagePreview = (item) => {
+    const mime = String(item?.mime || item?.mime_type || "").toLowerCase();
+    const name = String(
+      item?.name || item?.nama_berkas || item?.url || "",
+    ).toLowerCase();
+    return (
+      mime.startsWith("image/") || /\.(png|jpe?g|webp|gif|bmp|svg)$/i.test(name)
+    );
+  };
+
   const stripBucketPrefix = (p) => {
     const s = String(p || "");
     if (!s) return "";
@@ -305,39 +388,90 @@ export default function DataPosbankum() {
     return s;
   };
 
+  const makeSignedUrl = async (path) => {
+    const raw = String(path || "");
+    if (!raw) return "";
+    if (/^https?:\/\//i.test(raw)) return raw;
+
+    const objectPath = stripBucketPrefix(raw);
+    const { data, error } = await supabase.storage
+      .from(BUCKET)
+      .createSignedUrl(objectPath, 60 * 10);
+
+    if (error) throw error;
+    return data?.signedUrl || "";
+  };
+
   const openFile = async (row) => {
     setErr("");
+    setPreviewItems([]);
+    setPreviewIndex(0);
 
-    const raw = String(row?.path || "");
-    if (!raw) return;
+    if (row?.viewerType === "tagging_area") {
+      const mapUrl = buildOsmEmbed(row?.latitude, row?.longitude);
+      const mapsLink = buildGoogleMapsLink(row?.latitude, row?.longitude);
 
-    let url = raw;
+      if (!mapUrl) return;
 
-    // kalau bukan URL publik → buat signed url dari storage
-    if (!/^https?:\/\//i.test(raw)) {
-      const objectPath = stripBucketPrefix(raw);
+      const item = {
+        type: "map",
+        url: mapUrl,
+        mapsLink,
+        name: "Tagging Area",
+        kategori: row?.kategori || "Tagging Area",
+        alamat: row?.alamat || "",
+        latitude: row?.latitude,
+        longitude: row?.longitude,
+      };
 
-      const { data, error } = await supabase.storage
-        .from(BUCKET)
-        .createSignedUrl(objectPath, 60 * 10);
-
-      if (error) {
-        setErr(error.message);
-        return;
-      }
-
-      url = data?.signedUrl || "";
+      setPreviewItems([item]);
+      setPreviewUrl(mapUrl);
+      setPreviewMime("map");
+      setPreviewName(item.name);
+      setPreviewKategori(item.kategori);
+      setPreviewOpen(true);
+      return;
     }
 
-    setPreviewUrl(url);
-    setPreviewMime(row?.mime_type || "");
-    setPreviewName(row?.nama_berkas || "Berkas");
-    setPreviewKategori(row?.kategori || "");
-    setPreviewOpen(true);
+    const files =
+      Array.isArray(row?.files) && row.files.length ? row.files : [row];
+    const cleanFiles = files.filter((item) => pickPath(item));
+    if (!cleanFiles.length) return;
+
+    try {
+      const items = (
+        await Promise.all(
+          cleanFiles.map(async (item) => {
+            const url = await makeSignedUrl(pickPath(item));
+            if (!url) return null;
+
+            return {
+              type: "file",
+              url,
+              mime: item?.mime_type || "",
+              name: item?.nama_berkas || row?.nama_berkas || "Berkas",
+              kategori: item?.kategori || row?.kategori || "",
+              row: item,
+            };
+          }),
+        )
+      ).filter(Boolean);
+
+      if (!items.length) return;
+
+      setPreviewItems(items);
+      setPreviewUrl(items[0]?.url || "");
+      setPreviewMime(items[0]?.mime || "");
+      setPreviewName(items[0]?.name || "Berkas");
+      setPreviewKategori(row?.kategori || items[0]?.kategori || "");
+      setPreviewOpen(true);
+    } catch (e) {
+      setErr(e?.message || "Gagal membuka berkas");
+    }
   };
 
   // hitung completeness dari uploads (per posbankum)
-  const computeCompleteness = (uploads = []) => {
+  const computeCompleteness = (uploads = [], posRow = null) => {
     const latestByKey = {};
 
     for (const u0 of uploads) {
@@ -355,14 +489,27 @@ export default function DataPosbankum() {
       }
     }
 
-    const ok = REQUIRED.every((req) => {
-      const u = latestByKey[req.key];
-      return (
-        u && normalizeStatus(u.status_verifikasi ?? u.status) === "disetujui"
-      );
-    });
+    const docsOk = REQUIRED.filter((req) => req.key !== "tagging_area").every(
+      (req) => {
+        const u = latestByKey[req.key];
+        return (
+          u && normalizeStatus(u.status_verifikasi ?? u.status) === "disetujui"
+        );
+      },
+    );
 
-    return ok ? "complete" : "incomplete";
+    const taggingUpload = latestByKey.tagging_area;
+    const taggingOk =
+      hasTaggingArea(posRow) ||
+      Boolean(
+        taggingUpload &&
+        pickPath(taggingUpload) &&
+        normalizeStatus(
+          taggingUpload.status_verifikasi ?? taggingUpload.status,
+        ) === "disetujui",
+      );
+
+    return docsOk && taggingOk ? "complete" : "incomplete";
   };
 
   // Fetch posbankum + uploads
@@ -374,7 +521,9 @@ export default function DataPosbankum() {
       try {
         let query = supabase
           .from("posbankum")
-          .select("id_posbankum,nama,id_kabupaten,id_kecamatan")
+          .select(
+            "id_posbankum,nama,id_kabupaten,id_kecamatan,alamat,latitude,longitude,created_at,updated_at",
+          )
           .order("nama", { ascending: true });
 
         if (kabupatenId) query = query.eq("id_kabupaten", kabupatenId);
@@ -407,7 +556,7 @@ export default function DataPosbankum() {
 
         const enriched = (pos ?? []).map((r) => ({
           ...r,
-          completeness: computeCompleteness(grouped[r.id_posbankum] ?? []),
+          completeness: computeCompleteness(grouped[r.id_posbankum] ?? [], r),
         }));
 
         // ✅ FIX: Posbankum Aktif = TOTAL posbankum (bukan yang complete)
@@ -450,24 +599,69 @@ export default function DataPosbankum() {
   // detail rows per posbankum (accordion)
   const detailByPos = useMemo(() => {
     const out = {};
+
     for (const p of rows) {
       const pid = p.id_posbankum;
       const ups = uploadsByPos[pid] ?? [];
 
-      const latest = {};
+      const groupedByKey = {};
       for (const u of ups) {
         const key = canonKategori(u?.kategori);
         if (!key) continue;
-
-        const prev = latest[key];
-        const ts = pickTimestamp(u);
-        if (!prev) latest[key] = u;
-        else if (new Date(ts || 0) > new Date(pickTimestamp(prev) || 0))
-          latest[key] = u;
+        if (!groupedByKey[key]) groupedByKey[key] = [];
+        groupedByKey[key].push(u);
       }
 
+      Object.keys(groupedByKey).forEach((key) => {
+        groupedByKey[key] = sortUploads(groupedByKey[key]);
+      });
+
       out[pid] = REQUIRED.map((req) => {
-        const u = latest[req.key];
+        if (req.key === "tagging_area") {
+          const taggingUploads = groupedByKey.tagging_area ?? [];
+          const taggingLatest = taggingUploads[0];
+          const hasCoords = hasTaggingArea(p);
+          const taggingDate = pickTaggingTanggal(p, taggingLatest);
+
+          if (hasCoords) {
+            return {
+              kategori: req.label,
+              tanggal: formatTanggal(taggingDate),
+              status: "menunggu",
+              path: "__tagging_area__",
+              viewerType: "tagging_area",
+              latitude: p.latitude,
+              longitude: p.longitude,
+              alamat: p.alamat || "",
+            };
+          }
+
+          if (taggingLatest) {
+            return {
+              kategori: req.label,
+              tanggal: formatTanggal(taggingDate),
+              status: normalizeStatus(
+                taggingLatest?.status_verifikasi ?? taggingLatest?.status,
+              ),
+              path: pickPath(taggingLatest),
+              mime_type: taggingLatest?.mime_type ?? "",
+              nama_berkas: taggingLatest?.nama_berkas ?? "Tagging Area",
+              files: taggingUploads,
+            };
+          }
+
+          return {
+            kategori: req.label,
+            tanggal: "-",
+            status: "menunggu",
+            path: "",
+            mime_type: "",
+            nama_berkas: "",
+          };
+        }
+
+        const files = groupedByKey[req.key] ?? [];
+        const u = files[0];
         const st = normalizeStatus(u?.status_verifikasi ?? u?.status);
         const path = pickPath(u);
 
@@ -478,9 +672,12 @@ export default function DataPosbankum() {
           path,
           mime_type: u?.mime_type ?? "",
           nama_berkas: u?.nama_berkas ?? "",
+          files,
+          fileCount: files.length,
         };
       });
     }
+
     return out;
   }, [rows, uploadsByPos, REQUIRED, KATEGORI_ALIASES]);
 
@@ -496,6 +693,18 @@ export default function DataPosbankum() {
 
     const onKey = (e) => {
       if (e.key === "Escape") setPreviewOpen(false);
+      if (e.key === "ArrowLeft" && previewItems.length > 1) {
+        setPreviewIndex((i) =>
+          i === 0 ? previewItems.length - 1 : Math.max(0, i - 1),
+        );
+      }
+      if (e.key === "ArrowRight" && previewItems.length > 1) {
+        setPreviewIndex((i) =>
+          i >= previewItems.length - 1
+            ? 0
+            : Math.min(previewItems.length - 1, i + 1),
+        );
+      }
     };
     window.addEventListener("keydown", onKey);
 
@@ -503,7 +712,24 @@ export default function DataPosbankum() {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [previewOpen]);
+  }, [previewOpen, previewItems.length]);
+
+  const currentPreview = previewItems[previewIndex] || null;
+  const previewIsMap = currentPreview?.type === "map";
+  const previewDisplayName = currentPreview?.name || previewName || "Berkas";
+  const previewDisplayKategori =
+    currentPreview?.kategori || previewKategori || "";
+  const previewDisplayUrl = currentPreview?.url || previewUrl || "";
+
+  const prevPreview = () => {
+    if (previewItems.length <= 1) return;
+    setPreviewIndex((i) => (i === 0 ? previewItems.length - 1 : i - 1));
+  };
+
+  const nextPreview = () => {
+    if (previewItems.length <= 1) return;
+    setPreviewIndex((i) => (i >= previewItems.length - 1 ? 0 : i + 1));
+  };
 
   const renderStatus = (st) => {
     if (st === "disetujui") {
@@ -741,7 +967,14 @@ export default function DataPosbankum() {
                         <tbody>
                           {detailRows.map((r, idx) => (
                             <tr key={idx}>
-                              <td className="dp-tdStrong">{r.kategori}</td>
+                              <td className="dp-tdStrong">
+                                <span>{r.kategori}</span>
+                                {r.fileCount > 1 ? (
+                                  <span className="dp-fileCount">
+                                    {r.fileCount} Foto
+                                  </span>
+                                ) : null}
+                              </td>
                               <td>{r.tanggal}</td>
                               <td>{renderStatus(r.status)}</td>
                               <td>
@@ -786,7 +1019,7 @@ export default function DataPosbankum() {
         )}
       </div>
 
-      {/* ===== PREVIEW MODAL (gambar 3: klik Lihat) ===== */}
+      {/* ===== PREVIEW MODAL (klik Lihat) ===== */}
       {previewOpen && (
         <div
           className="dp-modalOverlay"
@@ -798,11 +1031,15 @@ export default function DataPosbankum() {
             className="dp-modal dp-modalPreview"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            {/* header biru */}
             <div className="dp-previewHead">
               <div className="dp-previewTitleWrap">
-                <div className="dp-previewTitle">{previewName || "Berkas"}</div>
-                <div className="dp-previewSub">{previewKategori || ""}</div>
+                <div className="dp-previewTitle">{previewDisplayName}</div>
+                <div className="dp-previewSub">
+                  {previewDisplayKategori}
+                  {previewItems.length > 1
+                    ? ` • ${previewIndex + 1} / ${previewItems.length}`
+                    : ""}
+                </div>
               </div>
 
               <button
@@ -815,37 +1052,89 @@ export default function DataPosbankum() {
               </button>
             </div>
 
-            {/* toolbar gelap + download (biar mirip gambar) */}
             <div className="dp-previewToolbar">
-              <div className="dp-previewToolbarLeft" />
-              <a
-                className="dp-downloadBtn"
-                href={previewUrl || "#"}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => {
-                  if (!previewUrl) e.preventDefault();
-                }}
-              >
-                <FiDownload />
-                <span>Download</span>
-              </a>
+              <div className="dp-previewToolbarLeft">
+                {previewItems.length > 1 ? (
+                  <div className="dp-previewCounter">
+                    <button
+                      type="button"
+                      onClick={prevPreview}
+                      aria-label="Foto sebelumnya"
+                    >
+                      &lt;
+                    </button>
+                    <span>
+                      {previewIndex + 1} / {previewItems.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={nextPreview}
+                      aria-label="Foto berikutnya"
+                    >
+                      &gt;
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+
+              {!previewIsMap ? (
+                <a
+                  className="dp-downloadBtn"
+                  href={previewDisplayUrl || "#"}
+                  target="_blank"
+                  rel="noreferrer"
+                  onClick={(e) => {
+                    if (!previewDisplayUrl) e.preventDefault();
+                  }}
+                >
+                  <FiDownload />
+                  <span>Download</span>
+                </a>
+              ) : currentPreview?.mapsLink ? (
+                <a
+                  className="dp-downloadBtn"
+                  href={currentPreview.mapsLink}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <FiMapPin />
+                  <span>Buka Maps</span>
+                </a>
+              ) : null}
             </div>
 
-            {/* body viewer */}
             <div className="dp-previewBody">
-              {!previewUrl ? (
+              {!previewDisplayUrl ? (
                 <div className="dp-previewEmpty">Berkas tidak tersedia.</div>
-              ) : previewMime?.startsWith("image/") ? (
-                <img
-                  src={previewUrl}
-                  alt={previewName}
-                  className="dp-previewImg"
-                />
+              ) : previewIsMap ? (
+                <div className="dp-mapPreviewWrap">
+                  <iframe
+                    src={previewDisplayUrl}
+                    title="Tagging Area"
+                    className="dp-previewFrame"
+                  />
+                  <div className="dp-mapInfo">
+                    <div className="dp-mapInfoTitle">Lokasi Tagging Area</div>
+                    <div className="dp-mapInfoText">
+                      {currentPreview?.alamat || "Alamat belum tersedia"}
+                    </div>
+                    <div className="dp-mapInfoCoord">
+                      {currentPreview?.latitude}, {currentPreview?.longitude}
+                    </div>
+                  </div>
+                </div>
+              ) : isImagePreview(currentPreview) ? (
+                <div className="dp-previewMediaWrap">
+                  <img
+                    src={previewDisplayUrl}
+                    alt={previewDisplayName}
+                    className="dp-previewImg"
+                  />
+                </div>
               ) : (
                 <iframe
-                  src={previewUrl}
-                  title={previewName}
+                  src={previewDisplayUrl}
+                  title={previewDisplayName}
                   className="dp-previewFrame"
                 />
               )}

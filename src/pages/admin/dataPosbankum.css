@@ -540,12 +540,14 @@
 }
 
 .dp-previewToolbar {
-  height: 58px;
+  min-height: 72px;
+  height: auto;
   background: rgba(15, 23, 42, 0.92);
   display: flex;
   align-items: center;
-  padding: 0 16px;
+  padding: 12px 18px 14px;
   justify-content: flex-end;
+  box-sizing: border-box;
 }
 
 .dp-downloadBtn {
@@ -745,35 +747,287 @@
   color: rgba(37, 99, 235, 0.95);
 }
 
-
 /* ===== Data Posbankum redesign ===== */
-.dp, .dp * { font-family: 'Outfit', sans-serif; }
-.dp { margin-top: 8px; }
-.dp-topBoxes { gap: 22px; margin-bottom: 20px; }
-.dp-topBox { min-height: 108px; border-radius: 18px; border: 0; padding: 0; color: #fff; box-shadow: 0 12px 28px rgba(15,23,42,.12); }
-.dp-topBox.tone-green { background: linear-gradient(135deg, #343a73 0%, #545a94 100%); }
-.dp-topBox.tone-yellow { background: linear-gradient(135deg, #f5cb29 0%, #f6a640 100%); }
-.dp-topBox.tone-blue { background: linear-gradient(135deg, #0b7f59 0%, #289c72 100%); }
-.dp-topBoxInner { align-items: center; gap: 16px; padding: 20px 22px; }
-.dp-topIcon { width: 54px; height: 54px; border-radius: 16px; background: rgba(255,255,255,.22) !important; }
-.dp-topTitle, .dp-topValue, .dp-topHint { color: #fff; }
-.dp-topTitle { font-size: 14px; font-weight: 500; }
-.dp-topValue { font-size: 26px; font-weight: 800; margin-top: 4px; }
-.dp-topHint { font-size: 12px; font-weight: 400; margin-top: 6px; opacity: .95; }
-.dp-filterCard { border-radius: 18px; border: 1px solid #d8dde6; padding: 22px; box-shadow: 0 8px 24px rgba(15,23,42,.08); }
-.dp-toolbar { grid-template-columns: 1fr auto; gap: 14px; }
-.dp-search, .dp-select { height: 52px; border-radius: 18px; box-shadow: none; }
-.dp-search { border-color: #d9dee8; background: #fff; }
-.dp-select { background: #f8fafc; border-color: #e8ecf3; }
-.dp-tabs { gap: 10px; }
-.dp-tab { height: 34px; border-radius: 14px; background: #f2f4f7; color: #4b5563; font-weight: 600; }
-.dp-tab.is-active { background: #174ea6; border-color: #174ea6; box-shadow: 0 6px 18px rgba(23,78,166,.22); }
-.dp-card { border-radius: 18px; border: 1px solid #d8dde6; box-shadow: 0 8px 24px rgba(15,23,42,.08); }
-.dp-cardHead { padding: 18px 20px; }
-.dp-iconWrap { width: 46px; height: 46px; border-radius: 14px; background: #174ea6; box-shadow: 0 8px 20px rgba(23,78,166,.2); }
-.dp-name { font-size: 18px; font-weight: 700; }
-.dp-sub { margin-top: 4px; font-size: 13px; color: #667085; }
-.dp-rowBadge { height: 32px; font-size: 13px; font-weight: 700; box-shadow: none; }
-.dp-rowBadge.is-ok { background: #22c55e; }
-.dp-rowBadge.is-warn { background: #f97316; }
-.dp-chevron { background: transparent; border: 0; }
+.dp,
+.dp * {
+  font-family: "Outfit", sans-serif;
+}
+.dp {
+  margin-top: 8px;
+}
+.dp-topBoxes {
+  gap: 22px;
+  margin-bottom: 20px;
+}
+.dp-topBox {
+  min-height: 108px;
+  border-radius: 18px;
+  border: 0;
+  padding: 0;
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12);
+}
+.dp-topBox.tone-green {
+  background: linear-gradient(135deg, #343a73 0%, #545a94 100%);
+}
+.dp-topBox.tone-yellow {
+  background: linear-gradient(135deg, #f5cb29 0%, #f6a640 100%);
+}
+.dp-topBox.tone-blue {
+  background: linear-gradient(135deg, #0b7f59 0%, #289c72 100%);
+}
+.dp-topBoxInner {
+  align-items: center;
+  gap: 16px;
+  padding: 20px 22px;
+}
+.dp-topIcon {
+  width: 54px;
+  height: 54px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.22) !important;
+}
+.dp-topTitle,
+.dp-topValue,
+.dp-topHint {
+  color: #fff;
+}
+.dp-topTitle {
+  font-size: 14px;
+  font-weight: 500;
+}
+.dp-topValue {
+  font-size: 26px;
+  font-weight: 800;
+  margin-top: 4px;
+}
+.dp-topHint {
+  font-size: 12px;
+  font-weight: 400;
+  margin-top: 6px;
+  opacity: 0.95;
+}
+.dp-filterCard {
+  border-radius: 18px;
+  border: 1px solid #d8dde6;
+  padding: 22px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+.dp-toolbar {
+  grid-template-columns: 1fr auto;
+  gap: 14px;
+}
+.dp-search,
+.dp-select {
+  height: 52px;
+  border-radius: 18px;
+  box-shadow: none;
+}
+.dp-search {
+  border-color: #d9dee8;
+  background: #fff;
+}
+.dp-select {
+  background: #f8fafc;
+  border-color: #e8ecf3;
+}
+.dp-tabs {
+  gap: 10px;
+}
+.dp-tab {
+  height: 34px;
+  border-radius: 14px;
+  background: #f2f4f7;
+  color: #4b5563;
+  font-weight: 600;
+}
+.dp-tab.is-active {
+  background: #174ea6;
+  border-color: #174ea6;
+  box-shadow: 0 6px 18px rgba(23, 78, 166, 0.22);
+}
+.dp-card {
+  border-radius: 18px;
+  border: 1px solid #d8dde6;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+}
+.dp-cardHead {
+  padding: 18px 20px;
+}
+.dp-iconWrap {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  background: #174ea6;
+  box-shadow: 0 8px 20px rgba(23, 78, 166, 0.2);
+}
+.dp-name {
+  font-size: 18px;
+  font-weight: 700;
+}
+.dp-sub {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #667085;
+}
+.dp-rowBadge {
+  height: 32px;
+  font-size: 13px;
+  font-weight: 700;
+  box-shadow: none;
+}
+.dp-rowBadge.is-ok {
+  background: #22c55e;
+}
+.dp-rowBadge.is-warn {
+  background: #f97316;
+}
+.dp-chevron {
+  background: transparent;
+  border: 0;
+}
+
+/* ===== Revisi Data Posbankum: tagging area + sapras carousel ===== */
+.dp-fileCount {
+  margin-left: 10px;
+  height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: rgba(43, 48, 86, 0.1);
+  color: #2b3056;
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.dp-previewHead {
+  background: linear-gradient(135deg, #2b3056 0%, #3a4070 52%, #4a5080 100%);
+}
+
+.dp-previewToolbar {
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dp-previewBody {
+  padding-top: 18px;
+  box-sizing: border-box;
+}
+
+.dp-previewToolbarLeft {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.dp-previewCounter {
+  min-height: 38px;
+  padding: 0 10px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #2b3056 0%, #3a4070 52%, #4a5080 100%);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #fff;
+  font-weight: 800;
+  box-shadow: 0 12px 28px rgba(2, 6, 23, 0.18);
+}
+
+.dp-previewCounter button {
+  width: 30px;
+  height: 30px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.dp-previewCounter span {
+  min-width: 54px;
+  text-align: center;
+  font-size: 13px;
+}
+
+.dp-previewMediaWrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #0b1220;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dp-previewMediaWrap .dp-previewImg {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  object-fit: contain;
+}
+
+.dp-previewCounter button:hover {
+  filter: brightness(1.06);
+}
+
+.dp-mapPreviewWrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #0b1220;
+}
+
+.dp-mapPreviewWrap .dp-previewFrame {
+  width: 100%;
+  height: 100%;
+  background: #0b1220;
+}
+
+.dp-mapInfo {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  bottom: 18px;
+  border-radius: 16px;
+  padding: 14px 16px;
+  background: linear-gradient(135deg, #2b3056 0%, #3a4070 52%, #4a5080 100%);
+  color: #fff;
+  box-shadow: 0 18px 46px rgba(2, 6, 23, 0.28);
+}
+
+.dp-mapInfoTitle {
+  font-size: 14px;
+  font-weight: 800;
+  margin-bottom: 5px;
+}
+
+.dp-mapInfoText {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.45;
+  opacity: 0.95;
+}
+
+.dp-mapInfoCoord {
+  margin-top: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  opacity: 0.9;
+}
+
+@media (max-width: 640px) {
+  .dp-fileCount {
+    margin-left: 0;
+    margin-top: 6px;
+    width: fit-content;
+  }
+
+  .dp-mapInfo {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+  }
+}

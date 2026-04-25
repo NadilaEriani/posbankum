@@ -1,3 +1,4 @@
+import { CgImage } from "react-icons/cg";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FiCalendar,
@@ -6,7 +7,6 @@ import {
   FiPlus,
   FiSearch,
   FiTrash2,
-  FiUpload,
   FiX,
 } from "react-icons/fi";
 import { supabase } from "../../lib/supabaseClient";
@@ -639,7 +639,7 @@ export default function KelolaBerita({ currentUserId, currentUserName }) {
                     >
                       {!imagePreview ? (
                         <div className="kb-uploadEmpty">
-                          <FiUpload className="kb-uploadIcon" />
+                          <CgImage className="kb-uploadIcon" />
                           <div className="kb-uploadText">
                             Klik untuk upload gambar
                           </div>

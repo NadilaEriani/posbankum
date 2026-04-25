@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap");
+
 :root {
   --kb-navy: #343a73;
   --kb-navy-dark: #2c3263;
@@ -17,9 +19,15 @@
 
 .kb-wrap {
   position: relative;
+  font-family: "Outfit", sans-serif;
   width: 100%;
   min-height: calc(100vh - 120px);
   color: var(--kb-text);
+}
+
+.kb-wrap,
+.kb-wrap * {
+  font-family: "Outfit", sans-serif;
 }
 
 .kb-head {
@@ -32,15 +40,15 @@
 
 .kb-title {
   margin: 0;
-  font-size: 22px;
-  font-weight: 800;
+  font-size: 30px;
+  font-weight: 900;
   letter-spacing: -0.02em;
 }
 
 .kb-titleUnderline {
   display: inline-block;
-  width: 52px;
-  height: 4px;
+  width: 60px;
+  height: 5px;
   border-radius: 999px;
   background: var(--kb-yellow);
   margin-top: 8px;
@@ -102,7 +110,11 @@
   border: 0;
   outline: 0;
   cursor: pointer;
-  transition: transform 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease, background 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    opacity 0.18s ease,
+    background 0.18s ease;
 }
 
 .kb-addButton:hover,
@@ -332,8 +344,8 @@
 }
 
 .kb-modalHead {
-  min-height: 74px;
-  padding: 0 24px;
+  min-height: 82px;
+  padding: 0 28px;
   background: linear-gradient(90deg, #343a73 0%, #48508f 100%);
   color: #fff;
   display: flex;
@@ -342,8 +354,8 @@
 }
 
 .kb-modalTitle {
-  font-size: 20px;
-  font-weight: 800;
+  font-size: 22px;
+  font-weight: 900;
 }
 
 .kb-modalClose,
@@ -360,19 +372,19 @@
 }
 
 .kb-modalBody {
-  padding: 20px 24px 20px;
+  padding: 28px 30px 26px;
   overflow-y: auto;
 }
 
 .kb-field + .kb-field {
-  margin-top: 18px;
+  margin-top: 24px;
 }
 
 .kb-label {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  margin-bottom: 10px;
+  margin-bottom: 14px;
   color: #21283a;
   font-size: 15px;
   font-weight: 700;
@@ -396,23 +408,45 @@
 
 .kb-input,
 .kb-select {
-  height: 54px;
-  padding: 0 16px;
+  height: 56px;
+  padding: 0 18px;
+}
+
+.kb-selectWrap {
+  position: relative;
+  border-radius: 20px;
+  background: #fff;
+  box-shadow: 0 14px 28px rgba(28, 37, 68, 0.12);
 }
 
 .kb-select {
   appearance: none;
-  background-image: linear-gradient(45deg, transparent 50%, #4b5563 50%), linear-gradient(135deg, #4b5563 50%, transparent 50%);
-  background-position: calc(100% - 28px) calc(50% - 3px), calc(100% - 22px) calc(50% - 3px);
-  background-size: 6px 6px, 6px 6px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #4b5563 50%),
+    linear-gradient(135deg, #4b5563 50%, transparent 50%);
+  background-position:
+    calc(100% - 28px) calc(50% - 3px),
+    calc(100% - 22px) calc(50% - 3px);
+  background-size:
+    6px 6px,
+    6px 6px;
   background-repeat: no-repeat;
   color: #575f71;
+  border-color: #e4e7ee;
+  box-shadow: 0 10px 22px rgba(28, 37, 68, 0.08);
+}
+
+.kb-select:focus,
+.kb-input:focus,
+.kb-textarea:focus {
+  border-color: var(--kb-navy);
+  box-shadow: 0 0 0 4px rgba(52, 58, 115, 0.1);
 }
 
 .kb-textarea {
-  min-height: 216px;
+  min-height: 224px;
   resize: vertical;
-  padding: 16px;
+  padding: 18px;
   line-height: 1.7;
 }
 
@@ -424,7 +458,8 @@
 .kb-formGrid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 20px;
+  gap: 24px;
+  margin-top: 24px;
   align-items: start;
 }
 
@@ -458,7 +493,7 @@
 }
 
 .kb-uploadIcon {
-  font-size: 50px;
+  font-size: 80px;
   color: #9aa1ae;
   margin-bottom: 12px;
 }
@@ -495,15 +530,15 @@
 }
 
 .kb-formError {
-  margin-top: 16px;
+  margin-top: 20px;
   color: #b42318;
   font-weight: 700;
   font-size: 14px;
 }
 
 .kb-modalActions {
-  margin-top: 18px;
-  padding-top: 14px;
+  margin-top: 24px;
+  padding-top: 18px;
   border-top: 1px solid #eceff4;
   display: flex;
   align-items: center;
@@ -554,7 +589,11 @@
 .kb-detailOverlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(10, 13, 24, 0.08) 18%, rgba(18, 21, 35, 0.7) 100%);
+  background: linear-gradient(
+    180deg,
+    rgba(10, 13, 24, 0.08) 18%,
+    rgba(18, 21, 35, 0.7) 100%
+  );
 }
 
 .kb-detailContent,

@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 import { FiX } from "react-icons/fi";
 import "./successToast.css";
 
-export default function SuccessToast({ message, onClose }) {
+export default function SuccessToast({ title = "Berhasil", message, onClose }) {
   useEffect(() => {
     if (!message) return undefined;
 
@@ -21,7 +21,7 @@ export default function SuccessToast({ message, onClose }) {
       <div className="st-toastIcon">✓</div>
 
       <div className="st-toastBody">
-        <div className="st-toastTitle">Berhasil</div>
+        <div className="st-toastTitle">{title}</div>
         <div className="st-toastText">{message}</div>
       </div>
 
@@ -38,6 +38,7 @@ export default function SuccessToast({ message, onClose }) {
 }
 
 SuccessToast.propTypes = {
+  title: PropTypes.string,
   message: PropTypes.string,
   onClose: PropTypes.func,
 };

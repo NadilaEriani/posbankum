@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-
+import { useEffect, useMemo, useState } from "react";
 import {
   FiSearch,
   FiX,
@@ -9,140 +8,119 @@ import {
   FiChevronLeft,
   FiChevronRight,
   FiClock,
-  FiChevronDown,
-  FiFilter,
-  FiCheck,
+  FiFileText,
+  FiUsers,
+  FiThumbsUp,
+  FiThumbsDown,
+  FiMessageSquare,
 } from "react-icons/fi";
-
 import { BsCheck2Circle } from "react-icons/bs";
 import { AiOutlineCloseCircle } from "react-icons/ai";
 import { supabase } from "../../lib/supabaseClient";
 import SuccessToast from "../../components/ui/SuccessToast";
+import RejectToast from "../../components/ui/RejectToast";
 import "./laporanKegiatan.css";
 
+const BUCKET_THUMB = "kegiatan-thumbnails";
+const PAGE_SIZE = 6;
+
 const TABS = [
-  { key: "all", label: "Semua Pengajuan" },
-  { key: "Diterima", label: "Pengajuan Kegiatan Diterima" },
-  { key: "Ditolak", label: "Pengajuan Kegiatan Ditolak" },
+  { key: "all", label: "Semua" },
+  { key: "pending", label: "Menunggu" },
+  { key: "approved", label: "Disetujui" },
+  { key: "rejected", label: "Ditolak" },
 ];
 
-const BUCKET_THUMB = "kegiatan-thumbnails";
+const norm = (value) =>
+  String(value ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
 
-/* =========================
-   Custom Dropdown (Kab/Kec)
-========================= */
-function RkDropdown({
-  value,
-  onChange,
-  placeholder,
-  options,
-  disabled = false,
-}) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef(null);
+function uiStatusKey(statusDb) {
+  const status = norm(statusDb);
 
-  const isEmptyValue = value === "" || value === null || value === undefined;
+  if (
+    [
+      "diterima",
+      "disetujui",
+      "approve",
+      "approved",
+      "valid",
+      "selesai",
+    ].includes(status)
+  ) {
+    return "approved";
+  }
 
-  const selectedLabel = !isEmptyValue
-    ? (options || []).find((o) => String(o.value) === String(value))?.label ||
-      ""
-    : "";
+  if (["ditolak", "tolak", "reject", "rejected"].includes(status)) {
+    return "rejected";
+  }
 
-  useEffect(() => {
-    if (disabled) setOpen(false);
-  }, [disabled]);
+  return "pending";
+}
 
-  useEffect(() => {
-    const onDown = (e) => {
-      if (!wrapRef.current) return;
-      if (!wrapRef.current.contains(e.target)) setOpen(false);
-    };
-    const onKey = (e) => {
-      if (e.key === "Escape") setOpen(false);
-    };
+function uiStatusLabel(statusDb) {
+  const key = uiStatusKey(statusDb);
+  if (key === "approved") return "Disetujui";
+  if (key === "rejected") return "Ditolak";
+  return "Menunggu";
+}
 
-    document.addEventListener("pointerdown", onDown);
-    window.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("pointerdown", onDown);
-      window.removeEventListener("keydown", onKey);
-    };
-  }, []);
+function uiStatusIcon(statusDb, className = "rk-statusIcon") {
+  const key = uiStatusKey(statusDb);
+  if (key === "approved") return <BsCheck2Circle className={className} />;
+  if (key === "rejected") return <AiOutlineCloseCircle className={className} />;
+  return <FiClock className={className} />;
+}
 
-  return (
-    <div className={`rk-dd ${disabled ? "is-disabled" : ""}`} ref={wrapRef}>
-      <button
-        type="button"
-        className="rk-ddBtn"
-        onClick={() => !disabled && setOpen((s) => !s)}
-        aria-expanded={open}
-        disabled={disabled}
-      >
-        <FiFilter className="rk-ddIcon" />
-        <span className={`rk-ddText ${selectedLabel ? "" : "is-placeholder"}`}>
-          {selectedLabel || placeholder}
-        </span>
-        <FiChevronDown className={`rk-ddChevron ${open ? "is-open" : ""}`} />
-      </button>
+function formatDate(value) {
+  if (!value) return "-";
 
-      {open && !disabled && (
-        <div className="rk-ddMenu" role="listbox">
-          {(options || []).map((opt) => {
-            const isActive = String(opt.value) === String(value);
-            return (
-              <button
-                key={String(opt.value)}
-                type="button"
-                className={`rk-ddItem ${isActive ? "is-active" : ""}`}
-                onClick={() => {
-                  onChange(opt.value);
-                  setOpen(false);
-                }}
-              >
-                <span>{opt.label}</span>
-                {isActive && <FiCheck className="rk-ddCheck" />}
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return date.toLocaleDateString("id-ID", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function formatCountLabel(value, suffix) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) return `0 ${suffix}`;
+  return `${n} ${suffix}`;
+}
+
+function safeText(value, fallback = "-") {
+  const text = String(value ?? "").trim();
+  return text || fallback;
+}
+
+function isRejected(status) {
+  return uiStatusKey(status) === "rejected";
 }
 
 export default function LaporanKegiatan() {
-  // filters
   const [q, setQ] = useState("");
   const [debouncedQ, setDebouncedQ] = useState("");
   const [tab, setTab] = useState("all");
-  const [kabupatenId, setKabupatenId] = useState("");
-  const [kecamatanId, setKecamatanId] = useState("");
+  const [page, setPage] = useState(1);
 
-  // dropdown options
-  const [kabupatenOpts, setKabupatenOpts] = useState([]);
-  const [kecamatanOpts, setKecamatanOpts] = useState([]);
-
-  // data
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
   const [rows, setRows] = useState([]);
 
-  // stats (3 card besar)
-  const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0 });
-
-  // pagination (UI mirip gambar)
-  const [page, setPage] = useState(1);
-  const PAGE_SIZE = 4;
-
-  // verify modal
-  const [verifyOpen, setVerifyOpen] = useState(false);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [selected, setSelected] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
 
-  // reject modal
   const [rejectOpen, setRejectOpen] = useState(false);
   const [rejectNote, setRejectNote] = useState("");
+
+  const [successToast, setSuccessToast] = useState({ title: "", message: "" });
+  const [rejectToast, setRejectToast] = useState("");
 
   const getThumbUrl = (path) => {
     if (!path) return null;
@@ -150,100 +128,12 @@ export default function LaporanKegiatan() {
     return data?.publicUrl || null;
   };
 
-  const formatDate = (v) => {
-    if (!v) return "-";
-    try {
-      return new Date(v).toLocaleDateString("id-ID", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-      });
-    } catch {
-      return "-";
-    }
-  };
-
-  const norm = (v) =>
-    String(v ?? "")
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, " ");
-
-  // status untuk tampilan (biar konsisten sama desain)
-  const uiStatusKey = (statusDb) => {
-    const s = norm(statusDb);
-    if (["diterima", "disetujui", "approve", "approved"].includes(s))
-      return "approved";
-    if (["ditolak", "tolak", "reject", "rejected"].includes(s))
-      return "rejected";
-    return "pending";
-  };
-
-  const uiStatusLabel = (statusDb) => {
-    const k = uiStatusKey(statusDb);
-    if (k === "approved") return "Disetujui";
-    if (k === "rejected") return "Ditolak";
-    return "Menunggu";
-  };
-
-  // ICON untuk status pill (Figma)
-  const uiStatusIcon = (statusDb) => {
-    const k = uiStatusKey(statusDb);
-    if (k === "approved") return <BsCheck2Circle className="rk-pillIc" />;
-    if (k === "rejected") return <AiOutlineCloseCircle className="rk-pillIc" />;
-    return <FiClock className="rk-pillIc" />;
-  };
-
-  // debounce search
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedQ(q.trim()), 250);
-    return () => clearTimeout(t);
-  }, [q]);
-
-  // load kabupaten
-  useEffect(() => {
-    (async () => {
-      const { data, error } = await supabase
-        .from("kabupaten")
-        .select("id_kabupaten,nama")
-        .order("nama", { ascending: true });
-
-      if (error) {
-        setErr(error.message);
-        return;
-      }
-      setKabupatenOpts(data || []);
-    })();
-  }, []);
-
-  // load kecamatan by kabupaten
-  useEffect(() => {
-    (async () => {
-      setKecamatanId("");
-      setKecamatanOpts([]);
-      if (!kabupatenId) return;
-
-      const { data, error } = await supabase
-        .from("kecamatan")
-        .select("id_kecamatan,nama")
-        .eq("id_kabupaten", kabupatenId)
-        .order("nama", { ascending: true });
-
-      if (error) {
-        setErr(error.message);
-        return;
-      }
-      setKecamatanOpts(data || []);
-    })();
-  }, [kabupatenId]);
-
-  // fetch kegiatan + join posbankum (LOGIKA ASLI TETAP)
   const fetchRows = async () => {
     setLoading(true);
     setErr("");
 
     try {
-      let query = supabase
+      const { data, error } = await supabase
         .from("kegiatan")
         .select(
           `
@@ -257,8 +147,13 @@ export default function LaporanKegiatan() {
           tgl_mulai,
           tgl_selesai,
           thumbnail_path,
+          lokasi,
+          jumlah_peserta,
+          anggota_terlibat,
+          kategori,
           posbankum:posbankum (
             nama,
+            nama_paralegal,
             kabupaten:kabupaten ( nama ),
             kecamatan:kecamatan ( nama )
           )
@@ -266,20 +161,11 @@ export default function LaporanKegiatan() {
         )
         .order("tgl_upload", { ascending: false });
 
-      // tab (server-side seperti code kamu)
-      if (tab !== "all") query = query.eq("status", tab);
-
-      // filter kab/kec (server-side on relation)
-      if (kabupatenId) query = query.eq("posbankum.id_kabupaten", kabupatenId);
-      if (kecamatanId) query = query.eq("posbankum.id_kecamatan", kecamatanId);
-
-      const { data, error } = await query;
       if (error) throw error;
-
       setRows(data || []);
-    } catch (e) {
-      setErr(e?.message || "Gagal memuat data.");
+    } catch (error) {
       setRows([]);
+      setErr(error?.message || "Gagal memuat data laporan kegiatan.");
     } finally {
       setLoading(false);
     }
@@ -287,109 +173,133 @@ export default function LaporanKegiatan() {
 
   useEffect(() => {
     fetchRows();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, kabupatenId, kecamatanId]);
+  }, []);
 
-  // fetch stats untuk 3 card besar (tanpa ganggu fetchRows)
   useEffect(() => {
-    (async () => {
-      try {
-        const makeBase = () => {
-          let q0 = supabase
-            .from("kegiatan")
-            .select("id_kegiatan, posbankum!inner(id_kabupaten,id_kecamatan)", {
-              count: "exact",
-              head: true,
-            });
+    const timer = window.setTimeout(() => setDebouncedQ(q.trim()), 250);
+    return () => window.clearTimeout(timer);
+  }, [q]);
 
-          if (kabupatenId) q0 = q0.eq("posbankum.id_kabupaten", kabupatenId);
-          if (kecamatanId) q0 = q0.eq("posbankum.id_kecamatan", kecamatanId);
-          return q0;
-        };
+  useEffect(() => {
+    setPage(1);
+  }, [tab, debouncedQ]);
 
-        const totalRes = await makeBase();
-        const total = totalRes?.count ?? 0;
+  useEffect(() => {
+    if (!detailOpen && !rejectOpen) return undefined;
 
-        const okRes = await makeBase().eq("status", "Diterima");
-        const approved = okRes?.count ?? 0;
-
-        const noRes = await makeBase().eq("status", "Ditolak");
-        const rejected = noRes?.count ?? 0;
-
-        const pending = Math.max(0, total - approved - rejected);
-
-        setStats({ pending, approved, rejected });
-      } catch {
-        // ignore
+    const onKeyDown = (event) => {
+      if (event.key === "Escape") {
+        if (rejectOpen) closeRejectModal();
+        else closeDetailModal();
       }
-    })();
-  }, [kabupatenId, kecamatanId]);
+    };
 
-  // search (client-side: judul + posbankum + deskripsi)
-  const filtered = useMemo(() => {
-    const s = debouncedQ.toLowerCase();
-    if (!s) return rows;
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detailOpen, rejectOpen, saving]);
 
-    return rows.filter((r) => {
-      const judul = String(r?.judul || "").toLowerCase();
-      const namaPos = String(r?.posbankum?.nama || "").toLowerCase();
-      const desk = String(r?.deskripsi || "").toLowerCase();
-      return judul.includes(s) || namaPos.includes(s) || desk.includes(s);
+  const stats = useMemo(() => {
+    const base = { total: rows.length, pending: 0, approved: 0, rejected: 0 };
+
+    for (const row of rows) {
+      const key = uiStatusKey(row?.status);
+      if (key === "approved") base.approved += 1;
+      else if (key === "rejected") base.rejected += 1;
+      else base.pending += 1;
+    }
+
+    return base;
+  }, [rows]);
+
+  const searchedRows = useMemo(() => {
+    const search = norm(debouncedQ);
+    if (!search) return rows;
+
+    return rows.filter((row) => {
+      const haystack = [
+        row?.judul,
+        row?.deskripsi,
+        row?.lokasi,
+        row?.kategori,
+        row?.posbankum?.nama,
+        row?.posbankum?.kecamatan?.nama,
+        row?.posbankum?.kabupaten?.nama,
+      ]
+        .map((item) => norm(item))
+        .join(" ");
+
+      return haystack.includes(search);
     });
   }, [rows, debouncedQ]);
 
-  // pagination (reset kalau filter/search berubah)
-  useEffect(() => {
-    setPage(1);
-  }, [tab, kabupatenId, kecamatanId, debouncedQ]);
+  const tabCounts = useMemo(() => {
+    const counts = {
+      all: searchedRows.length,
+      pending: 0,
+      approved: 0,
+      rejected: 0,
+    };
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+    for (const row of searchedRows) {
+      const key = uiStatusKey(row?.status);
+      counts[key] += 1;
+    }
+
+    return counts;
+  }, [searchedRows]);
+
+  const filteredRows = useMemo(() => {
+    if (tab === "all") return searchedRows;
+    return searchedRows.filter((row) => uiStatusKey(row?.status) === tab);
+  }, [searchedRows, tab]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
   const pageClamped = Math.min(Math.max(page, 1), totalPages);
+
   const pageItems = useMemo(() => {
     const start = (pageClamped - 1) * PAGE_SIZE;
-    return filtered.slice(start, start + PAGE_SIZE);
-  }, [filtered, pageClamped]);
+    return filteredRows.slice(start, start + PAGE_SIZE);
+  }, [filteredRows, pageClamped]);
 
-  const openVerify = (item) => {
+  const openDetailModal = (item) => {
     setSelected(item);
-    setVerifyOpen(true);
+    setDetailOpen(true);
     setRejectOpen(false);
     setRejectNote("");
     setErr("");
   };
 
-  const closeVerify = () => {
+  const closeDetailModal = () => {
     if (saving) return;
-    setVerifyOpen(false);
-    setSelected(null);
+    setDetailOpen(false);
     setRejectOpen(false);
     setRejectNote("");
+    setSelected(null);
   };
 
-  const openReject = () => {
-    setRejectNote(selected?.catatan || "");
+  const openRejectModal = () => {
+    setRejectNote(isRejected(selected?.status) ? selected?.catatan || "" : "");
     setRejectOpen(true);
     setErr("");
   };
 
-  const closeReject = () => {
+  const closeRejectModal = () => {
     if (saving) return;
     setRejectOpen(false);
+    setRejectNote("");
   };
 
-  // ESC close modal
-  useEffect(() => {
-    if (!verifyOpen) return;
-    const onKey = (e) => {
-      if (e.key === "Escape") closeVerify();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [verifyOpen, saving]);
+  const resetFilters = () => {
+    setQ("");
+    setDebouncedQ("");
+    setTab("all");
+    setPage(1);
+  };
 
   const approve = async () => {
     if (!selected?.id_kegiatan) return;
+
     setSaving(true);
     setErr("");
 
@@ -401,11 +311,17 @@ export default function LaporanKegiatan() {
 
       if (error) throw error;
 
-      closeVerify();
+      setDetailOpen(false);
+      setRejectOpen(false);
+      setRejectNote("");
+      setSelected(null);
       await fetchRows();
-      setSuccessMessage("Pengajuan kegiatan berhasil disetujui!");
-    } catch (e) {
-      setErr(e?.message || "Gagal menyetujui.");
+      setSuccessToast({
+        title: "Laporan Kegiatan Disetujui!",
+        message: "Laporan kegiatan telah berhasil di setujui",
+      });
+    } catch (error) {
+      setErr(error?.message || "Gagal menyetujui laporan kegiatan.");
     } finally {
       setSaving(false);
     }
@@ -414,7 +330,8 @@ export default function LaporanKegiatan() {
   const reject = async () => {
     if (!selected?.id_kegiatan) return;
 
-    if (!rejectNote.trim()) {
+    const note = rejectNote.trim();
+    if (!note) {
       setErr("Catatan penolakan wajib diisi.");
       return;
     }
@@ -425,435 +342,484 @@ export default function LaporanKegiatan() {
     try {
       const { error } = await supabase
         .from("kegiatan")
-        .update({ status: "Ditolak", catatan: rejectNote.trim() })
+        .update({ status: "Ditolak", catatan: note })
         .eq("id_kegiatan", selected.id_kegiatan);
 
       if (error) throw error;
 
-      closeVerify();
+      setDetailOpen(false);
+      setRejectOpen(false);
+      setRejectNote("");
+      setSelected(null);
       await fetchRows();
-      setSuccessMessage("Pengajuan kegiatan berhasil ditolak!");
-    } catch (e) {
-      setErr(e?.message || "Gagal menolak.");
+      setRejectToast("Kegiatan Berhasil Ditolak");
+    } catch (error) {
+      setErr(error?.message || "Gagal menolak laporan kegiatan.");
     } finally {
       setSaving(false);
     }
   };
 
+  const renderStatusPill = (status, extraClass = "") => {
+    const key = uiStatusKey(status);
+
+    return (
+      <span className={`rk-statusPill is-${key} ${extraClass}`.trim()}>
+        {uiStatusIcon(status)}
+        {uiStatusLabel(status)}
+      </span>
+    );
+  };
+
+  const selectedThumb = selected ? getThumbUrl(selected.thumbnail_path) : null;
+  const selectedStatusKey = uiStatusKey(selected?.status);
+  const selectedPosName = safeText(selected?.posbankum?.nama);
+  const selectedPelapor = safeText(
+    selected?.posbankum?.nama_paralegal || selected?.posbankum?.nama,
+  );
+  const selectedLokasi = safeText(selected?.lokasi);
+  const selectedPeserta = Number(selected?.jumlah_peserta);
+  const selectedPesertaText = Number.isFinite(selectedPeserta)
+    ? `${selectedPeserta} Orang`
+    : "-";
+  const selectedDokumentasi = selected?.thumbnail_path ? "1 Foto" : "0 Foto";
+
   return (
     <div className="rk-wrap">
       <SuccessToast
-        message={successMessage}
-        onClose={() => setSuccessMessage("")}
+        title={successToast.title}
+        message={successToast.message}
+        onClose={() => setSuccessToast({ title: "", message: "" })}
       />
+      <RejectToast message={rejectToast} onClose={() => setRejectToast("")} />
+
       <h1 className="rk-title">Laporan Kegiatan Posbankum</h1>
-      <br />
-      {/* ===== 3 CARD BESAR (mirip gambar) ===== */}
-      <div className="rk-topCards">
-        <div className="rk-topCard">
-          <div className="rk-topIcon rk-topIcon--wait" aria-hidden="true">
+
+      <div className="rk-statGrid">
+        <div className="rk-statCard is-total">
+          <div className="rk-statIcon" aria-hidden="true">
+            <FiFileText />
+          </div>
+          <div className="rk-statBody">
+            <div className="rk-statLabel">Total Laporan</div>
+            <div className="rk-statValue">{stats.total}</div>
+          </div>
+        </div>
+
+        <div className="rk-statCard is-pending">
+          <div className="rk-statIcon" aria-hidden="true">
             <FiClock />
           </div>
-          <div className="rk-topInfo">
-            <div className="rk-topLabel">Menunggu Persetujuan</div>
-            <div className="rk-topValue">{stats.pending}</div>
-            <div className="rk-topHint">Kegiatan Pending</div>
+          <div className="rk-statBody">
+            <div className="rk-statLabel">Menunggu</div>
+            <div className="rk-statValue">{stats.pending}</div>
           </div>
         </div>
 
-        <div className="rk-topCard">
-          <div className="rk-topIcon rk-topIcon--ok" aria-hidden="true">
+        <div className="rk-statCard is-approved">
+          <div className="rk-statIcon" aria-hidden="true">
             <BsCheck2Circle />
           </div>
-          <div className="rk-topInfo">
-            <div className="rk-topLabel">Disetujui</div>
-            <div className="rk-topValue">{stats.approved}</div>
-            <div className="rk-topHint">Kegiatan Approved</div>
+          <div className="rk-statBody">
+            <div className="rk-statLabel">Disetujui</div>
+            <div className="rk-statValue">{stats.approved}</div>
           </div>
         </div>
 
-        <div className="rk-topCard">
-          <div className="rk-topIcon rk-topIcon--no" aria-hidden="true">
+        <div className="rk-statCard is-rejected">
+          <div className="rk-statIcon" aria-hidden="true">
             <AiOutlineCloseCircle />
           </div>
-          <div className="rk-topInfo">
-            <div className="rk-topLabel">Ditolak</div>
-            <div className="rk-topValue">{stats.rejected}</div>
-            <div className="rk-topHint">Perlu Review</div>
+          <div className="rk-statBody">
+            <div className="rk-statLabel">Ditolak</div>
+            <div className="rk-statValue">{stats.rejected}</div>
           </div>
         </div>
       </div>
 
-      {/* ===== PANEL (tabs + search) ===== */}
-      <div className="rk-panel">
-        {/* tabs */}
-        <div className="rk-tabs">
-          {TABS.map((t) => (
+      <div className="rk-filterPanel">
+        <label className="rk-searchBox" aria-label="Cari laporan kegiatan">
+          <FiSearch className="rk-searchIcon" />
+          <input
+            value={q}
+            onChange={(event) => setQ(event.target.value)}
+            placeholder="Cari kegiatan, posbankum, atau lokasi..."
+          />
+          {q ? (
             <button
-              key={t.key}
+              className="rk-searchClear"
               type="button"
-              className={`rk-tab ${tab === t.key ? "active" : ""}`}
-              onClick={() => setTab(t.key)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="rk-divider" />
-
-        {/* toolbar */}
-        <div className="rk-toolbar">
-          <div className="rk-search">
-            <FiSearch className="rk-ic rk-ic-search" />
-            <input
-              placeholder="Pencarian..."
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-            {q && (
-              <button
-                className="rk-clear"
-                type="button"
-                onClick={() => setQ("")}
-              >
-                <FiX />
-              </button>
-            )}
-          </div>
-
-          {/* ✅ FIX: ganti select jadi custom dropdown */}
-          <div className="rk-filters">
-            <RkDropdown
-              value={kabupatenId}
-              onChange={(val) => setKabupatenId(val)}
-              placeholder="Pilih Kabupaten"
-              options={[
-                { value: "", label: "Semua" },
-                ...kabupatenOpts.map((k) => ({
-                  value: k.id_kabupaten,
-                  label: k.nama,
-                })),
-              ]}
-            />
-
-            <RkDropdown
-              value={kecamatanId}
-              onChange={(val) => setKecamatanId(val)}
-              placeholder="Pilih Kecamatan"
-              disabled={!kabupatenId}
-              options={[
-                { value: "", label: "Semua" },
-                ...kecamatanOpts.map((kc) => ({
-                  value: kc.id_kecamatan,
-                  label: kc.nama,
-                })),
-              ]}
-            />
-
-            {(kabupatenId || kecamatanId) && (
-              <button
-                className="rk-resetBtn"
-                type="button"
-                onClick={() => {
-                  setKabupatenId("");
-                  setKecamatanId("");
-                  setKecamatanOpts([]);
-                }}
-                title="Reset filter"
-                aria-label="Reset filter"
-              >
-                <FiX />
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {err && <div className="rk-error">{err}</div>}
-
-      {/* ===== LIST CARD KEGIATAN ===== */}
-      <div className="rk-list">
-        {loading ? (
-          <div className="rk-empty">Memuat data...</div>
-        ) : filtered.length === 0 ? (
-          <div className="rk-empty">Tidak ada data.</div>
-        ) : (
-          pageItems.map((item) => {
-            const thumbUrl = getThumbUrl(item.thumbnail_path);
-            const pos = item?.posbankum?.nama || "-";
-            const kab = item?.posbankum?.kabupaten?.nama || "-";
-            const kec = item?.posbankum?.kecamatan?.nama || "-";
-            const dateText = formatDate(item.tgl_mulai || item.tgl_upload);
-
-            const skey = uiStatusKey(item.status);
-            const pillLabel = uiStatusLabel(item.status);
-
-            return (
-              <div className="rk-itemCard" key={item.id_kegiatan}>
-                <div
-                  className="rk-thumb"
-                  style={
-                    thumbUrl
-                      ? { backgroundImage: `url(${thumbUrl})` }
-                      : undefined
-                  }
-                />
-
-                <div className="rk-body">
-                  <div className="rk-head">
-                    <div className="rk-judul">{item.judul}</div>
-
-                    <span className={`rk-pill rk-pill--${skey}`}>
-                      {uiStatusIcon(item.status)}
-                      {pillLabel}
-                    </span>
-                  </div>
-
-                  <div className="rk-meta">
-                    <FiMapPin className="rk-ic rk-ic-loc" />
-                    <span className="rk-metaText">{pos}</span>
-                    <span className="rk-dot">•</span>
-                    <span className="rk-metaText">{kab}</span>
-                    <span className="rk-dot">•</span>
-                    <span className="rk-metaText">{kec}</span>
-                  </div>
-
-                  <div className="rk-meta">
-                    <FiCalendar className="rk-ic rk-ic-cal" />
-                    <span className="rk-metaText">{dateText}</span>
-                  </div>
-
-                  <div className="rk-desc">{item.deskripsi || "-"}</div>
-                </div>
-
-                <div className="rk-actions">
-                  <button
-                    className="rk-detailBtn"
-                    type="button"
-                    onClick={() => openVerify(item)}
-                  >
-                    <FiEye />
-                    <span>Detail</span>
-                  </button>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      {/* ===== PAGINATION (mirip gambar) ===== */}
-      {filtered.length > 0 && (
-        <div className="rk-pagination">
-          <button
-            className="rk-pageNav"
-            type="button"
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={pageClamped <= 1}
-            aria-label="Prev"
-          >
-            <FiChevronLeft />
-          </button>
-
-          {[1, 2, 3].map((n) => (
-            <button
-              key={n}
-              className={`rk-pageBtn ${pageClamped === n ? "active" : ""}`}
-              type="button"
-              onClick={() => setPage(n)}
-              disabled={n > totalPages}
-            >
-              {n}
-            </button>
-          ))}
-
-          <button
-            className="rk-pageNav"
-            type="button"
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={pageClamped >= totalPages}
-            aria-label="Next"
-          >
-            <FiChevronRight />
-          </button>
-        </div>
-      )}
-
-      {/* ===== POPUP DETAIL ===== */}
-      {verifyOpen && selected && (
-        <div
-          className="rk-overlay"
-          onMouseDown={closeVerify}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="rk-modal" onMouseDown={(e) => e.stopPropagation()}>
-            <button
-              className="rk-close"
-              type="button"
-              onClick={closeVerify}
-              disabled={saving}
-              title="Tutup"
-              aria-label="Tutup"
+              onClick={() => setQ("")}
+              aria-label="Hapus pencarian"
             >
               <FiX />
             </button>
+          ) : null}
+        </label>
 
-            <div className="rk-modal-head">
-              <div className="rk-modal-title">{selected.judul || "-"}</div>
+        <div
+          className="rk-tabs"
+          role="tablist"
+          aria-label="Filter status laporan"
+        >
+          {TABS.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={`rk-tab ${tab === item.key ? "is-active" : ""}`}
+              onClick={() => setTab(item.key)}
+            >
+              <span>{item.label}</span>
+              <span className="rk-tabCount">{tabCounts[item.key] || 0}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
-              <div className="rk-modal-meta">
-                <span className="rk-metaText">
-                  {selected?.posbankum?.nama || "-"}
-                </span>
-                <span className="rk-dot">•</span>
-                <FiCalendar className="rk-ic rk-ic-cal" />
-                <span className="rk-metaText">
-                  {formatDate(selected.tgl_upload)}
-                </span>
-              </div>
+      {err ? <div className="rk-errorBox">{err}</div> : null}
 
-              <div className="rk-modal-loc">
-                <FiMapPin className="rk-ic rk-ic-loc" />
-                <span className="rk-locText">
-                  {selected?.posbankum?.kecamatan?.nama || "-"}
-                </span>
-                <span className="rk-dot">•</span>
-                <span className="rk-locText">
-                  {selected?.posbankum?.kabupaten?.nama || "-"}
-                </span>
-              </div>
-            </div>
+      {loading ? (
+        <div className="rk-emptyCard is-loading">Memuat data...</div>
+      ) : filteredRows.length === 0 ? (
+        <div className="rk-emptyCard">
+          <div className="rk-emptyIcon">
+            <FiFileText />
+          </div>
+          <h2>Tidak Ada Data Ditemukan</h2>
+          <p>
+            Tidak ada laporan kegiatan yang sesuai dengan filter yang dipilih
+          </p>
+          <button className="rk-emptyBtn" type="button" onClick={resetFilters}>
+            Reset Filter
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="rk-cardGrid">
+            {pageItems.map((item) => {
+              const thumbUrl = getThumbUrl(item.thumbnail_path);
+              const peserta = Number(item.jumlah_peserta);
+              const pesertaText = Number.isFinite(peserta)
+                ? `${peserta} Peserta`
+                : "0 Peserta";
+              const rejected = isRejected(item.status);
 
-            <div className="rk-modal-image">
-              {getThumbUrl(selected.thumbnail_path) ? (
-                <img
-                  className="rk-modal-img"
-                  src={getThumbUrl(selected.thumbnail_path)}
-                  alt="thumbnail"
-                />
-              ) : (
-                <div className="rk-modal-img-empty">Tidak ada thumbnail</div>
+              return (
+                <article className="rk-activityCard" key={item.id_kegiatan}>
+                  <div
+                    className="rk-cardImage"
+                    style={
+                      thumbUrl
+                        ? { backgroundImage: `url(${thumbUrl})` }
+                        : undefined
+                    }
+                  >
+                    {renderStatusPill(item.status, "rk-cardStatus")}
+                  </div>
+
+                  <div className="rk-cardBody">
+                    <h2 className="rk-cardTitle">{safeText(item.judul)}</h2>
+
+                    <div className="rk-cardMeta">
+                      <FiMapPin />
+                      <span>{selectedPosNameForRow(item)}</span>
+                    </div>
+
+                    <div className="rk-cardMeta">
+                      <FiCalendar />
+                      <span>
+                        {formatDate(item.tgl_mulai || item.tgl_upload)}
+                      </span>
+                    </div>
+
+                    <div className="rk-cardMeta">
+                      <FiUsers />
+                      <span>{pesertaText}</span>
+                    </div>
+
+                    {rejected && item.catatan ? (
+                      <div className="rk-reasonBox">
+                        <div className="rk-reasonTitle">
+                          <AiOutlineCloseCircle />
+                          <span>Alasan Penolakan:</span>
+                        </div>
+                        <p>{item.catatan}</p>
+                      </div>
+                    ) : null}
+
+                    <button
+                      className="rk-detailBtn"
+                      type="button"
+                      onClick={() => openDetailModal(item)}
+                    >
+                      <FiEye />
+                      <span>Lihat Detail</span>
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+
+          {totalPages > 1 ? (
+            <div
+              className="rk-pagination"
+              aria-label="Paginasi laporan kegiatan"
+            >
+              <button
+                className="rk-pageNav"
+                type="button"
+                onClick={() => setPage((value) => Math.max(1, value - 1))}
+                disabled={pageClamped <= 1}
+                aria-label="Halaman sebelumnya"
+              >
+                <FiChevronLeft />
+              </button>
+
+              {Array.from({ length: totalPages }, (_, index) => index + 1).map(
+                (pageNumber) => (
+                  <button
+                    key={pageNumber}
+                    className={`rk-pageBtn ${pageClamped === pageNumber ? "is-active" : ""}`}
+                    type="button"
+                    onClick={() => setPage(pageNumber)}
+                  >
+                    {pageNumber}
+                  </button>
+                ),
               )}
+
+              <button
+                className="rk-pageNav"
+                type="button"
+                onClick={() =>
+                  setPage((value) => Math.min(totalPages, value + 1))
+                }
+                disabled={pageClamped >= totalPages}
+                aria-label="Halaman berikutnya"
+              >
+                <FiChevronRight />
+              </button>
+            </div>
+          ) : null}
+        </>
+      )}
+
+      {detailOpen && selected ? (
+        <div className="rk-modalOverlay" onMouseDown={closeDetailModal}>
+          <section
+            className="rk-detailModal"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Detail laporan kegiatan"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <div
+              className="rk-detailHero"
+              style={
+                selectedThumb
+                  ? { backgroundImage: `url(${selectedThumb})` }
+                  : undefined
+              }
+            >
+              <div className="rk-detailHeroShade" />
+
+              {renderStatusPill(selected.status, "rk-detailStatus")}
+
+              <button
+                className="rk-detailClose"
+                type="button"
+                onClick={closeDetailModal}
+                disabled={saving}
+                aria-label="Tutup detail"
+              >
+                <FiX />
+              </button>
+
+              <div className="rk-detailHeroText">
+                <h2>{safeText(selected.judul)}</h2>
+                <div className="rk-detailHeroMeta">
+                  <span>
+                    <FiMapPin />
+                    {selectedPosName}
+                  </span>
+                  <span>
+                    <FiCalendar />
+                    {formatDate(selected.tgl_mulai || selected.tgl_upload)}
+                  </span>
+                </div>
+              </div>
             </div>
 
-            <div className="rk-modal-dates">
-              <div className="rk-dateItem">
-                <span className="rk-dateLabel">Tanggal Mulai</span>
-                <span className="rk-dateValue">
-                  {formatDate(selected.tgl_mulai)}
-                </span>
+            <div className="rk-detailContent">
+              <div className="rk-detailInfoGrid">
+                <div className="rk-infoBox">
+                  <span>Tanggal Pelaksanaan</span>
+                  <strong>{formatDate(selected.tgl_mulai)}</strong>
+                </div>
+
+                <div className="rk-infoBox">
+                  <span>Tanggal Laporan</span>
+                  <strong>{formatDate(selected.tgl_upload)}</strong>
+                </div>
+
+                <div className="rk-infoBox">
+                  <span>Lokasi Kegiatan</span>
+                  <strong>{selectedLokasi}</strong>
+                </div>
+
+                <div className="rk-infoBox">
+                  <span>Jumlah Peserta</span>
+                  <strong>{selectedPesertaText}</strong>
+                </div>
+
+                <div className="rk-infoBox">
+                  <span>Pelapor</span>
+                  <strong>{selectedPelapor}</strong>
+                </div>
+
+                <div className="rk-infoBox">
+                  <span>Dokumentasi</span>
+                  <strong>{selectedDokumentasi}</strong>
+                </div>
               </div>
 
-              <div className="rk-dateItem">
-                <span className="rk-dateLabel">Tanggal Selesai</span>
-                <span className="rk-dateValue">
-                  {formatDate(selected.tgl_selesai)}
-                </span>
+              <div className="rk-detailSection">
+                <h3>Deskripsi Kegiatan</h3>
+                <p>{safeText(selected.deskripsi)}</p>
               </div>
-            </div>
 
-            <div className="rk-modal-desc">
-              <div className="rk-descTitle">Isi</div>
-              <div className="rk-descText">{selected.deskripsi || "-"}</div>
-            </div>
-
-            {uiStatusKey(selected.status) === "rejected" &&
-              selected.catatan && (
-                <div className="rk-modal-note">
-                  <div className="rk-note-title">Catatan Penolakan</div>
-                  <div className="rk-note-text">{selected.catatan}</div>
+              {selectedStatusKey === "rejected" ? (
+                <div className="rk-detailSection rk-detailSectionReject">
+                  <h3>Catatan Penolakan</h3>
+                  <p>{safeText(selected.catatan)}</p>
+                </div>
+              ) : (
+                <div className="rk-detailSection rk-detailSectionResult">
+                  <h3>Hasil Kegiatan</h3>
+                  <p>{safeText(selected.catatan)}</p>
                 </div>
               )}
-
-            <div className="rk-modal-infoRow">
-              <div className="rk-infoCard">
-                <div className="rk-infoLabel">Status</div>
-                <span
-                  className={`rk-pill rk-pill--${uiStatusKey(selected.status)}`}
-                >
-                  {uiStatusIcon(selected.status)}
-                  {uiStatusLabel(selected.status)}
-                </span>
-              </div>
             </div>
 
-            {uiStatusKey(selected.status) === "pending" && (
-              <div className="rk-modal-actions">
+            {selectedStatusKey === "pending" ? (
+              <div className="rk-detailActions">
                 <button
-                  className="rk-btn rk-btn-reject"
+                  className="rk-actionBtn is-neutral"
                   type="button"
-                  onClick={openReject}
+                  onClick={closeDetailModal}
                   disabled={saving}
                 >
+                  Tutup
+                </button>
+
+                <button
+                  className="rk-actionBtn is-reject"
+                  type="button"
+                  onClick={openRejectModal}
+                  disabled={saving}
+                >
+                  <FiThumbsDown />
                   Tolak
                 </button>
 
                 <button
-                  className="rk-btn rk-btn-approve"
+                  className="rk-actionBtn is-approve"
                   type="button"
                   onClick={approve}
                   disabled={saving}
                 >
+                  <FiThumbsUp />
                   Terima
+                </button>
+              </div>
+            ) : (
+              <div className="rk-detailActions">
+                <button
+                  className="rk-actionBtn is-neutral"
+                  type="button"
+                  onClick={closeDetailModal}
+                  disabled={saving}
+                >
+                  Tutup
                 </button>
               </div>
             )}
 
-            {rejectOpen && (
-              <div className="rk-reject-overlay" onMouseDown={closeReject}>
-                <div
-                  className="rk-reject-modal"
-                  onMouseDown={(e) => e.stopPropagation()}
+            {rejectOpen ? (
+              <div className="rk-rejectOverlay" onMouseDown={closeRejectModal}>
+                <section
+                  className="rk-rejectModal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Tolak laporan kegiatan"
+                  onMouseDown={(event) => event.stopPropagation()}
                 >
-                  <div className="rk-reject-head">
-                    <div className="rk-reject-title">Catatan Penolakan</div>
+                  <div className="rk-rejectHead">
+                    <div className="rk-rejectHeadIcon">
+                      <FiMessageSquare />
+                    </div>
+                    <div>
+                      <h2>Tolak Laporan Kegiatan</h2>
+                      <p>Berikan catatan untuk perbaikan laporan</p>
+                    </div>
 
                     <button
-                      className="rk-close rk-close-sm"
+                      className="rk-rejectClose"
                       type="button"
-                      onClick={closeReject}
+                      onClick={closeRejectModal}
                       disabled={saving}
-                      title="Tutup"
-                      aria-label="Tutup"
+                      aria-label="Tutup popup penolakan"
                     >
                       <FiX />
                     </button>
                   </div>
 
-                  <textarea
-                    className="rk-reject-textarea"
-                    value={rejectNote}
-                    onChange={(e) => setRejectNote(e.target.value)}
-                    placeholder="Tulis catatan penolakan..."
-                  />
+                  <div className="rk-rejectBody">
+                    <label className="rk-rejectLabel" htmlFor="rkRejectNote">
+                      Catatan Penolakan <span>*</span>
+                    </label>
+                    <textarea
+                      id="rkRejectNote"
+                      className="rk-rejectTextarea"
+                      value={rejectNote}
+                      onChange={(event) => setRejectNote(event.target.value)}
+                      placeholder="Jelaskan alasan penolakan dan apa yang perlu diperbaiki oleh paralegal..."
+                    />
+                    <p className="rk-rejectHelp">
+                      Catatan ini akan dikirimkan ke paralegal untuk perbaikan
+                      laporan kegiatan.
+                    </p>
 
-                  <div className="rk-reject-actions">
-                    <button
-                      className="rk-btn rk-btn-neutral"
-                      type="button"
-                      onClick={closeReject}
-                      disabled={saving}
-                    >
-                      Batal
-                    </button>
-
-                    <button
-                      className="rk-btn rk-btn-primaryDark"
-                      type="button"
-                      onClick={reject}
-                      disabled={saving}
-                    >
-                      Simpan
-                    </button>
+                    <div className="rk-rejectActions">
+                      <button
+                        className="rk-rejectCancel"
+                        type="button"
+                        onClick={closeRejectModal}
+                        disabled={saving}
+                      >
+                        Batal
+                      </button>
+                      <button
+                        className="rk-rejectSubmit"
+                        type="button"
+                        onClick={reject}
+                        disabled={saving}
+                      >
+                        Tolak Laporan
+                      </button>
+                    </div>
                   </div>
-                </div>
+                </section>
               </div>
-            )}
-          </div>
+            ) : null}
+          </section>
         </div>
-      )}
+      ) : null}
     </div>
   );
+}
+
+function selectedPosNameForRow(item) {
+  return safeText(item?.posbankum?.nama);
 }

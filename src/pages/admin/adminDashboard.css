@@ -1393,3 +1393,38 @@
     margin-left: 0;
   }
 }
+
+/* ===== Hover & Action States ===== */
+.ad button,
+.ad [role="button"],
+.ad-main button,
+.ad-main [role="button"] {
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    filter 180ms ease;
+}
+
+.ad button:not(:disabled):hover,
+.ad button:not(:disabled):focus-visible,
+.ad-main button:not(:disabled):hover,
+.ad-main button:not(:disabled):focus-visible,
+.ad [role="button"]:hover,
+.ad [role="button"]:focus-visible,
+.ad-main [role="button"]:hover,
+.ad-main [role="button"]:focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.ad button:not(:disabled):active,
+.ad-main button:not(:disabled):active,
+.ad [role="button"]:active,
+.ad-main [role="button"]:active {
+  transform: translateY(0);
+}

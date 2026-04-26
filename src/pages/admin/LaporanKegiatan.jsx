@@ -142,6 +142,7 @@ export default function LaporanKegiatan() {
           judul,
           deskripsi,
           catatan,
+          hasil_kegiatan,
           status,
           tgl_upload,
           tgl_mulai,
@@ -297,6 +298,33 @@ export default function LaporanKegiatan() {
     setPage(1);
   };
 
+  const createKegiatanNotification = async (status, note = "") => {
+    if (!selected?.id_posbankum || !selected?.id_kegiatan) return;
+
+    const approved = status === "Diterima";
+    const kegiatanTitle = safeText(selected?.judul, "kegiatan");
+    const posName = selectedPosNameForRow(selected);
+    const pesan = approved
+      ? `Laporan kegiatan "${kegiatanTitle}" dari ${posName} telah disetujui oleh admin.`
+      : `Laporan kegiatan "${kegiatanTitle}" dari ${posName} ditolak oleh admin.${note ? ` Catatan: ${note}` : ""}`;
+
+    const { error } = await supabase.from("notifikasi").insert([
+      {
+        id_posbankum: selected.id_posbankum,
+        judul: approved
+          ? "Laporan Kegiatan Disetujui"
+          : "Laporan Kegiatan Ditolak",
+        pesan,
+        kategori: "kegiatan",
+        prioritas: approved ? "sedang" : "tinggi",
+        ref_table: "kegiatan",
+        ref_id: selected.id_kegiatan,
+      },
+    ]);
+
+    if (error) throw error;
+  };
+
   const approve = async () => {
     if (!selected?.id_kegiatan) return;
 
@@ -310,6 +338,8 @@ export default function LaporanKegiatan() {
         .eq("id_kegiatan", selected.id_kegiatan);
 
       if (error) throw error;
+
+      await createKegiatanNotification("Diterima");
 
       setDetailOpen(false);
       setRejectOpen(false);
@@ -347,6 +377,8 @@ export default function LaporanKegiatan() {
 
       if (error) throw error;
 
+      await createKegiatanNotification("Ditolak", note);
+
       setDetailOpen(false);
       setRejectOpen(false);
       setRejectNote("");
@@ -373,7 +405,7 @@ export default function LaporanKegiatan() {
 
   const selectedThumb = selected ? getThumbUrl(selected.thumbnail_path) : null;
   const selectedStatusKey = uiStatusKey(selected?.status);
-  const selectedPosName = safeText(selected?.posbankum?.nama);
+  const selectedPosName = selectedPosNameForRow(selected);
   const selectedPelapor = safeText(
     selected?.posbankum?.nama_paralegal || selected?.posbankum?.nama,
   );
@@ -697,7 +729,7 @@ export default function LaporanKegiatan() {
               ) : (
                 <div className="rk-detailSection rk-detailSectionResult">
                   <h3>Hasil Kegiatan</h3>
-                  <p>{safeText(selected.catatan)}</p>
+                  <p>{safeText(selected.hasil_kegiatan)}</p>
                 </div>
               )}
             </div>
@@ -821,5 +853,7 @@ export default function LaporanKegiatan() {
 }
 
 function selectedPosNameForRow(item) {
-  return safeText(item?.posbankum?.nama);
+  const name = safeText(item?.posbankum?.nama);
+  if (name === "-") return name;
+  return /^posbankum\b/i.test(name) ? name : `Posbankum ${name}`;
 }

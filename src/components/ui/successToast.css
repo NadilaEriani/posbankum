@@ -71,3 +71,22 @@
     max-width: none;
   }
 }
+
+/* ===== Hover & Action States ===== */
+.st-toastClose {
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    filter 180ms ease;
+}
+
+.st-toastClose:not(:disabled):hover,
+.st-toastClose:not(:disabled):focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}

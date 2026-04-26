@@ -729,3 +729,30 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+
+/* ===== Hover & Action States ===== */
+.ppf-page button,
+.ppf-page [role="button"] {
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    filter 180ms ease;
+}
+
+.ppf-page button:not(:disabled):hover,
+.ppf-page button:not(:disabled):focus-visible,
+.ppf-page [role="button"]:hover,
+.ppf-page [role="button"]:focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.ppf-page button:not(:disabled):active,
+.ppf-page [role="button"]:active {
+  transform: translateY(0);
+}

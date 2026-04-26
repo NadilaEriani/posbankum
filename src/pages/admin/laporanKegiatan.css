@@ -1159,3 +1159,15 @@
     0 10px 15px -3px rgba(0, 0, 0, 0.1);
   transform: translateY(-1px);
 }
+
+/* ===== Hover & Action States - Extra Coverage ===== */
+.rk-wrap button:not(:disabled):hover,
+.rk-wrap button:not(:disabled):focus-visible,
+.rk-wrap [role="button"]:hover,
+.rk-wrap [role="button"]:focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}

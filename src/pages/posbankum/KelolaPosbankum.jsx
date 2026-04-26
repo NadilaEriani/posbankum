@@ -1000,7 +1000,13 @@ export default function KelolaDataPosbankum({ profile }) {
   const openUpload = async (kategori) => {
     const found = docTypes.find((x) => x.key === kategori);
     const rows = docsByCategory[kategori] || [];
+    const latestRow = docsLatest[kategori] || null;
     const isSapras = isSaprasCategory(kategori);
+
+    if (latestRow && statusKind(latestRow.status_verifikasi) === "ok") {
+      setSuccessMessage("Dokumen yang sudah diterima tidak dapat diganti.");
+      return;
+    }
 
     clearBlobPreviewItems(selectedPreviewItems);
 
@@ -1100,13 +1106,28 @@ export default function KelolaDataPosbankum({ profile }) {
   const doUpload = async () => {
     if (!posbankumId) return setUploadErr("id_posbankum tidak ditemukan.");
     if (!uploadKey) return setUploadErr("Kategori dokumen tidak valid.");
+    if (uploadKey === "tagging_area")
+      return setUploadErr("Tagging Area tidak diganti lewat upload dokumen.");
     if (!selectedFiles.length) return setUploadErr("Pilih file dulu.");
+
+    const existingRows = docsByCategory[uploadKey] || [];
+    const latestRow = docsLatest[uploadKey] || null;
+
+    if (latestRow && statusKind(latestRow.status_verifikasi) === "ok") {
+      return setUploadErr("Dokumen yang sudah diterima tidak dapat diganti.");
+    }
+
+    const rowsToReplace = existingRows.filter(
+      (row) => statusKind(row?.status_verifikasi) !== "ok",
+    );
 
     setUploading(true);
     setUploadErr("");
 
     try {
       const rowsToInsert = [];
+      const uploadedPaths = [];
+
       for (const file of selectedFiles) {
         const safeName = file.name.replace(/[^\w.\-]+/g, "_");
         const path = `${posbankumId}/${uploadKey}/${Date.now()}_${Math.random()
@@ -1121,6 +1142,7 @@ export default function KelolaDataPosbankum({ profile }) {
           });
         if (upErr) throw upErr;
 
+        uploadedPaths.push(path);
         rowsToInsert.push({
           id_posbankum: posbankumId,
           kategori: uploadKey,
@@ -1136,14 +1158,37 @@ export default function KelolaDataPosbankum({ profile }) {
       const { error: insErr } = await supabase
         .from(TABLE_DOC)
         .insert(rowsToInsert);
-      if (insErr) throw insErr;
+
+      if (insErr) {
+        if (uploadedPaths.length) {
+          await supabase.storage.from(BUCKET).remove(uploadedPaths);
+        }
+        throw insErr;
+      }
+
+      const oldIds = rowsToReplace.map((row) => row?.id_data).filter(Boolean);
+      const oldPaths = rowsToReplace
+        .map((row) => row?.path_berkas)
+        .filter(Boolean);
+
+      if (oldIds.length) {
+        const { error: delErr } = await supabase
+          .from(TABLE_DOC)
+          .delete()
+          .in("id_data", oldIds);
+        if (delErr) throw delErr;
+      }
+
+      if (oldPaths.length) {
+        await supabase.storage.from(BUCKET).remove(oldPaths);
+      }
 
       await loadDocs();
       closeUpload();
       setSuccessMessage(
         rowsToInsert.length > 1
-          ? `${rowsToInsert.length} file berhasil diupload!`
-          : "Dokumen berhasil diupload!",
+          ? `${rowsToInsert.length} file berhasil mengganti dokumen lama!`
+          : "Dokumen lama berhasil diganti dengan dokumen baru!",
       );
     } catch (e) {
       console.error(e);
@@ -1629,7 +1674,12 @@ export default function KelolaDataPosbankum({ profile }) {
                   ].join(" ")}
                   type="button"
                   onClick={() => openUpload(item.key)}
-                  disabled={uploading}
+                  disabled={uploading || kind === "ok"}
+                  title={
+                    kind === "ok"
+                      ? "Dokumen yang sudah diterima tidak dapat diganti"
+                      : "Ganti dokumen"
+                  }
                 >
                   <FiUpload />
                   Ganti

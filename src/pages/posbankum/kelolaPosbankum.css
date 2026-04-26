@@ -1350,3 +1350,38 @@
     justify-self: center;
   }
 }
+
+/* ===== Hover & Action States ===== */
+.kpRoot button,
+.kdpRoot button,
+.kpRoot [role="button"],
+.kdpRoot [role="button"] {
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    filter 180ms ease;
+}
+
+.kpRoot button:not(:disabled):hover,
+.kpRoot button:not(:disabled):focus-visible,
+.kdpRoot button:not(:disabled):hover,
+.kdpRoot button:not(:disabled):focus-visible,
+.kpRoot [role="button"]:hover,
+.kpRoot [role="button"]:focus-visible,
+.kdpRoot [role="button"]:hover,
+.kdpRoot [role="button"]:focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.kpRoot button:not(:disabled):active,
+.kdpRoot button:not(:disabled):active,
+.kpRoot [role="button"]:active,
+.kdpRoot [role="button"]:active {
+  transform: translateY(0);
+}

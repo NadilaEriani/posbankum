@@ -1593,6 +1593,38 @@ export default function VerifikasiDataPosbankum() {
     }
   };
 
+  const createDocumentNotification = async (status, reason = "") => {
+    if (!selectedDoc?.posId) return;
+
+    const approved = status === "disetujui";
+    const docLabel = selectedDoc?.label || "Dokumen";
+    const posName = selectedDoc?.posName || "Posbankum";
+    const note = reason ? ` Catatan: ${reason}` : "";
+    const pesan = approved
+      ? `${docLabel} untuk ${posName} telah disetujui oleh admin.`
+      : `${docLabel} untuk ${posName} ditolak oleh admin.${note}`;
+
+    const { error } = await supabase.from("notifikasi").insert([
+      {
+        id_posbankum: selectedDoc.posId,
+        judul: approved ? "Dokumen Disetujui" : "Dokumen Ditolak",
+        pesan,
+        kategori: "dokumen",
+        prioritas: approved ? "sedang" : "tinggi",
+        ref_table:
+          selectedDoc?.viewerType === "tagging_area"
+            ? "posbankum"
+            : "data_posbankum",
+        ref_id:
+          selectedDoc?.viewerType === "tagging_area"
+            ? selectedDoc.posId
+            : selectedDoc.uploadId,
+      },
+    ]);
+
+    if (error) throw error;
+  };
+
   const updateVerification = async (status, reason = "", options = {}) => {
     setErr("");
     setVerifyBusy(true);
@@ -1603,6 +1635,8 @@ export default function VerifikasiDataPosbankum() {
       } else {
         await updateFileVerification(status, reason);
       }
+
+      await createDocumentNotification(status, reason);
 
       closePreview();
       if (status === "disetujui") {

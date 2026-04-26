@@ -847,3 +847,31 @@
     max-width: unset;
   }
 }
+
+/* ===== Hover & Action States ===== */
+.kb-wrap button,
+.kb-wrap [role="button"] {
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    filter 180ms ease;
+}
+
+.kb-wrap button:not(:disabled):hover,
+.kb-wrap button:not(:disabled):focus-visible,
+.kb-wrap [role="button"]:hover,
+.kb-wrap [role="button"]:focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.kb-wrap button:not(:disabled):active,
+.kb-wrap [role="button"]:active {
+  transform: translateY(0);
+}
+

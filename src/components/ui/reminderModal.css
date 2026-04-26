@@ -85,3 +85,22 @@
   background: #1454c4;
   color: #ffffff;
 }
+
+/* ===== Hover & Action States ===== */
+.rmBtn {
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    filter 180ms ease;
+}
+
+.rmBtn:not(:disabled):hover,
+.rmBtn:not(:disabled):focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}

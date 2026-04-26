@@ -35,6 +35,7 @@ const OPTIONAL_Kegiatan_COLUMNS = [
   "jumlah_peserta",
   "peserta",
   "anggota_terlibat",
+  "hasil_kegiatan",
   "anggota",
   "peserta_terlibat",
   "tim_terlibat",
@@ -79,9 +80,9 @@ function statusKind(statusRaw) {
 
 function statusLabel(statusRaw) {
   const k = statusKind(statusRaw);
-  if (k === "process") return "Proses";
+  if (k === "process") return "Menunggu";
   if (k === "reject") return "Ditolak";
-  return "Selesai";
+  return "Disetujui";
 }
 
 function pickFirst(obj, keys) {
@@ -195,6 +196,7 @@ export default function KelolaKegiatan() {
     tgl_selesai: "",
     lokasi: "",
     jumlah_peserta: "",
+    hasil_kegiatan: "",
     thumbnailFile: null,
   });
 
@@ -233,6 +235,7 @@ export default function KelolaKegiatan() {
       tgl_selesai: "",
       lokasi: "",
       jumlah_peserta: "",
+      hasil_kegiatan: "",
       thumbnailFile: null,
     });
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -464,6 +467,7 @@ export default function KelolaKegiatan() {
       jumlah_peserta: String(
         pickNumber(item, ["jumlah_peserta", "target_peserta", "peserta"]) ?? "",
       ),
+      hasil_kegiatan: item?.hasil_kegiatan || "",
       thumbnailFile: null,
     });
 
@@ -623,6 +627,10 @@ export default function KelolaKegiatan() {
         optional.target_peserta = pesertaValue;
       else if (kegiatanCols.has("peserta")) optional.peserta = pesertaValue;
 
+      if (kegiatanCols.has("hasil_kegiatan")) {
+        optional.hasil_kegiatan = form.hasil_kegiatan.trim();
+      }
+
       if (modalMode === "create") {
         const payload = {
           id_posbankum: posbankumId,
@@ -710,7 +718,7 @@ export default function KelolaKegiatan() {
             <FiCheckCircle />
           </div>
           <div>
-            <div className="kk-statLabel">Selesai</div>
+            <div className="kk-statLabel">Disetujui</div>
             <div className="kk-statValue">{stats.accept}</div>
           </div>
         </div>
@@ -720,7 +728,7 @@ export default function KelolaKegiatan() {
             <FiClock />
           </div>
           <div>
-            <div className="kk-statLabel">Proses</div>
+            <div className="kk-statLabel">Menunggu</div>
             <div className="kk-statValue">{stats.process}</div>
           </div>
         </div>
@@ -784,6 +792,7 @@ export default function KelolaKegiatan() {
               "keterangan",
             ]);
             const isRejected = kind === "reject";
+            const isAccepted = kind === "accept";
 
             return (
               <div className="kk-card" key={item.id_kegiatan}>
@@ -847,26 +856,26 @@ export default function KelolaKegiatan() {
                     {isRejected ? "Lihat Detail" : "Lihat"}
                   </button>
 
-                  {!isRejected ? (
-                    <>
-                      <button
-                        className="kk-btnIcon is-orange"
-                        type="button"
-                        title="Edit"
-                        onClick={() => openEdit(item)}
-                      >
-                        <FiEdit2 />
-                      </button>
+                  {!isAccepted ? (
+                    <button
+                      className="kk-btnIcon is-orange"
+                      type="button"
+                      title="Edit"
+                      onClick={() => openEdit(item)}
+                    >
+                      <FiEdit2 />
+                    </button>
+                  ) : null}
 
-                      <button
-                        className="kk-btnIcon is-red"
-                        type="button"
-                        title="Hapus"
-                        onClick={() => handleDelete(item)}
-                      >
-                        <FiTrash2 />
-                      </button>
-                    </>
+                  {isRejected ? (
+                    <button
+                      className="kk-btnIcon is-red"
+                      type="button"
+                      title="Hapus"
+                      onClick={() => handleDelete(item)}
+                    >
+                      <FiTrash2 />
+                    </button>
                   ) : null}
                 </div>
               </div>
@@ -1056,7 +1065,7 @@ export default function KelolaKegiatan() {
                 />
               </div>
 
-              <div className="kk-field kk-lastField">
+              <div className="kk-field">
                 <div className="kk-label">Deskripsi Kegiatan</div>
                 <textarea
                   className="kk-textarea"
@@ -1066,6 +1075,22 @@ export default function KelolaKegiatan() {
                   }
                   placeholder="Tulis deskripsi kegiatan..."
                   rows={5}
+                />
+              </div>
+
+              <div className="kk-field kk-lastField">
+                <div className="kk-label">Hasil Kegiatan</div>
+                <textarea
+                  className="kk-textarea"
+                  value={form.hasil_kegiatan}
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      hasil_kegiatan: e.target.value,
+                    }))
+                  }
+                  placeholder="Tulis hasil kegiatan..."
+                  rows={4}
                 />
               </div>
 
@@ -1171,6 +1196,13 @@ export default function KelolaKegiatan() {
                 <div className="kk-detail-sectionTitle">Deskripsi Kegiatan</div>
                 <div className="kk-detail-desc">
                   {detailItem.deskripsi || "-"}
+                </div>
+              </div>
+
+              <div className="kk-detail-section">
+                <div className="kk-detail-sectionTitle">Hasil Kegiatan</div>
+                <div className="kk-detail-desc">
+                  {detailItem.hasil_kegiatan || "-"}
                 </div>
               </div>
 

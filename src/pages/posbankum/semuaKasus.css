@@ -1043,3 +1043,30 @@
     max-width: 100%;
   }
 }
+
+/* ===== Hover & Action States ===== */
+.skWrap button,
+.skWrap [role="button"] {
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    filter 180ms ease;
+}
+
+.skWrap button:not(:disabled):hover,
+.skWrap button:not(:disabled):focus-visible,
+.skWrap [role="button"]:hover,
+.skWrap [role="button"]:focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.skWrap button:not(:disabled):active,
+.skWrap [role="button"]:active {
+  transform: translateY(0);
+}

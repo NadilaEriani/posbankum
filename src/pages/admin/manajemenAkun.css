@@ -1,349 +1,1113 @@
-.kpShell {
-  margin-top: 16px;
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap");
+
+.kpShell,
+.kpShell * {
+  box-sizing: border-box;
+  font-family: "Outfit", sans-serif;
 }
+
+.kpShell {
+  width: 100%;
+  color: #1f2937;
+  padding: 4px 0 28px;
+}
+
 .kpHeaderRow {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  padding: 2px 4px 12px;
+  gap: 18px;
+  margin-bottom: 42px;
+}
+
+.kpHeadingWrap {
+  min-width: 0;
 }
 
 .kpHeading {
-  font-size: 18px;
-  font-weight: 700;
-  color: #0b2a4a;
+  margin: 0;
+  width: fit-content;
+  color: #1f2937;
+  font-size: 31px;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  position: relative;
+}
+
+.kpHeading::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -15px;
+  width: 66px;
+  height: 4px;
+  border-radius: 999px;
+  background: #f3bf27;
 }
 
 .kpAddTop {
-  border: 1px solid #0b2a4a;
-  background: #ffe88a;
-  color: #0b2a4a;
-  padding: 8px 14px;
-  border-radius: 999px;
-  font-size: 12px;
+  min-width: 219px;
+  height: 51px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 16px;
+  background: linear-gradient(180deg, #444b84 0%, #343b73 100%);
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 800;
   cursor: pointer;
+  box-shadow:
+    0 4px 6px -1px rgba(43, 127, 255, 0.3),
+    0 2px 4px -2px rgba(43, 127, 255, 0.3);
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
-/* ===== panel besar ===== */
+.kpAddTop svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.2;
+}
+
+.kpAddTop:hover {
+  background: linear-gradient(180deg, #505895 0%, #3d447e 100%);
+  transform: translateY(-1px);
+  box-shadow:
+    0 10px 15px -3px rgba(43, 127, 255, 0.3),
+    0 4px 6px -1px rgba(43, 127, 255, 0.3);
+}
+
+.kpAddTop:active {
+  transform: translateY(0);
+}
+
 .kpPanel {
+  width: 100%;
   background: #ffffff;
-  border-radius: 18px;
-  padding: 16px;
+  border: 1px solid #e6eaf1;
+  border-radius: 17px;
+  padding: 24px;
+  margin-bottom: 28px;
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -4px rgba(0, 0, 0, 0.1);
 }
 
-/* ===== toolbar dalam panel ===== */
 .kpToolbar {
   display: grid;
-  grid-template-columns: 1fr 360px;
-  gap: 14px;
+  grid-template-columns: minmax(360px, 1fr) 400px;
   align-items: center;
-  margin-bottom: 14px;
+  gap: 18px;
 }
 
 .kpSearch {
+  height: 44px;
+  border: 1.5px solid #dbe2ec;
+  border-radius: 15px;
+  background: #ffffff;
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: #f0fff7;
-  border: 1px solid #bfead5;
-  border-radius: 999px;
+  gap: 12px;
   padding: 0 14px;
-  height: 40px;
+  min-width: 0;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.kpSearch:focus-within {
+  border-color: #b8c3d6;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .kpSearchIco {
-  color: #0f766e;
-  font-size: 16px;
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  color: #9aa6ba;
+  stroke-width: 2.2;
 }
 
 .kpSearchInput {
+  width: 100%;
+  min-width: 0;
   border: 0;
   outline: none;
   background: transparent;
-  width: 100%;
-  font-size: 13px;
-  color: #0b2a4a;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.kpSearchInput::placeholder {
+  color: #9ca3af;
 }
 
 .kpClear {
+  width: 28px;
+  height: 28px;
   border: 0;
+  border-radius: 9px;
   background: transparent;
-  cursor: pointer;
+  color: #8a95a8;
   display: grid;
   place-items: center;
-  color: #0f766e;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
-/* dropdowns kanan */
+.kpClear:hover {
+  background: #f1f5f9;
+  color: #1f2937;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
 .kpFilters {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 16px;
 }
 
-.kpSelect {
-  height: 40px;
-  border-radius: 999px;
-  border: 1px solid #bfead5;
-  background: #dff7ea;
-  color: #0b2a4a;
+/* ===== Custom dropdown kabupaten/kecamatan ===== */
+.kpDropdown {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+}
+
+.kpDropdownBtn {
+  width: 100%;
+  height: 42px;
+  border: 0;
+  outline: none;
+  border-radius: 16px;
+  background: #f3f4f6;
+  color: #374151;
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
   padding: 0 14px;
-  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.kpDropdownBtn:hover:not(:disabled),
+.kpDropdown.is-open .kpDropdownBtn {
+  background: #e8ebf0;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.kpDropdownBtn:focus,
+.kpDropdownBtn:focus-visible {
   outline: none;
 }
 
-.kpSelect:disabled {
-  opacity: 0.65;
+.kpDropdownBtn:focus-visible {
+  background: #e8ebf0;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.kpDropdownBtn:disabled {
   cursor: not-allowed;
+  opacity: 0.62;
 }
 
-/* ===== error ===== */
-.kpError {
-  color: #b42318;
-  font-size: 12px;
-  margin: 6px 6px 12px;
+.kpDropdownIcon,
+.kpDropdownChevron,
+.kpDropdownCheck {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  color: #334155;
+  pointer-events: none;
 }
 
-/* ===== table card di dalam panel ===== */
-.kpTableCard {
-  background: #f6ffef;
-  border: 1px solid #d6f5c6;
+.kpDropdownChevron {
+  margin-left: auto;
+  width: 17px;
+  height: 17px;
+  transition: transform 0.16s ease;
+}
+
+.kpDropdownChevron.is-open {
+  transform: rotate(180deg);
+}
+
+.kpDropdownText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #374151;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 800;
+  text-align: left;
+}
+
+.kpDropdownText.is-placeholder {
+  color: #6b7280;
+}
+
+.kpDropdownMenu {
+  position: absolute;
+  top: calc(100% + 10px);
+  left: 0;
+  right: 0;
+  min-width: 100%;
+  max-height: 260px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 6px;
+  border: 1px solid rgba(2, 6, 23, 0.12);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 18px 40px rgba(2, 6, 23, 0.14);
+  z-index: 2800;
+}
+
+.kpDropdownMenu::-webkit-scrollbar {
+  width: 10px;
+}
+
+.kpDropdownMenu::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.18);
+  background-clip: padding-box;
+}
+
+.kpDropdownMenu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.kpDropdownItem {
+  width: 100%;
+  min-height: 42px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
+}
+
+.kpDropdownItem:hover {
+  background: #f1f5f9;
+  color: #1f2937;
+}
+
+.kpDropdownItem.is-active {
+  background: #e8ebf0;
+  color: #343b73;
+  font-weight: 800;
+}
+
+.kpDropdownCheck {
+  color: #343b73;
+  stroke-width: 2.6;
+}
+
+.kpFormDropdown {
+  width: 100%;
+  max-width: 220px;
+}
+
+.kpFormDropdown .kpDropdownBtn {
+  height: 45px;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 0 14px;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.kpFormDropdown .kpDropdownBtn:hover:not(:disabled),
+.kpFormDropdown.is-open .kpDropdownBtn,
+.kpFormDropdown .kpDropdownBtn:focus-visible {
+  background: #f8fafc;
+}
+
+.kpFormDropdown .kpDropdownText {
+  font-size: 15px;
+  font-weight: 500;
+  color: #334155;
+}
+
+.kpFormDropdown .kpDropdownText.is-placeholder {
+  color: #8a94a6;
+}
+
+.kpSelectWrap {
+  height: 42px;
+  min-width: 0;
+  border: 0;
   border-radius: 16px;
-  padding: 10px;
+  background: #f3f4f6;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 0 14px;
+  position: relative;
+  transition:
+    background 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
+}
+
+.kpSelectWrap:hover {
+  background: #e8ebf0;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.kpFilterIcon,
+.kpSelectChevron {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  color: #334155;
+  pointer-events: none;
+}
+
+.kpSelectChevron {
+  width: 17px;
+  height: 17px;
+}
+
+.kpSelect {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 800;
+  appearance: none;
+  cursor: pointer;
+}
+
+.kpSelect:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.kpError {
+  margin: -12px 0 18px;
+  padding: 12px 15px;
+  border-radius: 14px;
+  border: 1px solid #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.kpTableCard {
+  width: 100%;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #e6eaf1;
+  border-radius: 17px;
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -4px rgba(0, 0, 0, 0.1);
 }
 
 .kpTable {
   width: 100%;
-  border-collapse: collapse;
-  overflow: hidden;
-  border-radius: 12px;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .kpTable thead th {
-  background: #cfeeff;
-  color: #0b2a4a;
+  height: 56px;
+  background: #f8fbff;
+  color: #334155;
   text-align: left;
-  padding: 12px 12px;
-  font-size: 12px;
-  font-weight: 700;
+  padding: 0 28px;
+  font-size: 14px;
+  font-weight: 800;
+  border-bottom: 1px solid #e4ebf5;
+}
+
+.kpTable thead th:first-child {
+  width: 34%;
+}
+
+.kpTable thead th:nth-child(2) {
+  width: 28%;
+}
+
+.kpTable thead th:nth-child(3) {
+  width: 26%;
+}
+
+.kpActionHead {
+  text-align: center !important;
 }
 
 .kpTable tbody td {
+  height: 72px;
   background: #ffffff;
-  border-top: 1px solid #e6f6ff;
-  padding: 12px 12px;
-  font-size: 12px;
+  border-bottom: 1px solid #edf1f7;
+  padding: 0 28px;
+  vertical-align: middle;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 500;
 }
 
-.kpMuted {
-  color: #0f766e;
+.kpTable tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.kpTable tbody tr {
+  transition: background 0.18s ease;
+}
+
+.kpTable tbody tr:hover td {
+  background: #fbfcff;
+}
+
+.kpPosCell,
+.kpInfoCell {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.kpPosCell {
+  gap: 12px;
+}
+
+.kpPosIconBox {
+  width: 43px;
+  height: 43px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, #424983 0%, #32396f 100%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  overflow: hidden;
+  box-shadow:
+    0 4px 6px -1px rgba(43, 127, 255, 0.3),
+    0 2px 4px -2px rgba(43, 127, 255, 0.3);
+}
+
+.kpPosIconBox img {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  display: block;
+  filter: brightness(0) invert(1);
+}
+
+.kpPosName {
+  color: #1f2937;
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.kpInfoCell {
+  gap: 10px;
+  color: #334155;
+  max-width: 100%;
+}
+
+.kpInfoCell svg {
+  width: 17px;
+  height: 17px;
+  color: #8aa0bf;
+  flex: 0 0 auto;
+  stroke-width: 2;
+}
+
+.kpInfoCell span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .kpActions {
   display: flex;
+  align-items: center;
   justify-content: center;
-  gap: 10px;
+  gap: 11px;
 }
 
-/* icon kotak X kecil seperti template */
 .kpIcoBtn {
-  width: 28px;
-  height: 28px;
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 13px;
   display: grid;
   place-items: center;
-  border-radius: 8px;
-  border: 1.4px solid #0b2a4a;
-  background: transparent;
   cursor: pointer;
-  position: relative; /* boleh tetap */
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.kpIcoBtn svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.25;
+}
+
+.kpIcoBtn.is-edit {
+  background: #dbeafe;
+  color: #2b7fff;
+}
+
+.kpIcoBtn.is-delete {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.kpIcoBtn:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.kpIcoBtn.is-edit:hover {
+  background: #bfdbfe;
+}
+
+.kpIcoBtn.is-delete:hover {
+  background: #fecaca;
 }
 
 .kpEmpty {
+  height: 120px !important;
   text-align: center;
-  color: #0f766e;
-  padding: 18px !important;
+  color: #64748b;
+  font-size: 15px !important;
+  font-weight: 700 !important;
 }
 
-/* ===== pager bawah kanan ===== */
 .kpPager {
   display: flex;
-  justify-content: flex-end;
   align-items: center;
+  justify-content: flex-end;
   gap: 8px;
-  margin-top: 12px;
-  padding: 0 4px;
+  padding: 16px 24px 20px;
+  border-top: 1px solid #edf1f7;
+}
+
+.kpNavBtn,
+.kpPageBtn {
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 11px;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-weight: 800;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .kpNavBtn {
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  color: #0b2a4a;
-  display: grid;
-  place-items: center;
+  background: #f1f5f9;
+  color: #475569;
 }
 
 .kpPageBtn {
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  font-size: 12px;
-  color: #0b2a4a;
-  padding: 6px 10px;
-  border-radius: 999px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 14px;
 }
 
 .kpPageBtn.is-active {
-  font-weight: 800;
-  background: #ffe88a;
-  color: #0b2a4a;
+  background: #343b73;
+  color: #ffffff;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-.kpNextText {
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  font-size: 12px;
-  color: #0f766e;
-  margin-left: 4px;
+.kpNavBtn:hover:not(:disabled),
+.kpPageBtn:hover:not(.is-active) {
+  background: #e5e7eb;
+  transform: translateY(-1px);
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
-.kpNavBtn:disabled,
-.kpNextText:disabled {
-  opacity: 0.4;
+.kpNavBtn:disabled {
+  opacity: 0.45;
   cursor: not-allowed;
 }
-/* ===== MODAL Tambah Posbankum (sesuai gambar) ===== */
-.kpModalOverlay {
+
+/* ===== Modal Tambah/Edit Posbankum ===== */
+.kpModalOverlay,
+.kpDeleteOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.28);
+  background: rgba(15, 23, 42, 0.28);
   display: grid;
   place-items: center;
-  z-index: 999;
+  padding: 22px;
+  z-index: 2500;
 }
 
 .kpModal {
-  width: min(520px, calc(100vw - 32px));
+  width: min(710px, calc(100vw - 44px));
   background: #ffffff;
-  border: 1px solid #cfcfcf;
-  border-radius: 10px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+  border-radius: 0;
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -4px rgba(0, 0, 0, 0.1);
+  overflow: visible;
 }
 
 .kpModalHead {
-  padding: 16px 18px 10px;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0 24px;
+  border-bottom: 1px solid #d9e0eb;
 }
 
 .kpModalTitle {
-  font-size: 18px;
+  color: #1f2937;
+  font-size: 21px;
+  line-height: 1.2;
   font-weight: 800;
-  color: #0b2a4a;
+  letter-spacing: -0.02em;
+}
+
+.kpModalClose {
+  width: 38px;
+  height: 38px;
+  border: 0;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #334155;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.kpModalClose svg {
+  width: 23px;
+  height: 23px;
+}
+
+.kpModalClose:hover:not(:disabled) {
+  background: #e2e8f0;
+  transform: translateY(-1px);
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .kpModalBody {
-  padding: 0 18px 12px;
+  padding: 28px 24px 24px;
 }
 
 .kpFormGroup {
-  margin-bottom: 12px;
+  margin-bottom: 18px;
 }
 
 .kpLabel {
   display: block;
-  font-size: 12px;
-  font-weight: 600;
-  color: #0b2a4a;
-  margin-bottom: 6px;
+  margin: 0 0 10px;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.2;
 }
 
 .kpInput {
   width: 100%;
-  height: 34px;
-  border-radius: 6px;
-  border: 1px solid #cfcfcf;
-  background: #eaeaea;
-  padding: 0 10px;
-  font-size: 12px;
+  height: 43px;
+  border: 1.5px solid #d6deea;
+  border-radius: 15px;
+  background: #ffffff;
   outline: none;
+  padding: 0 15px;
+  color: #334155;
+  font-size: 15px;
+  font-weight: 500;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease;
+}
+
+.kpInput::placeholder {
+  color: #8a94a6;
+}
+
+.kpInput:focus {
+  border-color: #b8c3d6;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
 .kpInput:disabled {
-  opacity: 0.6;
+  opacity: 0.62;
   cursor: not-allowed;
 }
 
 .kpGrid2 {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 30px;
 }
 
-.kpModalFoot {
-  padding: 12px 18px 16px;
+.kpFormSelectWrap {
+  position: relative;
+  width: 100%;
+  max-width: 220px;
+}
+
+.kpInputSelect {
+  height: 45px;
+  border: 0;
+  border-radius: 10px;
+  padding-right: 38px;
+  appearance: none;
+  cursor: pointer;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.kpFormChevron {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  color: #1f2937;
+  pointer-events: none;
+}
+
+.kpPasswordWrap {
+  position: relative;
+}
+
+.kpPasswordInput {
+  padding-right: 48px;
+}
+
+/* Hilangkan icon reveal password bawaan browser agar tidak dobel dengan icon mata custom */
+.kpPasswordInput::-ms-reveal,
+.kpPasswordInput::-ms-clear {
+  display: none;
+}
+
+.kpPasswordInput::-webkit-credentials-auto-fill-button,
+.kpPasswordInput::-webkit-contacts-auto-fill-button {
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+}
+
+.kpEyeBtn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #8aa0bf;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.kpEyeBtn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.kpEyeBtn:hover {
+  background: #eef2f7;
+  color: #334155;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.kpModalFoot,
+.kpDeleteFoot {
+  min-height: 76px;
+  padding: 16px 24px;
+  border-top: 1px solid #d9e0eb;
+  background: #f8fafc;
   display: flex;
+  align-items: center;
   justify-content: flex-end;
-  gap: 10px;
+  gap: 13px;
+}
+
+.kpBtnGhost,
+.kpBtnPrimary,
+.kpBtnDanger {
+  min-width: 91px;
+  height: 46px;
+  border: 0;
+  border-radius: 16px;
+  padding: 0 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 16px;
+  line-height: 1;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .kpBtnGhost {
-  height: 30px;
-  padding: 0 14px;
-  border-radius: 8px;
-  border: 0;
-  background: #d6f5c6;
-  color: #0b2a4a;
-  font-size: 12px;
-  cursor: pointer;
+  background: #e5eaf1;
+  color: #334155;
 }
 
 .kpBtnPrimary {
-  height: 30px;
-  padding: 0 14px;
-  border-radius: 8px;
-  border: 0;
-  background: #ffe88a;
-  color: #0b2a4a;
-  font-size: 12px;
-  font-weight: 800;
-  cursor: pointer;
+  min-width: 110px;
+  background: #1d4ed8;
+  color: #ffffff;
+  box-shadow:
+    0 4px 6px -1px rgba(43, 127, 255, 0.3),
+    0 2px 4px -2px rgba(43, 127, 255, 0.3);
+}
+
+.kpBtnDanger {
+  min-width: 102px;
+  background: #dc000e;
+  color: #ffffff;
+  box-shadow:
+    0 4px 6px -4px rgba(220, 0, 14, 0.32),
+    0 10px 15px -3px rgba(220, 0, 14, 0.32);
+}
+
+.kpBtnGhost:hover:not(:disabled),
+.kpBtnPrimary:hover:not(:disabled),
+.kpBtnDanger:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.kpBtnGhost:hover:not(:disabled) {
+  background: #d9e0ea;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.kpBtnPrimary:hover:not(:disabled) {
+  background: #2563eb;
+  box-shadow:
+    0 10px 15px -3px rgba(43, 127, 255, 0.3),
+    0 4px 6px -1px rgba(43, 127, 255, 0.3);
+}
+
+.kpBtnDanger:hover:not(:disabled) {
+  background: #b91c1c;
+  box-shadow:
+    0 4px 6px -4px rgba(185, 28, 28, 0.35),
+    0 10px 15px -3px rgba(185, 28, 28, 0.35);
 }
 
 .kpBtnGhost:disabled,
-.kpBtnPrimary:disabled {
-  opacity: 0.6;
+.kpBtnPrimary:disabled,
+.kpBtnDanger:disabled {
+  opacity: 0.68;
   cursor: not-allowed;
 }
 
+/* ===== Delete popup ===== */
+.kpDeleteOverlay {
+  z-index: 2600;
+}
 
-/* ===== Manajemen Akun redesign ===== */
-.kpShell, .kpShell * { font-family: 'Outfit', sans-serif; }
-.kpShell { margin-top: 8px; }
-.kpHeaderRow { padding: 2px 0 18px; }
-.kpHeading { font-size: 28px; font-weight: 800; color: #101828; position: relative; padding-bottom: 12px; }
-.kpHeading::after { content: ''; position: absolute; left: 0; bottom: 0; width: 46px; height: 4px; border-radius: 999px; background: #f3bf27; }
-.kpAddTop { height: 50px; padding: 0 28px; border: 0; border-radius: 18px; background: #343a73; color: #fff; font-size: 14px; font-weight: 700; box-shadow: 0 8px 20px rgba(52,58,115,.22); }
-.kpPanel { border-radius: 18px; border: 1px solid #d8dde6; box-shadow: 0 8px 24px rgba(15,23,42,.08); padding: 22px; }
-.kpToolbar { grid-template-columns: 1fr auto; gap: 14px; margin-bottom: 20px; }
-.kpSearch { height: 52px; border-radius: 18px; background: #fff; border-color: #d8dde6; }
-.kpSearchIco, .kpClear { color: #98a2b3; }
-.kpFilters { grid-template-columns: 190px 190px; }
-.kpSelect { height: 52px; border-radius: 16px; background: #f8fafc; border-color: #e8ecf3; font-size: 14px; }
-.kpTableCard { border-radius: 18px; border: 1px solid #e7ebf2; background: #fff; padding: 0; overflow: hidden; }
-.kpTable thead th { background: #f8fafc; padding: 16px 20px; font-size: 13px; color: #344054; }
-.kpTable tbody td { padding: 18px 20px; font-size: 13px; border-top: 1px solid #eef2f6; }
-.kpMuted { color: #475467; }
-.kpActions { justify-content: flex-end; gap: 10px; }
-.kpIcoBtn { width: 34px; height: 34px; border: 0; border-radius: 12px; box-shadow: none; }
-.kpIcoBtn:first-child { background: #dbeafe; color: #2970ff; }
-.kpIcoBtn:last-child { background: #fee2e2; color: #ef4444; }
-.kpPager { justify-content: center; gap: 10px; margin-top: 18px; }
-.kpPageBtn { width: 36px; height: 36px; padding: 0; border-radius: 12px; background: transparent; }
-.kpPageBtn.is-active { background: #343a73; color: #fff; }
-.kpNavBtn, .kpNextText { color: #98a2b3; }
-.kpModal { border-radius: 22px; border: 1px solid #e7ebf2; box-shadow: 0 20px 48px rgba(15,23,42,.18); }
-.kpModalHead { padding: 22px 24px 10px; }
-.kpModalTitle { font-size: 22px; }
-.kpModalBody { padding: 0 24px 12px; }
-.kpInput { height: 48px; border-radius: 14px; border-color: #d8dde6; }
-.kpModalFoot { padding: 16px 24px 24px; }
+.kpDeleteModal {
+  width: min(485px, calc(100vw - 44px));
+  background: #ffffff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1),
+    0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+
+.kpDeleteBody {
+  padding: 34px 32px 26px;
+  text-align: center;
+}
+
+.kpDeleteIcon {
+  width: 68px;
+  height: 68px;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #dc000e;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+}
+
+.kpDeleteIcon svg {
+  width: 34px;
+  height: 34px;
+  stroke-width: 2.25;
+}
+
+.kpDeleteTitle {
+  margin: 0 0 9px;
+  color: #1f2937;
+  font-size: 22px;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.kpDeleteText {
+  margin: 0;
+  color: #475569;
+  font-size: 17px;
+  line-height: 1.55;
+  font-weight: 500;
+}
+
+.kpDeleteText strong {
+  color: #1f2937;
+  font-weight: 800;
+}
+
+.kpDeleteDesc {
+  margin: 20px 0 0;
+  color: #64748b;
+  font-size: 15px;
+  line-height: 1.4;
+  font-weight: 500;
+}
+
+@media (max-width: 900px) {
+  .kpHeaderRow {
+    flex-direction: column;
+    align-items: stretch;
+    margin-bottom: 34px;
+  }
+
+  .kpAddTop {
+    width: fit-content;
+  }
+
+  .kpToolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .kpFilters {
+    grid-template-columns: 1fr;
+  }
+
+  .kpTableCard {
+    overflow-x: auto;
+  }
+
+  .kpTable {
+    min-width: 860px;
+  }
+}
+
+@media (max-width: 720px) {
+  .kpHeading {
+    font-size: 27px;
+  }
+
+  .kpGrid2 {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .kpFormSelectWrap,
+  .kpFormDropdown {
+    max-width: none;
+  }
+
+  .kpModalFoot,
+  .kpDeleteFoot {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .kpBtnGhost,
+  .kpBtnPrimary,
+  .kpBtnDanger {
+    width: 100%;
+  }
+}

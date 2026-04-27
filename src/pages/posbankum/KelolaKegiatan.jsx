@@ -764,11 +764,17 @@ export default function KelolaKegiatan() {
 
       <div className="kk-list">
         {!idReady ? (
-          <div className="kk-empty">Memuat akun...</div>
+          <div className="kk-emptyCard is-loading">Memuat akun...</div>
         ) : loading ? (
-          <div className="kk-empty">Loading...</div>
+          <div className="kk-emptyCard is-loading">Memuat data kegiatan...</div>
         ) : filtered.length === 0 ? (
-          <div className="kk-empty">Belum ada kegiatan.</div>
+          <div className="kk-emptyCard">
+            <div className="kk-emptyIcon">
+              <FiFileText />
+            </div>
+            <h2>Tidak Ada Kegiatan Ditemukan</h2>
+            <p>Tidak ada kegiatan yang sesuai dengan kata kunci pencarian.</p>
+          </div>
         ) : (
           filtered.map((item) => {
             const kind = statusKind(item.status);

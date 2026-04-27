@@ -660,3 +660,22 @@
 .apf-page [role="button"]:active {
   transform: translateY(0);
 }
+
+/* ===== Revisi: input profile tanpa garis biru/drop shadow ===== */
+.apf-inputWrap {
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.apf-inputWrap:focus-within {
+  border-color: #b8c3d6;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.apf-input:focus,
+.apf-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}

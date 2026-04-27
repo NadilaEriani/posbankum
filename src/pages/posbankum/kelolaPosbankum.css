@@ -1385,3 +1385,24 @@
 .kdpRoot [role="button"]:active {
   transform: translateY(0);
 }
+
+/* ===== Revisi: search hover tanpa outline biru ===== */
+.kpLocSearch {
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.kpLocSearch:hover,
+.kpLocSearch:focus-within {
+  border-color: #b8c3d6;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.kpLocSearchInput:focus,
+.kpLocSearchInput:focus-visible {
+  outline: none;
+  box-shadow: none;
+}

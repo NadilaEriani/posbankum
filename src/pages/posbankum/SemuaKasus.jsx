@@ -969,9 +969,26 @@ export default function SemuaKasus() {
       </div>
 
       {loading ? (
-        <div className="skResultText">Memuat data kasus dari Supabase...</div>
+        <div className="sk-emptyCard is-loading">Memuat data kasus...</div>
       ) : sourceCases.length === 0 ? (
-        <div className="skResultText">Belum ada data kasus di Supabase.</div>
+        <div className="sk-emptyCard">
+          <div className="sk-emptyIcon">
+            <FiFileText />
+          </div>
+          <h2>Tidak Ada Kasus Ditemukan</h2>
+          <p>Belum ada data kasus yang tersedia untuk posbankum ini.</p>
+        </div>
+      ) : filteredCases.length === 0 ? (
+        <div className="sk-emptyCard">
+          <div className="sk-emptyIcon">
+            <FiFileText />
+          </div>
+          <h2>Tidak Ada Kasus Ditemukan</h2>
+          <p>Tidak ada kasus yang sesuai dengan filter yang dipilih.</p>
+          <button className="sk-emptyBtn" type="button" onClick={resetFilters}>
+            Reset Filter
+          </button>
+        </div>
       ) : (
         <>
           <div className="skCardGrid">

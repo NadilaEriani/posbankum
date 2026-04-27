@@ -1638,3 +1638,29 @@
 .vd [role="button"]:active {
   transform: translateY(0);
 }
+
+/* ===== Revisi: search hover tanpa outline biru ===== */
+.vd-search,
+.vd-locSearch {
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.vd-search:hover,
+.vd-search:focus-within,
+.vd-locSearch:hover,
+.vd-locSearch:focus-within {
+  border-color: #b8c3d6;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.vd-searchInput:focus,
+.vd-searchInput:focus-visible,
+.vd-locSearchInput:focus,
+.vd-locSearchInput:focus-visible {
+  outline: none;
+  box-shadow: none;
+}

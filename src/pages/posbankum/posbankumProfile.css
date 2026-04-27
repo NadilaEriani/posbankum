@@ -756,3 +756,30 @@
 .ppf-page [role="button"]:active {
   transform: translateY(0);
 }
+
+/* ===== Revisi: input dan pilihan profile mengikuti style data posbankum ===== */
+.ppf-inputWrap {
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.ppf-inputWrap:focus-within {
+  border-color: #b8c3d6;
+  background: #ffffff;
+  box-shadow: none;
+}
+
+.ppf-input:focus,
+.ppf-input:focus-visible,
+.ppf-select:focus,
+.ppf-select:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.ppf-select option {
+  color: #1f2937;
+  background: #ffffff;
+  font-weight: 600;
+}

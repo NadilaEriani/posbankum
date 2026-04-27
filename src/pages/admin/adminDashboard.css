@@ -632,6 +632,12 @@
   font-size: 14px;
   font-weight: 700;
   cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+.ad-linkBtn:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 .ad-activityList {
@@ -1427,4 +1433,25 @@
 .ad [role="button"]:active,
 .ad-main [role="button"]:active {
   transform: translateY(0);
+}
+
+/* ===== Revisi: search hover tanpa outline biru ===== */
+.ad-searchWrap {
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.ad-searchWrap:hover,
+.ad-searchWrap:focus-within {
+  border-color: #b8c3d6;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.ad-searchInput:focus,
+.ad-searchInput:focus-visible {
+  outline: none;
+  box-shadow: none;
 }

@@ -894,7 +894,7 @@ export default function DataPosbankum() {
       {/* List (card accordion) */}
       <div className="dp-list">
         {loading ? (
-          <div style={{ padding: 16, fontSize: 14 }}>Memuat data...</div>
+          <div className="dp-emptyCard is-loading">Memuat data...</div>
         ) : filtered.length ? (
           filtered.map((item) => {
             const pid = item.id_posbankum;
@@ -1015,7 +1015,15 @@ export default function DataPosbankum() {
             );
           })
         ) : (
-          <div style={{ padding: 16, fontSize: 14 }}>Data tidak ditemukan.</div>
+          <div className="dp-emptyCard">
+            <div className="dp-emptyIcon">
+              <FiFileText />
+            </div>
+            <h2>Tidak Ada Data Ditemukan</h2>
+            <p>
+              Tidak ada data posbankum yang sesuai dengan filter yang dipilih.
+            </p>
+          </div>
         )}
       </div>
 

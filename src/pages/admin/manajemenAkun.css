@@ -1124,3 +1124,10 @@
     0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
 
+/* ===== Revisi: icon mata password cukup berubah warna ===== */
+.kpEyeBtn:hover,
+.kpEyeBtn:focus-visible {
+  background: transparent;
+  color: #334155;
+  box-shadow: none;
+}

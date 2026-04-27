@@ -1171,3 +1171,24 @@
     0 4px 6px -4px rgba(0, 0, 0, 0.1),
     0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
+
+/* ===== Revisi: search hover tanpa outline biru ===== */
+.rk-searchBox {
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.rk-searchBox:hover,
+.rk-searchBox:focus-within {
+  border-color: #b8c3d6;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.rk-searchBox input:focus,
+.rk-searchBox input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}

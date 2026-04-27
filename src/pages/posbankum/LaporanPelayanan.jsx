@@ -49,7 +49,9 @@ const mobileSupabase =
     : null;
 
 function getParalegalLookupKey(value) {
-  return String(value || "").trim().toLowerCase();
+  return String(value || "")
+    .trim()
+    .toLowerCase();
 }
 
 function normalizeParalegalOption(item, index = 0) {
@@ -2185,7 +2187,9 @@ export default function KelolaPengaduan({ profile }) {
 
           <div className="lpListWrap">
             {loading ? (
-              <div className="lpEmptyBox">Memuat data laporan...</div>
+              <div className="lpEmptyCard is-loading">
+                Memuat data laporan...
+              </div>
             ) : filteredReports.length ? (
               filteredReports.map((report) => (
                 <div className="lpReportCard" key={report.id_pengaduan}>
@@ -2306,7 +2310,16 @@ export default function KelolaPengaduan({ profile }) {
                 </div>
               ))
             ) : (
-              <div className="lpEmptyBox">Belum ada data laporan.</div>
+              <div className="lpEmptyCard">
+                <div className="lpEmptyIcon">
+                  <FiFileText />
+                </div>
+                <h2>Tidak Ada Laporan Ditemukan</h2>
+                <p>
+                  Tidak ada laporan pelayanan yang sesuai dengan filter yang
+                  dipilih.
+                </p>
+              </div>
             )}
           </div>
         </>

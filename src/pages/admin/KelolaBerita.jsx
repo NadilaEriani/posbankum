@@ -1,6 +1,7 @@
 import { CgImage } from "react-icons/cg";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
+  FiFileText,
   FiCalendar,
   FiEdit,
   FiEye,
@@ -529,7 +530,13 @@ export default function KelolaBerita({ currentUserId, currentUserName }) {
           ))}
         </div>
       ) : filteredItems.length === 0 ? (
-        <div className="kb-empty">Belum ada berita yang sesuai.</div>
+        <div className="kb-emptyCard">
+          <div className="kb-emptyIcon">
+            <FiFileText />
+          </div>
+          <h2>Tidak Ada Berita Ditemukan</h2>
+          <p>Tidak ada berita yang sesuai dengan kata kunci pencarian.</p>
+        </div>
       ) : (
         <div className="kb-grid">
           {filteredItems.map((item) => (

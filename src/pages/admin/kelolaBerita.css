@@ -875,3 +875,71 @@
   transform: translateY(0);
 }
 
+/* ===== Revisi: empty state & search hover ===== */
+.kb-search {
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.kb-search:hover,
+.kb-search:focus-within {
+  border-color: #b8c3d6;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.kb-search input:focus,
+.kb-search input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.kb-emptyCard {
+  min-height: 376px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #dfe3ea;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 24px;
+  color: #475467;
+}
+
+.kb-emptyIcon {
+  width: 88px;
+  height: 88px;
+  border-radius: 999px;
+  background: #f2f4f7;
+  display: grid;
+  place-items: center;
+  color: #98a2b3;
+  margin-bottom: 26px;
+}
+
+.kb-emptyIcon svg {
+  width: 43px;
+  height: 43px;
+}
+
+.kb-emptyCard h2 {
+  margin: 0 0 13px;
+  color: #111827;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.kb-emptyCard p {
+  margin: 0;
+  color: #475467;
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 600;
+}

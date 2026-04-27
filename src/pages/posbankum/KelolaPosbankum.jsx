@@ -85,6 +85,19 @@ function statusLabelFromKind(k) {
   return "Belum";
 }
 
+function getRejectNote(row) {
+  const note =
+    row?.catatan_admin ??
+    row?.catatan_penolakan ??
+    row?.alasan_penolakan ??
+    row?.catatan ??
+    row?.keterangan ??
+    row?.note ??
+    "";
+
+  return String(note || "").trim();
+}
+
 function buildOsmEmbed(lat, lng) {
   const la = Number(lat);
   const lo = Number(lng);
@@ -1605,12 +1618,7 @@ export default function KelolaDataPosbankum({ profile }) {
           const row = docsLatest[item.key];
           const kind = row ? statusKind(row.status_verifikasi) : "none";
           const label = statusLabelFromKind(kind);
-          const note =
-            row?.catatan_admin ??
-            row?.catatan ??
-            row?.keterangan ??
-            row?.note ??
-            "";
+          const note = getRejectNote(row);
           const uploadAt = row?.tgl_upload ? formatDateID(row.tgl_upload) : "-";
 
           return (
@@ -1691,10 +1699,16 @@ export default function KelolaDataPosbankum({ profile }) {
                 </button>
               </div>
 
-              {kind === "bad" && note ? (
-                <div className="kpAdminNote">
-                  <div className="kpAdminNoteTitle">Alasan Penolakan:</div>
-                  <div className="kpAdminNoteText">{note}</div>
+              {kind === "bad" ? (
+                <div className="kpAdminNote kpAdminNoteBelowAction">
+                  <div className="kpAdminNoteTitle">
+                    <FiInfo />
+                    <span>Alasan Penolakan</span>
+                  </div>
+                  <div className="kpAdminNoteText">
+                    {note ||
+                      "Alasan penolakan belum tersedia. Pastikan admin mengisi catatan penolakan pada data ini."}
+                  </div>
                 </div>
               ) : null}
             </div>

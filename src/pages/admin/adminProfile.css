@@ -682,3 +682,20 @@
   box-shadow: none;
   transform: none;
 }
+/* ===== FIX: hilangkan garis biru input focus ===== */
+.apf-input:focus,
+.apf-input:focus-visible,
+.ppf-input:focus,
+.ppf-input:focus-visible,
+.ppf-select:focus,
+.ppf-select:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* kalau masih muncul dari wrapper */
+.apf-inputWrap:focus-within,
+.ppf-inputWrap:focus-within {
+  box-shadow: none !important;
+  border-color: #dde3eb !important; /* tetap netral */
+}

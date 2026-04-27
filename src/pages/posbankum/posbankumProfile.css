@@ -757,7 +757,6 @@
   transform: translateY(0);
 }
 
-
 /* Hilangkan icon reveal password bawaan browser agar icon mata tidak dobel */
 .ppf-input[type="password"]::-ms-reveal,
 .ppf-input[type="password"]::-ms-clear {
@@ -778,4 +777,21 @@
   color: #6b7280;
   box-shadow: none;
   transform: none;
+}
+/* ===== FIX: hilangkan garis biru input focus ===== */
+.apf-input:focus,
+.apf-input:focus-visible,
+.ppf-input:focus,
+.ppf-input:focus-visible,
+.ppf-select:focus,
+.ppf-select:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* kalau masih muncul dari wrapper */
+.apf-inputWrap:focus-within,
+.ppf-inputWrap:focus-within {
+  box-shadow: none !important;
+  border-color: #dde3eb !important; /* tetap netral */
 }

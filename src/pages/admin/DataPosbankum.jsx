@@ -624,10 +624,16 @@ export default function DataPosbankum() {
           const taggingDate = pickTaggingTanggal(p, taggingLatest);
 
           if (hasCoords) {
+            const taggingStatus = taggingLatest
+              ? normalizeStatus(
+                  taggingLatest?.status_verifikasi ?? taggingLatest?.status,
+                )
+              : "disetujui";
+
             return {
               kategori: req.label,
               tanggal: formatTanggal(taggingDate),
-              status: "menunggu",
+              status: taggingStatus,
               path: "__tagging_area__",
               viewerType: "tagging_area",
               latitude: p.latitude,

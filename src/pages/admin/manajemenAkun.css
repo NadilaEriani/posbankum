@@ -1195,3 +1195,30 @@
     0 4px 6px -4px rgba(0, 0, 0, 0.1),
     0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }
+/* ===== FIX: warna lingkaran empty state, bukan icon ===== */
+.kpEmptyIcon {
+  background: #2b3056 !important;
+  box-shadow: 0 10px 22px rgba(43, 48, 86, 0.22) !important;
+}
+
+.kpEmptyIcon img {
+  filter: brightness(0) invert(1) !important;
+}
+
+/* ===== FIX: password eye hover tanpa drop shadow ===== */
+.kpEyeBtn,
+.kpEyeBtn:hover,
+.kpEyeBtn:focus,
+.kpEyeBtn:focus-visible,
+.kpEyeBtn:active {
+  box-shadow: none !important;
+  transform: translateY(-50%) !important;
+  filter: none !important;
+  outline: none !important;
+}
+
+.kpEyeBtn:hover,
+.kpEyeBtn:focus-visible {
+  background: transparent !important;
+  color: #2b3056 !important;
+}

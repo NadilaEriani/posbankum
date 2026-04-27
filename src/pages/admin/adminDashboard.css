@@ -1439,3 +1439,31 @@
 .ad-main [role="button"]:active {
   transform: translateY(0);
 }
+/* ===== FIX TEXT ACTION (ADMIN DASHBOARD) ===== */
+
+/* pastikan semua link/text action tidak punya shadow */
+.ad-link,
+.ad-linkBtn,
+button.ad-link,
+button.ad-linkBtn {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+/* hover hanya underline */
+.ad-link:hover,
+.ad-link:focus,
+.ad-link:focus-visible,
+.ad-linkBtn:hover,
+.ad-linkBtn:focus,
+.ad-linkBtn:focus-visible {
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: none !important;
+  outline: none !important;
+}

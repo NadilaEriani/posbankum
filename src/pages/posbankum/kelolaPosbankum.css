@@ -1406,3 +1406,79 @@
   outline: none;
   box-shadow: none;
 }
+
+/* ===== Revisi: alasan penolakan di bawah tombol Ganti ===== */
+.kdpRoot .kpAdminNoteBelowAction {
+  margin: -4px 14px 14px;
+  padding: 12px 13px;
+  border-left: 4px solid #ef4444;
+  border-radius: 12px;
+  background: #fff1f2;
+  border-top: 1px solid rgba(239, 68, 68, 0.14);
+  border-right: 1px solid rgba(239, 68, 68, 0.14);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.14);
+  color: #b91c1c;
+}
+
+.kdpRoot .kpAdminNoteBelowAction .kpAdminNoteTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-bottom: 6px;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.kdpRoot .kpAdminNoteBelowAction .kpAdminNoteTitle svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.kdpRoot .kpAdminNoteBelowAction .kpAdminNoteText {
+  margin-top: 0;
+  color: #b91c1c;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.48;
+}
+
+/* ===== FIX FINAL: Hilangkan shadow pada area link teks "Lihat semua kasus" ===== */
+
+.pb2Link,
+.pb2LinkBtn {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+}
+
+.pb2Link:hover,
+.pb2Link:focus,
+.pb2Link:focus-visible,
+.pb2LinkBtn:hover,
+.pb2LinkBtn:focus,
+.pb2LinkBtn:focus-visible {
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transform: none !important;
+  outline: none !important;
+}
+
+/* shadow abu-abu di bawah link berasal dari pembungkus/panel */
+.pb2Panel:has(.pb2Link),
+.pb2Panel:has(.pb2LinkBtn) {
+  box-shadow: none !important;
+}
+
+/* kalau link berada di footer/list bawah */
+.pb2PanelFooter,
+.pb2LinkWrap,
+.pb2ViewAllWrap {
+  box-shadow: none !important;
+  background: transparent !important;
+}

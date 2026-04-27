@@ -661,21 +661,24 @@
   transform: translateY(0);
 }
 
-/* ===== Revisi: input profile tanpa garis biru/drop shadow ===== */
-.apf-inputWrap {
-  transition:
-    border-color 0.18s ease,
-    background 0.18s ease;
+/* Hilangkan icon reveal password bawaan browser agar icon mata tidak dobel */
+.apf-input[type="password"]::-ms-reveal,
+.apf-input[type="password"]::-ms-clear {
+  display: none;
 }
 
-.apf-inputWrap:focus-within {
-  border-color: #b8c3d6;
-  background: #ffffff;
-  box-shadow: none;
+.apf-input[type="password"]::-webkit-credentials-auto-fill-button,
+.apf-input[type="password"]::-webkit-contacts-auto-fill-button {
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
 }
 
-.apf-input:focus,
-.apf-input:focus-visible {
-  outline: none;
+.apf-eyeBtn:hover,
+.apf-eyeBtn:focus-visible {
+  color: #6b7280;
   box-shadow: none;
+  transform: none;
 }

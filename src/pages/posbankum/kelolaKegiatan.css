@@ -1073,3 +1073,245 @@
   line-height: 1.45;
   font-weight: 600;
 }
+
+/* ===== Pop up kirim ulang kegiatan ditolak ===== */
+.kk-resubmit-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.28);
+}
+
+.kk-resubmit-card {
+  width: min(485px, calc(100vw - 32px));
+  padding: 28px;
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 28px 64px rgba(15, 23, 42, 0.3);
+}
+
+.kk-resubmit-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.kk-resubmit-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 999px;
+  background: #d1e1fd;
+  color: #0f3f93;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.kk-resubmit-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.kk-resubmit-headText {
+  min-width: 0;
+}
+
+.kk-resubmit-title {
+  color: #1f2937;
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 800;
+}
+
+.kk-resubmit-subtitle {
+  margin-top: 2px;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.kk-resubmit-description {
+  margin-top: 16px;
+  color: #374151;
+  font-size: 15px;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+.kk-resubmit-actions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.kk-resubmit-btn {
+  min-width: 120px;
+  height: 44px;
+  border: 0;
+  border-radius: 16px;
+  padding: 0 18px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    background 180ms ease,
+    color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease,
+    filter 180ms ease;
+}
+
+.kk-resubmit-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.kk-resubmit-btnGhost {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.kk-resubmit-btnPrimary {
+  background: #1454c4;
+  color: #ffffff;
+}
+
+.kk-resubmit-btn:not(:disabled):hover,
+.kk-resubmit-btn:not(:disabled):focus-visible {
+  transform: translateY(-1px);
+  filter: brightness(1.04);
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.kk-resubmit-btn:not(:disabled):active {
+  transform: translateY(0);
+}
+
+@media (max-width: 520px) {
+  .kk-resubmit-actions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .kk-resubmit-btn {
+    width: 100%;
+  }
+}
+
+/* ===== Revisi anggota terlibat & detail lengkap kegiatan ===== */
+.kk-memberSelectBox {
+  width: 100%;
+  padding: 14px;
+  border: 1px solid var(--kk-border);
+  border-radius: 14px;
+  background: #ffffff;
+}
+
+.kk-memberSelectList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.kk-memberSelectChip {
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  background: #ffffff;
+  color: #374151;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.kk-memberSelectChip svg {
+  font-size: 15px;
+  color: currentColor;
+}
+
+.kk-memberSelectChip.is-selected {
+  border-color: #bfd3f8;
+  background: #d1e1fd;
+  color: #17438d;
+}
+
+.kk-memberSelectEmpty {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.kk-detail-infoGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.kk-detail-infoCard {
+  min-height: 76px;
+  padding: 14px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  background: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.kk-detail-infoIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #d1e1fd;
+  color: #17438d;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.kk-detail-infoIcon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.kk-detail-infoLabel {
+  margin-bottom: 3px;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.kk-detail-infoValue {
+  color: #111827;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 900;
+}
+
+@media (max-width: 720px) {
+  .kk-detail-infoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .kk-memberSelectChip {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}

@@ -1,19 +1,29 @@
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&display=swap");
+
 .rmOverlay {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.28);
+  z-index: 10000;
   display: grid;
   place-items: center;
   padding: 20px;
-  z-index: 2100;
+  background: rgba(15, 23, 42, 0.28);
+  font-family:
+    "Outfit",
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    Arial,
+    sans-serif;
 }
 
 .rmCard {
   width: min(485px, calc(100vw - 32px));
-  background: #ffffff;
-  border-radius: 22px;
-  box-shadow: 0 28px 64px rgba(15, 23, 42, 0.3);
   padding: 28px;
+  border-radius: 22px;
+  background: #ffffff;
+  box-shadow: 0 28px 64px rgba(15, 23, 42, 0.3);
 }
 
 .rmHead {
@@ -44,10 +54,10 @@
 }
 
 .rmTitle {
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1.2;
   color: #1f2937;
+  font-size: 18px;
+  line-height: 1.2;
+  font-weight: 800;
 }
 
 .rmSubtitle {
@@ -55,6 +65,7 @@
   color: #6b7280;
   font-size: 14px;
   font-weight: 500;
+  line-height: 1.4;
 }
 
 .rmDescription {
@@ -69,6 +80,7 @@
   margin-top: 24px;
   display: flex;
   justify-content: flex-end;
+  gap: 12px;
 }
 
 .rmBtn {
@@ -76,24 +88,32 @@
   height: 44px;
   border: 0;
   border-radius: 16px;
+  padding: 0 18px;
   font-size: 15px;
   font-weight: 700;
   cursor: pointer;
-}
-
-.rmBtnPrimary {
-  background: #1454c4;
-  color: #ffffff;
-}
-
-/* ===== Hover & Action States ===== */
-.rmBtn {
+  font-family: inherit;
   transition:
     background 180ms ease,
     color 180ms ease,
     box-shadow 180ms ease,
     transform 180ms ease,
     filter 180ms ease;
+}
+
+.rmBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.rmBtnGhost {
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.rmBtnPrimary {
+  background: #1454c4;
+  color: #ffffff;
 }
 
 .rmBtn:not(:disabled):hover,
@@ -103,4 +123,19 @@
   box-shadow:
     0 4px 6px -4px rgba(0, 0, 0, 0.1),
     0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.rmBtn:not(:disabled):active {
+  transform: translateY(0);
+}
+
+@media (max-width: 520px) {
+  .rmActions {
+    flex-direction: column-reverse;
+    align-items: stretch;
+  }
+
+  .rmBtn {
+    width: 100%;
+  }
 }

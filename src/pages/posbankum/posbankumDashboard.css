@@ -471,6 +471,7 @@
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: none;
 }
 
 .pb2LinkBtn {
@@ -480,6 +481,19 @@
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
+  box-shadow: none;
+}
+
+.pb2Link:hover,
+.pb2Link:focus-visible,
+.pb2LinkBtn:hover,
+.pb2LinkBtn:focus-visible {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: #1454c4;
+  box-shadow: none;
+  transform: none;
+  filter: none;
 }
 
 .pb2KegiatanList {
@@ -1219,16 +1233,4 @@
 .pb2Root button:not(:disabled):active,
 .pb2Root [role="button"]:active {
   transform: translateY(0);
-}
-
-.pb2Link:not(:disabled):hover,
-.pb2Link:not(:disabled):focus-visible,
-.pb2LinkBtn:not(:disabled):hover,
-.pb2LinkBtn:not(:disabled):focus-visible {
-  transform: none;
-  filter: none;
-  box-shadow: none;
-  text-decoration: underline;
-  text-decoration-color: currentColor;
-  text-underline-offset: 4px;
 }

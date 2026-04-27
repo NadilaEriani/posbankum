@@ -676,8 +676,29 @@ export default function ManajemenAkun() {
               ))
             ) : (
               <tr>
-                <td colSpan={4} className="kpEmpty">
-                  Data tidak ditemukan.
+                <td colSpan={4} className="kpEmptyCell">
+                  <div className="kpEmptyState">
+                    <div className="kpEmptyIcon" aria-hidden="true">
+                      <img src={posbankumIcon} alt="" />
+                    </div>
+                    <h2>Tidak Ada Akun Ditemukan</h2>
+                    <p>
+                      Tidak ada akun posbankum yang sesuai dengan pencarian atau
+                      filter yang dipilih.
+                    </p>
+                    <button
+                      className="kpEmptyBtn"
+                      type="button"
+                      onClick={() => {
+                        setQ("");
+                        setKabupatenId("");
+                        setKecamatanId("");
+                        setPage(1);
+                      }}
+                    >
+                      Reset Filter
+                    </button>
+                  </div>
                 </td>
               </tr>
             )}

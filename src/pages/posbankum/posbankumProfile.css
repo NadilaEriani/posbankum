@@ -757,29 +757,25 @@
   transform: translateY(0);
 }
 
-/* ===== Revisi: input dan pilihan profile mengikuti style data posbankum ===== */
-.ppf-inputWrap {
-  transition:
-    border-color 0.18s ease,
-    background 0.18s ease;
+
+/* Hilangkan icon reveal password bawaan browser agar icon mata tidak dobel */
+.ppf-input[type="password"]::-ms-reveal,
+.ppf-input[type="password"]::-ms-clear {
+  display: none;
 }
 
-.ppf-inputWrap:focus-within {
-  border-color: #b8c3d6;
-  background: #ffffff;
+.ppf-input[type="password"]::-webkit-credentials-auto-fill-button,
+.ppf-input[type="password"]::-webkit-contacts-auto-fill-button {
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+}
+
+.ppf-eyeBtn:hover,
+.ppf-eyeBtn:focus-visible {
+  color: #6b7280;
   box-shadow: none;
-}
-
-.ppf-input:focus,
-.ppf-input:focus-visible,
-.ppf-select:focus,
-.ppf-select:focus-visible {
-  outline: none;
-  box-shadow: none;
-}
-
-.ppf-select option {
-  color: #1f2937;
-  background: #ffffff;
-  font-weight: 600;
+  transform: none;
 }

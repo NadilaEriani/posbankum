@@ -7,9 +7,16 @@ export default function ReminderModal({
   subtitle = "Periksa kembali informasi berikut",
   description = "",
   buttonLabel = "Mengerti",
+  cancelLabel = "",
+  confirmLabel = "",
+  loading = false,
   onClose,
+  onConfirm,
 }) {
   if (!open) return null;
+
+  const primaryLabel = confirmLabel || buttonLabel;
+  const handlePrimary = onConfirm || onClose;
 
   return (
     <div
@@ -32,8 +39,24 @@ export default function ReminderModal({
         <div className="rmDescription">{description}</div>
 
         <div className="rmActions">
-          <button className="rmBtn rmBtnPrimary" type="button" onClick={onClose}>
-            {buttonLabel}
+          {cancelLabel ? (
+            <button
+              className="rmBtn rmBtnGhost"
+              type="button"
+              onClick={onClose}
+              disabled={loading}
+            >
+              {cancelLabel}
+            </button>
+          ) : null}
+
+          <button
+            className="rmBtn rmBtnPrimary"
+            type="button"
+            onClick={handlePrimary}
+            disabled={loading}
+          >
+            {primaryLabel}
           </button>
         </div>
       </div>

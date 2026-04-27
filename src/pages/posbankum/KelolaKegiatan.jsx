@@ -14,10 +14,12 @@ import {
   FiMapPin,
   FiUsers,
   FiEye,
+  FiUser,
 } from "react-icons/fi";
 import { supabase } from "../../lib/supabaseClient";
 import SuccessToast from "../../components/ui/SuccessToast";
 import DeleteConfirmModal from "../../components/ui/DeleteConfirmModal";
+import ReminderModal from "../../components/ui/ReminderModal";
 import "./kelolaKegiatan.css";
 
 const BUCKET_THUMB = "kegiatan-thumbnails";
@@ -145,6 +147,27 @@ function getAnggotaList(item) {
   ].filter((name, index, arr) => arr.indexOf(name) === index);
 }
 
+function buildAnggotaPayload(selectedIds, paralegalOptions) {
+  return (selectedIds || [])
+    .map((id) => {
+      const found = (paralegalOptions || []).find(
+        (item) => item.id_paralegal === id,
+      );
+      return found?.nama_paralegal || "";
+    })
+    .filter(Boolean);
+}
+
+function resolveSelectedAnggota(item, paralegalOptions) {
+  const savedNames = getAnggotaList(item);
+  if (!savedNames.length) return [];
+
+  const normalizedNames = savedNames.map((name) => norm(name));
+  return (paralegalOptions || [])
+    .filter((member) => normalizedNames.includes(norm(member.nama_paralegal)))
+    .map((member) => member.id_paralegal);
+}
+
 function formatDate(value) {
   if (!value) return "-";
   const date = new Date(value);
@@ -174,6 +197,8 @@ export default function KelolaKegiatan() {
   const [successMessage, setSuccessMessage] = useState("");
   const [deleteItem, setDeleteItem] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [resubmitModalOpen, setResubmitModalOpen] = useState(false);
+  const [paralegalOptions, setParalegalOptions] = useState([]);
 
   const [posbankumId, setPosbankumId] = useState(null);
   const [idReady, setIdReady] = useState(false);
@@ -197,6 +222,7 @@ export default function KelolaKegiatan() {
     lokasi: "",
     jumlah_peserta: "",
     hasil_kegiatan: "",
+    anggota_terlibat: [],
     thumbnailFile: null,
   });
 
@@ -236,6 +262,7 @@ export default function KelolaKegiatan() {
       lokasi: "",
       jumlah_peserta: "",
       hasil_kegiatan: "",
+      anggota_terlibat: [],
       thumbnailFile: null,
     });
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -333,6 +360,30 @@ export default function KelolaKegiatan() {
     if (data?.nama) setPosName(data.nama);
   };
 
+  const fetchParalegalMembers = async (pid) => {
+    if (!pid) {
+      setParalegalOptions([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("paralegal_members")
+      .select("id_paralegal, nama_paralegal")
+      .eq("id_posbankum", pid)
+      .order("is_primary", { ascending: false })
+      .order("nama_paralegal", { ascending: true });
+
+    if (error) {
+      setFormError(
+        (prev) => prev || error.message || "Gagal memuat data paralegal.",
+      );
+      setParalegalOptions([]);
+      return;
+    }
+
+    setParalegalOptions(data || []);
+  };
+
   const fetchKegiatan = async (pid) => {
     setLoading(true);
     setFormError("");
@@ -383,6 +434,8 @@ export default function KelolaKegiatan() {
       await detectKegiatanColumns();
       if (canceled) return;
       await fetchPosbankumName(posbankumId);
+      if (canceled) return;
+      await fetchParalegalMembers(posbankumId);
       if (canceled) return;
       await fetchKegiatan(posbankumId);
     };
@@ -468,6 +521,7 @@ export default function KelolaKegiatan() {
         pickNumber(item, ["jumlah_peserta", "target_peserta", "peserta"]) ?? "",
       ),
       hasil_kegiatan: item?.hasil_kegiatan || "",
+      anggota_terlibat: resolveSelectedAnggota(item, paralegalOptions),
       thumbnailFile: null,
     });
 
@@ -479,6 +533,7 @@ export default function KelolaKegiatan() {
 
   const closeModal = () => {
     if (saving) return;
+    setResubmitModalOpen(false);
     setModalOpen(false);
   };
 
@@ -553,7 +608,20 @@ export default function KelolaKegiatan() {
     }
   };
 
-  const handleSubmit = async () => {
+  const toggleAnggota = (id) => {
+    setForm((prev) => {
+      const current = prev.anggota_terlibat || [];
+      const exists = current.includes(id);
+      return {
+        ...prev,
+        anggota_terlibat: exists
+          ? current.filter((item) => item !== id)
+          : [...current, id],
+      };
+    });
+  };
+
+  const handleSubmit = async (resubmitRejected = false) => {
     setFormError("");
 
     if (!posbankumId) {
@@ -567,6 +635,14 @@ export default function KelolaKegiatan() {
       return setFormError("Tanggal Selesai tidak boleh sebelum Tanggal Mulai.");
     }
     if (!form.lokasi.trim()) return setFormError("Lokasi wajib diisi.");
+
+    const isRejectedEdit =
+      modalMode === "edit" && statusKind(editingItem?.status) === "reject";
+
+    if (isRejectedEdit && !resubmitRejected) {
+      setResubmitModalOpen(true);
+      return;
+    }
 
     setSaving(true);
 
@@ -631,6 +707,20 @@ export default function KelolaKegiatan() {
         optional.hasil_kegiatan = form.hasil_kegiatan.trim();
       }
 
+      const anggotaPayload = buildAnggotaPayload(
+        form.anggota_terlibat,
+        paralegalOptions,
+      );
+      if (kegiatanCols.has("anggota_terlibat")) {
+        optional.anggota_terlibat = anggotaPayload;
+      } else if (kegiatanCols.has("anggota")) {
+        optional.anggota = anggotaPayload;
+      } else if (kegiatanCols.has("peserta_terlibat")) {
+        optional.peserta_terlibat = anggotaPayload;
+      } else if (kegiatanCols.has("tim_terlibat")) {
+        optional.tim_terlibat = anggotaPayload;
+      }
+
       if (modalMode === "create") {
         const payload = {
           id_posbankum: posbankumId,
@@ -651,6 +741,12 @@ export default function KelolaKegiatan() {
         const payload = {
           ...basePayload,
           ...optional,
+          ...(resubmitRejected
+            ? {
+                status: "Diproses",
+                tgl_upload: new Date().toISOString(),
+              }
+            : {}),
         };
 
         const { error: upErr } = await supabase
@@ -661,12 +757,15 @@ export default function KelolaKegiatan() {
         if (upErr) throw upErr;
       }
 
+      setResubmitModalOpen(false);
       setModalOpen(false);
       await fetchKegiatan(posbankumId);
       setSuccessMessage(
-        modalMode === "edit"
-          ? "Kegiatan berhasil diperbarui!"
-          : "Kegiatan berhasil ditambahkan!",
+        resubmitRejected
+          ? "Kegiatan berhasil dikirim ulang untuk ditinjau admin!"
+          : modalMode === "edit"
+            ? "Kegiatan berhasil diperbarui!"
+            : "Kegiatan berhasil ditambahkan!",
       );
     } catch (e) {
       setFormError(e?.message || "Gagal menyimpan kegiatan.");
@@ -687,6 +786,10 @@ export default function KelolaKegiatan() {
     ? pickNumber(detailItem, ["jumlah_peserta", "target_peserta", "peserta"])
     : null;
   const detailAnggota = detailItem ? getAnggotaList(detailItem) : [];
+  const detailCatatan = detailItem
+    ? pickFirst(detailItem, ["catatan", "catatan_admin", "note", "keterangan"])
+    : "";
+  const detailHasil = detailItem?.hasil_kegiatan || "";
 
   return (
     <div className="kk-wrap">
@@ -1072,6 +1175,37 @@ export default function KelolaKegiatan() {
               </div>
 
               <div className="kk-field">
+                <div className="kk-label">Anggota yang Terlibat</div>
+                <div className="kk-memberSelectBox">
+                  {paralegalOptions.length ? (
+                    <div className="kk-memberSelectList">
+                      {paralegalOptions.map((member) => {
+                        const checked = form.anggota_terlibat.includes(
+                          member.id_paralegal,
+                        );
+
+                        return (
+                          <button
+                            className={`kk-memberSelectChip ${checked ? "is-selected" : ""}`}
+                            type="button"
+                            key={member.id_paralegal}
+                            onClick={() => toggleAnggota(member.id_paralegal)}
+                          >
+                            <FiUser />
+                            <span>{member.nama_paralegal}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="kk-memberSelectEmpty">
+                      Belum ada data paralegal yang dapat dipilih.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="kk-field">
                 <div className="kk-label">Deskripsi Kegiatan</div>
                 <textarea
                   className="kk-textarea"
@@ -1120,7 +1254,7 @@ export default function KelolaKegiatan() {
               <button
                 className={`kk-btn ${modalMode === "edit" ? "kk-btn-orange" : "kk-btn-primary"}`}
                 type="button"
-                onClick={handleSubmit}
+                onClick={() => handleSubmit(false)}
                 disabled={saving}
               >
                 {saving
@@ -1133,6 +1267,20 @@ export default function KelolaKegiatan() {
           </div>
         </div>
       )}
+
+      <ReminderModal
+        open={resubmitModalOpen}
+        title="Kirim Ulang Kegiatan?"
+        subtitle="Kegiatan yang ditolak akan masuk kembali ke proses peninjauan admin."
+        description="Pastikan seluruh perubahan sudah sesuai dengan alasan penolakan. Apakah Anda ingin mengirim ulang kegiatan ini agar dapat ditinjau kembali oleh admin?"
+        cancelLabel="Periksa Lagi"
+        confirmLabel={saving ? "Mengirim..." : "Ya, Kirim Ulang"}
+        loading={saving}
+        onClose={() => {
+          if (!saving) setResubmitModalOpen(false);
+        }}
+        onConfirm={() => handleSubmit(true)}
+      />
 
       {detailOpen && detailItem && (
         <div className="kk-detail-overlay" onMouseDown={closeDetail}>
@@ -1188,15 +1336,86 @@ export default function KelolaKegiatan() {
                 <div className="kk-adminAlert">
                   <div className="kk-adminAlertTitle">Alasan Penolakan:</div>
                   <div className="kk-adminAlertText">
-                    {pickFirst(detailItem, [
-                      "catatan",
-                      "catatan_admin",
-                      "note",
-                      "keterangan",
-                    ]) || "-"}
+                    {detailCatatan || "-"}
                   </div>
                 </div>
               ) : null}
+
+              <div className="kk-detail-infoGrid">
+                <div className="kk-detail-infoCard">
+                  <div className="kk-detail-infoIcon">
+                    <FiCalendar />
+                  </div>
+                  <div>
+                    <div className="kk-detail-infoLabel">Tanggal Mulai</div>
+                    <div className="kk-detail-infoValue">
+                      {formatDate(detailItem.tgl_mulai)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="kk-detail-infoCard">
+                  <div className="kk-detail-infoIcon">
+                    <FiCalendar />
+                  </div>
+                  <div>
+                    <div className="kk-detail-infoLabel">Tanggal Selesai</div>
+                    <div className="kk-detail-infoValue">
+                      {formatDate(detailItem.tgl_selesai)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="kk-detail-infoCard">
+                  <div className="kk-detail-infoIcon">
+                    <FiMapPin />
+                  </div>
+                  <div>
+                    <div className="kk-detail-infoLabel">Lokasi</div>
+                    <div className="kk-detail-infoValue">
+                      {detailLokasi || "-"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="kk-detail-infoCard">
+                  <div className="kk-detail-infoIcon">
+                    <FiUsers />
+                  </div>
+                  <div>
+                    <div className="kk-detail-infoLabel">Jumlah Peserta</div>
+                    <div className="kk-detail-infoValue">
+                      {Number.isFinite(Number(detailPeserta))
+                        ? `${detailPeserta} peserta`
+                        : "-"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="kk-detail-infoCard">
+                  <div className="kk-detail-infoIcon">
+                    <FiFileText />
+                  </div>
+                  <div>
+                    <div className="kk-detail-infoLabel">Tanggal Upload</div>
+                    <div className="kk-detail-infoValue">
+                      {formatDate(detailItem.tgl_upload)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="kk-detail-infoCard">
+                  <div className="kk-detail-infoIcon">
+                    <FiCheckCircle />
+                  </div>
+                  <div>
+                    <div className="kk-detail-infoLabel">Status</div>
+                    <div className="kk-detail-infoValue">
+                      {statusLabel(detailItem.status)}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               <div className="kk-detail-section">
                 <div className="kk-detail-sectionTitle">Deskripsi Kegiatan</div>
@@ -1207,9 +1426,7 @@ export default function KelolaKegiatan() {
 
               <div className="kk-detail-section">
                 <div className="kk-detail-sectionTitle">Hasil Kegiatan</div>
-                <div className="kk-detail-desc">
-                  {detailItem.hasil_kegiatan || "-"}
-                </div>
+                <div className="kk-detail-desc">{detailHasil || "-"}</div>
               </div>
 
               <div className="kk-detail-section">
@@ -1220,7 +1437,7 @@ export default function KelolaKegiatan() {
                   <div className="kk-memberList">
                     {detailAnggota.map((name) => (
                       <span className="kk-memberChip" key={name}>
-                        <FiUsers />
+                        <FiUser />
                         {name}
                       </span>
                     ))}

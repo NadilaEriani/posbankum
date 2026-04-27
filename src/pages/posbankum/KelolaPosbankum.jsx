@@ -1659,13 +1659,6 @@ export default function KelolaDataPosbankum({ profile }) {
 
               <div className="kpPreview">{renderCardPreview(item, row)}</div>
 
-              {kind === "bad" && note ? (
-                <div className="kpAdminNote">
-                  <div className="kpAdminNoteTitle">Catatan Admin:</div>
-                  <div className="kpAdminNoteText">{note}</div>
-                </div>
-              ) : null}
-
               <div className="kpDocActions">
                 <button
                   className={[
@@ -1697,6 +1690,13 @@ export default function KelolaDataPosbankum({ profile }) {
                   <FiEye />
                 </button>
               </div>
+
+              {kind === "bad" && note ? (
+                <div className="kpAdminNote">
+                  <div className="kpAdminNoteTitle">Alasan Penolakan:</div>
+                  <div className="kpAdminNoteText">{note}</div>
+                </div>
+              ) : null}
             </div>
           );
         })}

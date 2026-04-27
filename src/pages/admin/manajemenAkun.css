@@ -123,8 +123,9 @@
     box-shadow 0.18s ease;
 }
 
+.kpSearch:hover,
 .kpSearch:focus-within {
-  border-color: #b8c3d6;
+  border-color: #dbe2ec;
   box-shadow:
     0 4px 6px -4px rgba(0, 0, 0, 0.1),
     0 10px 15px -3px rgba(0, 0, 0, 0.1);
@@ -143,6 +144,7 @@
   min-width: 0;
   border: 0;
   outline: none;
+  box-shadow: none;
   background: transparent;
   color: #334155;
   font-size: 14px;
@@ -151,6 +153,12 @@
 
 .kpSearchInput::placeholder {
   color: #9ca3af;
+}
+
+.kpSearchInput:focus,
+.kpSearchInput:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 .kpClear {
@@ -629,6 +637,72 @@
   font-weight: 700 !important;
 }
 
+.kpEmptyCell {
+  padding: 0 !important;
+  background: #ffffff;
+}
+
+.kpEmptyState {
+  min-height: 376px;
+  border-radius: 16px;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 24px;
+  color: #475467;
+}
+
+.kpEmptyIcon {
+  width: 88px;
+  height: 88px;
+  border-radius: 999px;
+  background: #f2f4f7;
+  display: grid;
+  place-items: center;
+  margin-bottom: 26px;
+}
+
+.kpEmptyIcon img {
+  width: 43px;
+  height: 43px;
+  object-fit: contain;
+  display: block;
+}
+
+.kpEmptyState h2 {
+  margin: 0 0 13px;
+  color: #111827;
+  font-size: 20px;
+  line-height: 1.2;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+}
+
+.kpEmptyState p {
+  margin: 0 0 27px;
+  color: #475467;
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 600;
+  max-width: 420px;
+}
+
+.kpEmptyBtn {
+  min-width: 132px;
+  height: 48px;
+  border: 0;
+  border-radius: 15px;
+  background: #343a73;
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 900;
+  cursor: pointer;
+  box-shadow: 0 9px 18px rgba(52, 58, 115, 0.25);
+}
+
 .kpPager {
   display: flex;
   align-items: center;
@@ -893,9 +967,7 @@
 .kpEyeBtn:hover {
   background: #eef2f7;
   color: #334155;
-  box-shadow:
-    0 4px 6px -4px rgba(0, 0, 0, 0.1),
-    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+  box-shadow: none;
 }
 
 .kpModalFoot,
@@ -1122,12 +1194,4 @@
   box-shadow:
     0 4px 6px -4px rgba(0, 0, 0, 0.1),
     0 10px 15px -3px rgba(0, 0, 0, 0.1);
-}
-
-/* ===== Revisi: icon mata password cukup berubah warna ===== */
-.kpEyeBtn:hover,
-.kpEyeBtn:focus-visible {
-  background: transparent;
-  color: #334155;
-  box-shadow: none;
 }

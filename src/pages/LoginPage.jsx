@@ -248,11 +248,11 @@ export default function LoginPage() {
             </span>
           </div>
 
-          <h1 className="text-[44px] font-bold leading-none tracking-[-0.03em]">
+          <h1 className="text-[44px] font-bold leading-none tracking-[-0.03em] text-white">
             Posbankum
           </h1>
 
-          <p className="mt-6 text-[18px] font-normal leading-[1.5] text-white/78">
+          <p className="mt-6 text-[18px] font-normal leading-[1.5] text-white">
             Platform Bantuan Hukum Terpercaya
           </p>
 
@@ -335,7 +335,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   disabled={loading}
-                  className="ml-3 h-full w-full border-none bg-transparent text-[16px] text-[#344054] outline-none placeholder:text-[#98A2B3] disabled:cursor-not-allowed"
+                  className="ml-3 h-full w-full border-none bg-transparent text-[16px] text-[#344054] outline-none placeholder:text-[#98A2B3] disabled:cursor-not-allowed [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
                 />
                 <button
                   type="button"

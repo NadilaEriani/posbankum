@@ -29,7 +29,7 @@ import KelolaKegiatan from "./KelolaKegiatan";
 import LaporanPelayanan from "./LaporanPelayanan";
 import SemuaKasus from "./SemuaKasus";
 import posbankum from "../../assets/icon.png";
-import burung5 from "../../assets/burung5.png";
+import logo from "../../assets/logo.png";
 import PosbankumProfile from "./PosbankumProfile";
 
 function startOfMonthISO() {
@@ -1050,11 +1050,11 @@ export default function PosbankumDashboard() {
           onClick={() => setShowProfile(true)}
         >
           <div className="pb2BrandLogoWrap">
-            <img src={burung5} alt="Logo SIBAPAK" className="pb2BrandLogo" />
+            <img src={logo} alt="Logo SIBAPAK" className="pb2BrandLogo" />
           </div>
           <div className="pb2BrandText">
             <div className="pb2BrandName">SIBAPAK</div>
-            <div className="pb2BrandSub">Portal Posbankum</div>
+            <div className="pb2BrandSub">Posbankum Kemenkum Riau</div>
           </div>
         </button>
 

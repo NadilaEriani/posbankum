@@ -173,16 +173,28 @@ export default function LoginPage() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
+
+    const cleanedEmail = email.trim().toLowerCase();
+
+    if (!cleanedEmail || !password) {
+      setError("Email dan kata sandi wajib diisi.");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const { data: loginData, error: loginError } =
         await supabase.auth.signInWithPassword({
-          email,
+          email: cleanedEmail,
           password,
         });
 
-      if (loginError) throw loginError;
+      if (loginError) {
+        throw new Error(
+          "Email atau kata sandi salah. Silakan periksa kembali.",
+        );
+      }
 
       const user = loginData?.user;
       if (!user?.id) throw new Error("Login gagal: user tidak ditemukan.");

@@ -30,7 +30,7 @@ import VerifikasiDataPosbankum from "./VerifikasiDataPosbankum";
 import LaporanKegiatan from "./LaporanKegiatan";
 import KelolaBerita from "./KelolaBerita";
 import posbankum from "../../assets/icon.png";
-import burung5 from "../../assets/burung5.png";
+import logo from "../../assets/logo.png";
 import AdminProfile from "./AdminProfile";
 
 function toDateStr(d) {
@@ -956,11 +956,11 @@ export default function AdminDashboard() {
           onClick={() => setShowProfile(true)}
         >
           <div className="ad-brandLogoWrap">
-            <img src={burung5} alt="Logo SIBAPAK" className="ad-brandLogo" />
+            <img src={logo} alt="Logo SIBAPAK" className="ad-brandLogo" />
           </div>
           <div className="ad-brandText">
             <div className="ad-brandName">SIBAPAK</div>
-            <div className="ad-brandSub">Portal Operator Kanwil</div>
+            <div className="ad-brandSub">Posbankum Kemenkum Riau</div>
           </div>
         </button>
         <div className="ad-brandDivider" aria-hidden="true" />

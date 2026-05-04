@@ -378,7 +378,7 @@
 }
 
 .skPrioritySedang {
-  background: #ea580c;
+  background: #b39200;
 }
 
 .skPriorityRendah {
@@ -1073,7 +1073,9 @@
 
 /* ===== Revisi: empty state & search hover ===== */
 .skSearchBox {
-  transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
 }
 
 .skSearchBox:hover,

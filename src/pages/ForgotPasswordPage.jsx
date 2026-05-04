@@ -6,6 +6,7 @@ import brandLogo from "../assets/image 1.png";
 const STORAGE_KEY = "posbankum-forgot-password-flow";
 const RESEND_SECONDS = 60;
 const LOGIN_PATH = "/login";
+const CODE_EXPIRED_MESSAGE = "Kode sudah kadaluwarsa";
 
 function ArrowLeftIcon({ className = "w-5 h-5" }) {
   return (
@@ -279,6 +280,39 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+async function checkRegisteredEmail(email) {
+  const cleanedEmail = email.trim().toLowerCase();
+
+  const { data: rpcData, error: rpcError } = await supabase.rpc(
+    "is_registered_login_email",
+    { p_email: cleanedEmail },
+  );
+
+  if (!rpcError && typeof rpcData === "boolean") {
+    return rpcData;
+  }
+
+  const [posbankumResult, profileResult] = await Promise.all([
+    supabase
+      .from("posbankum")
+      .select("id_posbankum")
+      .ilike("email_akun", cleanedEmail)
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("profiles")
+      .select("id")
+      .ilike("email_kantor", cleanedEmail)
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (posbankumResult.error) throw posbankumResult.error;
+  if (profileResult.error) throw profileResult.error;
+
+  return Boolean(posbankumResult.data || profileResult.data);
+}
+
 function getFriendlyErrorMessage(error, fallback) {
   const message = error?.message?.toLowerCase?.() || "";
 
@@ -346,7 +380,9 @@ function PasswordCriteriaItem({ ok, text }) {
           </svg>
         )}
       </div>
-      <span className={`text-[14px] ${ok ? "text-[#23984A]" : "text-[#6C7486]"}`}>
+      <span
+        className={`text-[14px] ${ok ? "text-[#23984A]" : "text-[#6C7486]"}`}
+      >
         {text}
       </span>
     </div>
@@ -374,6 +410,7 @@ export default function ForgotPasswordPage() {
   const [updatingPassword, setUpdatingPassword] = useState(false);
 
   const [resendIn, setResendIn] = useState(0);
+  const [codeExpiresAt, setCodeExpiresAt] = useState(null);
 
   const otpRefs = useRef([]);
   const autoVerifyRef = useRef("");
@@ -405,11 +442,15 @@ export default function ForgotPasswordPage() {
       if (parsed?.email) setEmail(parsed.email);
       if (parsed?.step) setStep(parsed.step);
 
-      if (parsed?.resendUntil) {
+      const storedExpiresAt =
+        parsed?.codeExpiresAt || parsed?.resendUntil || null;
+
+      if (storedExpiresAt) {
         const diff = Math.max(
           0,
-          Math.ceil((parsed.resendUntil - Date.now()) / 1000),
+          Math.ceil((storedExpiresAt - Date.now()) / 1000),
         );
+        setCodeExpiresAt(storedExpiresAt);
         setResendIn(diff);
       }
     } catch {
@@ -426,9 +467,10 @@ export default function ForgotPasswordPage() {
         email,
         step,
         resendUntil,
+        codeExpiresAt,
       }),
     );
-  }, [email, step, resendIn]);
+  }, [email, step, resendIn, codeExpiresAt]);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -468,12 +510,12 @@ export default function ForgotPasswordPage() {
     if (errorCode || error) {
       setStep("email");
       setFormError(
-        "Link reset lama tidak digunakan pada flow ini. Silakan masukkan email lalu gunakan kode OTP 6 digit dari email."
+        "Link reset lama tidak digunakan pada flow ini. Silakan masukkan email lalu gunakan kode OTP 6 digit dari email.",
       );
       window.history.replaceState(
         {},
         document.title,
-        window.location.pathname + window.location.search
+        window.location.pathname + window.location.search,
       );
     }
   }, []);
@@ -486,22 +528,31 @@ export default function ForgotPasswordPage() {
     };
   }, []);
 
-  const persistResetState = (nextStep, nextResend = resendIn) => {
-    const resendUntil =
-      nextResend > 0 ? Date.now() + nextResend * 1000 : null;
+  const persistResetState = (
+    nextStep,
+    nextResend = resendIn,
+    nextEmail = email,
+    nextCodeExpiresAt = codeExpiresAt,
+  ) => {
+    const resendUntil = nextResend > 0 ? Date.now() + nextResend * 1000 : null;
 
     sessionStorage.setItem(
       STORAGE_KEY,
       JSON.stringify({
-        email,
+        email: nextEmail,
         step: nextStep,
         resendUntil,
+        codeExpiresAt: nextCodeExpiresAt,
       }),
     );
   };
 
   const clearResetState = () => {
     sessionStorage.removeItem(STORAGE_KEY);
+  };
+
+  const isOtpExpired = () => {
+    return !codeExpiresAt || Date.now() > codeExpiresAt;
   };
 
   const goToLogin = async () => {
@@ -536,22 +587,32 @@ export default function ForgotPasswordPage() {
     setSendingEmail(true);
 
     try {
+      const isRegistered = await checkRegisteredEmail(cleanedEmail);
+
+      if (!isRegistered) {
+        setEmailError("Email tidak terdaftar sebagai akun pengguna.");
+        return;
+      }
+
       const { error } = await supabase.auth.resetPasswordForEmail(cleanedEmail);
 
       if (error) throw error;
+
+      const nextExpiresAt = Date.now() + RESEND_SECONDS * 1000;
 
       setEmail(cleanedEmail);
       setOtp(["", "", "", "", "", ""]);
       setStep("otp");
       setResendIn(RESEND_SECONDS);
+      setCodeExpiresAt(nextExpiresAt);
       autoVerifyRef.current = "";
-      persistResetState("otp", RESEND_SECONDS);
+      persistResetState("otp", RESEND_SECONDS, cleanedEmail, nextExpiresAt);
     } catch (error) {
       setFormError(
         getFriendlyErrorMessage(
           error,
-          "Gagal mengirim kode verifikasi. Silakan coba lagi."
-        )
+          "Gagal mengirim kode verifikasi. Silakan coba lagi.",
+        ),
       );
     } finally {
       setSendingEmail(false);
@@ -618,6 +679,19 @@ export default function ForgotPasswordPage() {
 
     setOtpError("");
     setFormError("");
+
+    if (isOtpExpired()) {
+      setOtpError(CODE_EXPIRED_MESSAGE);
+      setOtp(["", "", "", "", "", ""]);
+      setResendIn(0);
+      setCodeExpiresAt(null);
+      autoVerifyRef.current = "";
+      setTimeout(() => {
+        otpRefs.current[0]?.focus();
+      }, 50);
+      return;
+    }
+
     setVerifyingOtp(true);
 
     try {
@@ -630,13 +704,15 @@ export default function ForgotPasswordPage() {
       if (error) throw error;
 
       setStep("password");
-      persistResetState("password", resendIn);
+      setResendIn(0);
+      setCodeExpiresAt(null);
+      persistResetState("password", 0, email.trim().toLowerCase(), null);
     } catch (error) {
       setOtpError(
         getFriendlyErrorMessage(
           error,
-          "Kode verifikasi tidak valid atau sudah kedaluwarsa."
-        )
+          "Kode verifikasi tidak valid atau sudah kedaluwarsa.",
+        ),
       );
       setOtp(["", "", "", "", "", ""]);
       autoVerifyRef.current = "";
@@ -657,25 +733,30 @@ export default function ForgotPasswordPage() {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(
-        email.trim().toLowerCase()
+        email.trim().toLowerCase(),
       );
 
       if (error) throw error;
 
+      const nextExpiresAt = Date.now() + RESEND_SECONDS * 1000;
+
       setOtp(["", "", "", "", "", ""]);
       setResendIn(RESEND_SECONDS);
+      setCodeExpiresAt(nextExpiresAt);
       autoVerifyRef.current = "";
-      persistResetState("otp", RESEND_SECONDS);
+      persistResetState(
+        "otp",
+        RESEND_SECONDS,
+        email.trim().toLowerCase(),
+        nextExpiresAt,
+      );
 
       setTimeout(() => {
         otpRefs.current[0]?.focus();
       }, 50);
     } catch (error) {
       setOtpError(
-        getFriendlyErrorMessage(
-          error,
-          "Gagal mengirim ulang kode verifikasi."
-        )
+        getFriendlyErrorMessage(error, "Gagal mengirim ulang kode verifikasi."),
       );
     } finally {
       setSendingEmail(false);
@@ -711,8 +792,8 @@ export default function ForgotPasswordPage() {
       setPasswordError(
         getFriendlyErrorMessage(
           error,
-          "Gagal mengubah kata sandi. Silakan coba lagi."
-        )
+          "Gagal mengubah kata sandi. Silakan coba lagi.",
+        ),
       );
     } finally {
       setUpdatingPassword(false);
@@ -732,13 +813,14 @@ export default function ForgotPasswordPage() {
 
     if (step === "otp") {
       setStep("email");
-      persistResetState("email", 0);
+      setCodeExpiresAt(null);
+      persistResetState("email", 0, email, null);
       return;
     }
 
     if (step === "password") {
       setStep("otp");
-      persistResetState("otp", resendIn);
+      persistResetState("otp", resendIn, email, codeExpiresAt);
       return;
     }
 
@@ -840,7 +922,7 @@ export default function ForgotPasswordPage() {
                       </h3>
                       <p className="mt-2 text-[15px] leading-8 text-[#2159D1]">
                         Kode verifikasi akan dikirim ke email Anda dan berlaku
-                        selama beberapa menit.
+                        selama 60 detik.
                       </p>
                     </div>
                   </div>
@@ -968,13 +1050,14 @@ export default function ForgotPasswordPage() {
                     <LockIcon className="w-5 h-5 shrink-0" />
                     <input
                       type={showPassword ? "text" : "password"}
+                      autoComplete="new-password"
                       placeholder="Masukkan kata sandi baru"
                       value={password}
                       onChange={(e) => {
                         setPassword(e.target.value);
                         setPasswordError("");
                       }}
-                      className="ml-3 h-full w-full border-none bg-transparent text-[16px] text-[#344054] outline-none placeholder:text-[#98A2B3]"
+                      className="ml-3 h-full w-full border-none bg-transparent text-[16px] text-[#344054] outline-none placeholder:text-[#98A2B3] [&::-ms-clear]:hidden [&::-ms-reveal]:hidden [&::-webkit-contacts-auto-fill-button]:invisible [&::-webkit-credentials-auto-fill-button]:invisible"
                       disabled={updatingPassword}
                     />
                     <button
@@ -1000,20 +1083,19 @@ export default function ForgotPasswordPage() {
                     <LockIcon className="w-5 h-5 shrink-0" />
                     <input
                       type={showConfirmPassword ? "text" : "password"}
+                      autoComplete="new-password"
                       placeholder="Konfirmasi kata sandi baru"
                       value={confirmPassword}
                       onChange={(e) => {
                         setConfirmPassword(e.target.value);
                         setPasswordError("");
                       }}
-                      className="ml-3 h-full w-full border-none bg-transparent text-[16px] text-[#344054] outline-none placeholder:text-[#98A2B3]"
+                      className="ml-3 h-full w-full border-none bg-transparent text-[16px] text-[#344054] outline-none placeholder:text-[#98A2B3] [&::-ms-clear]:hidden [&::-ms-reveal]:hidden [&::-webkit-contacts-auto-fill-button]:invisible [&::-webkit-credentials-auto-fill-button]:invisible"
                       disabled={updatingPassword}
                     />
                     <button
                       type="button"
-                      onClick={() =>
-                        setShowConfirmPassword((prev) => !prev)
-                      }
+                      onClick={() => setShowConfirmPassword((prev) => !prev)}
                       className="text-[#98A2B3]"
                     >
                       {showConfirmPassword ? (
@@ -1117,8 +1199,8 @@ export default function ForgotPasswordPage() {
                   Diubah!
                 </h1>
                 <p className="mx-auto mt-5 max-w-[320px] text-[15px] leading-8 text-[#5F6B7A]">
-                  Kata sandi Anda telah berhasil diperbarui. Anda akan
-                  dialihkan ke halaman login dalam beberapa detik.
+                  Kata sandi Anda telah berhasil diperbarui. Anda akan dialihkan
+                  ke halaman login dalam beberapa detik.
                 </p>
 
                 <button

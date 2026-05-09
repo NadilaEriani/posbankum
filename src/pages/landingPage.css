@@ -27,6 +27,8 @@
   --lp-white: #ffffff;
   --lp-shadow: 0 20px 40px rgba(27, 46, 94, 0.12);
   --lp-shadow-soft: 0 10px 24px rgba(27, 46, 94, 0.08);
+  --lp-info-card-shadow:
+    0 2px 4px -2px rgba(0, 0, 0, 0.1), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
 * {
@@ -276,6 +278,7 @@ body {
 
 .lp-hero {
   padding: 54px 0 76px;
+  background: linear-gradient(180deg, #e8f0fe 0%, #ffffff 50%, #e8f0fe 100%);
 }
 
 .lp-hero-grid,
@@ -335,15 +338,17 @@ body {
 }
 
 .lp-hero-bird {
-  width: 360px;
-  max-width: 105%;
+  width: 456px;
+  max-width: none;
   display: block;
   position: relative;
   z-index: 1;
-  transform: translateY(-28px);
+
+  transform: translateX(-21px) translateY(-85px) scaleX(1.2) scaleY(1.2);
+
+  transform-origin: center center;
   filter: drop-shadow(0 18px 24px rgba(0, 0, 0, 0.18));
 }
-
 .lp-hero-name {
   position: absolute;
   left: 50%;
@@ -403,7 +408,7 @@ body {
 
 .lp-hero-title {
   margin: 28px 0 22px;
-  font-size: clamp(36px, 4vw, 56px);
+  font-size: clamp(36px, 4vw, 54px);
   line-height: 1.12;
   letter-spacing: -0.04em;
   font-weight: 800;
@@ -609,6 +614,58 @@ body {
   line-height: 1.6;
 }
 
+.lp-why-section {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 84% 18%,
+      rgba(163, 195, 251, 0.26) 0%,
+      rgba(163, 195, 251, 0.12) 22%,
+      rgba(255, 255, 255, 0) 44%
+    ),
+    radial-gradient(
+      circle at 16% 82%,
+      rgba(163, 195, 251, 0.26) 0%,
+      rgba(163, 195, 251, 0.12) 22%,
+      rgba(255, 255, 255, 0) 44%
+    ),
+    rgba(255, 255, 255, 0.9);
+}
+
+.lp-why-section::before {
+  content: "";
+  position: absolute;
+  left: 42px;
+  top: 60px;
+  width: 200px;
+  height: 240px;
+  border-radius: 45372000px;
+  background: #a3c3fb;
+  filter: blur(30px);
+  opacity: 0.36;
+  pointer-events: none;
+}
+
+.lp-why-section::after {
+  content: "";
+  position: absolute;
+  right: 42px;
+  bottom: 34px;
+  width: 200px;
+  height: 240px;
+  border-radius: 45372000px;
+  background: #a3c3fb;
+  filter: blur(30px);
+  opacity: 0.36;
+  pointer-events: none;
+}
+
+.lp-why-section .lp-container {
+  position: relative;
+  z-index: 1;
+}
+
 .lp-why-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -620,7 +677,7 @@ body {
   border-radius: 24px;
   padding: 32px 30px 26px;
   position: relative;
-  box-shadow: var(--lp-shadow-soft);
+  box-shadow: var(--lp-info-card-shadow);
   overflow: hidden;
   border: 1px solid transparent;
 }
@@ -653,13 +710,14 @@ body {
 }
 
 .lp-why-icon {
-  width: 66px;
-  height: 66px;
-  border-radius: 18px;
+  width: 76px;
+  height: 76px;
+  border-radius: 20px;
   display: grid;
   place-items: center;
   box-shadow: 0 10px 18px rgba(23, 34, 56, 0.12);
   margin-bottom: 28px;
+  overflow: hidden;
 }
 
 .lp-why-card-blue .lp-why-icon {
@@ -677,9 +735,16 @@ body {
   color: #fff;
 }
 
-.lp-why-icon-svg {
-  width: 30px;
-  height: 30px;
+.lp-why-icon svg {
+  width: 38px;
+  height: 38px;
+}
+
+.lp-why-image-icon {
+  width: 46px;
+  height: 46px;
+  object-fit: contain;
+  display: block;
 }
 
 .lp-why-card h3 {
@@ -698,7 +763,11 @@ body {
 }
 
 .lp-service-section {
-  background: linear-gradient(180deg, #eef7ef 0%, #edf7ef 100%);
+  background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+}
+
+.lp-service-section .lp-blue-title {
+  font-size: clamp(30px, 3vw, 44px);
 }
 
 .lp-green-badge,
@@ -813,15 +882,20 @@ body {
   background: #ffffff;
   display: grid;
   place-items: center;
-  margin: 20px auto 0;
+  margin: 22px auto 0;
   box-shadow: 0 18px 30px rgba(11, 82, 71, 0.18);
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
+  z-index: 1;
 }
 
 .lp-service-circle img {
-  width: 210px;
-  height: auto;
+  width: 275px;
+  height: 299px;
   display: block;
+  transform: translateY(-29px) scaleX(1.1);
+  transform-origin: center center;
+  filter: drop-shadow(0 16px 22px rgba(0, 0, 0, 0.16));
 }
 
 .lp-service-footer,
@@ -853,7 +927,7 @@ body {
 }
 
 .lp-info-section {
-  background: linear-gradient(180deg, #fff6f7 0%, #fff6f8 100%);
+  background: linear-gradient(180deg, #fef2f2 0%, #ffffff 100%);
 }
 
 .lp-info-card {
@@ -872,25 +946,25 @@ body {
 
 .lp-online-badge {
   position: absolute;
-  top: 28px;
-  right: 24px;
-  min-height: 38px;
-  padding: 0 14px;
+  top: 24px;
+  right: 22px;
+  min-height: 30px;
+  padding: 0 11px;
   border-radius: 999px;
   background: #12d161;
   color: #fff;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: 6px;
+  font-size: 12px;
   font-weight: 800;
-  box-shadow: 0 12px 18px rgba(6, 126, 57, 0.16);
+  box-shadow: 0 9px 14px rgba(6, 126, 57, 0.14);
   z-index: 2;
 }
 
 .lp-online-dot {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
   border-radius: 50%;
   background: #ffffff;
 }
@@ -933,7 +1007,7 @@ body {
 }
 
 .lp-map-section {
-  background: #f8fafc;
+  background: linear-gradient(180deg, #f9fafb 0%, #ffffff 100%);
 }
 
 .lp-map-title {
@@ -1183,49 +1257,38 @@ body {
   top: 76%;
   left: 27%;
 }
-
 .lp-map-pin {
   position: absolute;
-  width: 44px;
-  height: 44px;
-  margin-left: -22px;
-  margin-top: -44px;
-  display: grid;
-  place-items: center;
-  background: transparent;
-  border: none;
-  padding: 0;
+  width: 46px;
+  height: 64px;
+  margin-left: -23px;
+  margin-top: -64px;
+  display: block;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
   cursor: pointer;
   z-index: 3;
+  box-shadow: none !important;
+  outline: none;
 }
 
-.lp-map-pin span {
-  width: 38px;
-  height: 38px;
-  border-radius: 50% 50% 50% 0;
-  background: linear-gradient(180deg, #4d60d7 0%, #4452d1 100%);
-  transform: rotate(-45deg);
-  display: grid;
-  place-items: center;
-  box-shadow: 0 12px 24px rgba(74, 87, 199, 0.28);
-  transition:
-    transform 0.22s ease,
-    box-shadow 0.22s ease;
+.lp-map-pin-img {
+  width: 46px;
+  height: auto;
+  display: block;
+  object-fit: contain;
+  object-position: center;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
-.lp-map-pin span svg {
-  width: 16px;
-  height: 16px;
-  transform: rotate(45deg);
-  color: #fff;
+.lp-map-pin:hover .lp-map-pin-img,
+.lp-map-pin.active .lp-map-pin-img {
+  transform: scale(1.04);
 }
-
-.lp-map-pin.active span,
-.lp-map-pin:hover span {
-  transform: rotate(-45deg) scale(1.14);
-  box-shadow: 0 14px 28px rgba(74, 87, 199, 0.34);
-}
-
 .lp-map-compass,
 .lp-map-zoom,
 .lp-map-scale,
@@ -1309,7 +1372,7 @@ body {
 
 .lp-location-header {
   background: linear-gradient(180deg, #4148be 0%, #2f38a7 100%);
-  color: #fff;
+  color: #ffffff;
   padding: 28px 22px 22px;
   display: flex;
   align-items: flex-end;
@@ -1321,12 +1384,14 @@ body {
   margin: 0 0 8px;
   font-size: 22px;
   font-weight: 800;
+  color: #ffffff;
 }
 
 .lp-location-header p {
   margin: 0;
   font-size: 14px;
   opacity: 0.88;
+  color: #ffffff;
 }
 
 .lp-see-all-button {
@@ -1514,6 +1579,7 @@ body {
   font-size: 28px;
   line-height: 1.2;
   font-weight: 800;
+  color: #ffffff;
 }
 
 .lp-detail-subline {
@@ -1724,6 +1790,7 @@ body {
   font-size: 28px;
   line-height: 1.2;
   font-weight: 800;
+  color: #ffffff;
 }
 
 .lp-all-popup-header p {
@@ -1811,6 +1878,7 @@ body {
   font-size: 17px;
   line-height: 1.25;
   font-weight: 800;
+  color: #ffffff;
 }
 
 .lp-all-card-header span {
@@ -1833,6 +1901,60 @@ body {
 
 .lp-all-card-body {
   padding: 18px 20px 20px;
+}
+
+.lp-faq-section {
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(
+      circle at 84% 18%,
+      rgba(163, 195, 251, 0.24) 0%,
+      rgba(163, 195, 251, 0.1) 22%,
+      rgba(255, 255, 255, 0) 44%
+    ),
+    radial-gradient(
+      circle at 16% 82%,
+      rgba(163, 195, 251, 0.24) 0%,
+      rgba(163, 195, 251, 0.1) 22%,
+      rgba(255, 255, 255, 0) 44%
+    ),
+    linear-gradient(180deg, #f9fafb 0%, #ffffff 50%, #e8f0fe 100%);
+}
+
+/* POSISI LINGKARAN SECTION 6 - BAWAH KIRI */
+.lp-faq-section::before {
+  content: "";
+  position: absolute;
+  left: 42px;
+  bottom: 36px;
+  width: 240px;
+  height: 240px;
+  border-radius: 45372000px;
+  background: #a3c3fb;
+  filter: blur(96px);
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+/* POSISI LINGKARAN SECTION 6 - ATAS KANAN */
+.lp-faq-section::after {
+  content: "";
+  position: absolute;
+  right: 42px;
+  top: 38px;
+  width: 240px;
+  height: 240px;
+  border-radius: 45372000px;
+  background: #a3c3fb;
+  filter: blur(30px);
+  opacity: 0.32;
+  pointer-events: none;
+}
+
+.lp-faq-section .lp-container {
+  position: relative;
+  z-index: 1;
 }
 
 .lp-faq-wrap {
@@ -1862,9 +1984,14 @@ body {
 .lp-faq-item {
   border-radius: 18px;
   background: #ffffff;
-  box-shadow: var(--lp-shadow-soft);
+  box-shadow:
+    0 8px 20px rgba(15, 23, 42, 0.08),
+    0 2px 6px rgba(15, 23, 42, 0.06);
   border: 1px solid rgba(38, 71, 162, 0.08);
   overflow: hidden;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
 }
 
 .lp-faq-button {
@@ -1901,28 +2028,38 @@ body {
   font-weight: 800;
 }
 
+.lp-faq-icon-wrap svg {
+  width: 19px;
+  height: 19px;
+  display: block;
+}
+
+.lp-faq-icon-placeholder {
+  display: inline-grid;
+  place-items: center;
+  line-height: 1;
+}
+
 .lp-faq-question {
   font-size: 15px;
   line-height: 1.6;
   color: var(--lp-text-main);
   font-weight: 700;
 }
-
 .lp-faq-arrow {
   width: 24px;
   height: 24px;
   flex-shrink: 0;
   color: #697a9e;
-  transition: transform 0.22s ease;
-  font-size: 22px;
   display: inline-grid;
   place-items: center;
 }
 
-.lp-faq-arrow.open {
-  transform: rotate(180deg);
+.lp-faq-arrow svg {
+  width: 22px;
+  height: 22px;
+  display: block;
 }
-
 .lp-faq-answer {
   padding: 0 24px 22px 76px;
   color: var(--lp-text-body);
@@ -1937,6 +2074,7 @@ body {
 
 .lp-cta-section {
   padding-top: 8px;
+  background: #e8f0fe;
 }
 
 .lp-cta-box {
@@ -1983,7 +2121,7 @@ body {
 }
 
 .lp-footer {
-  margin-top: 54px;
+  margin-top: 0;
   background: linear-gradient(180deg, #243d9b 0%, #23358c 100%);
   color: #fff;
 }
@@ -2001,28 +2139,75 @@ body {
 .lp-footer-brand {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
 .lp-footer-logo {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 800;
+  color: #ffffff;
 }
 
-.lp-footer-logo img {
-  width: 32px;
-  height: 32px;
-  object-fit: contain;
+.lp-footer-logo-box {
+  width: 60px;
+  height: 52px;
+  border-radius: 16px;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: block;
+  background: transparent;
+}
+
+.lp-footer-logo-box img {
+  width: 115%;
+  height: 140%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 16px;
 }
 
 .lp-footer-copy {
-  color: rgba(255, 255, 255, 0.72);
-  font-size: 14px;
-  line-height: 1.8;
-  max-width: 280px;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 15px;
+  line-height: 1.7;
+  max-width: 340px;
+}
+
+.lp-footer-socials {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.lp-footer-socials a {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  text-decoration: none;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+  transition:
+    transform 0.22s ease,
+    background 0.22s ease;
+}
+
+.lp-footer-socials a:hover {
+  transform: translateY(-2px);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.lp-footer-socials svg {
+  width: 14px;
+  height: 14px;
 }
 
 .lp-footer-col {
@@ -2035,6 +2220,7 @@ body {
   margin: 0 0 8px;
   font-size: 15px;
   font-weight: 800;
+  color: #ffffff;
 }
 
 .lp-footer-col a,
@@ -2218,6 +2404,10 @@ body {
     font-size: clamp(32px, 10vw, 46px);
   }
 
+  .lp-service-section .lp-blue-title {
+    font-size: clamp(28px, 8vw, 38px);
+  }
+
   .lp-hero-desc,
   .lp-section-copy,
   .lp-faq-copy,
@@ -2341,6 +2531,51 @@ body {
     gap: 22px;
   }
 
+  .lp-footer-logo {
+    font-size: 20px;
+  }
+
+  .lp-footer-logo-box {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+  }
+
+  .lp-footer-logo-box img {
+    border-radius: 14px;
+  }
+
+  .lp-footer-socials {
+    gap: 7px;
+    margin-top: 8px;
+  }
+
+  .lp-footer-socials a {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: rgba(255, 255, 255, 0.12);
+    border: 1.5px solid rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    display: grid;
+    place-items: center;
+    text-decoration: none;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+    transition:
+      transform 0.22s ease,
+      background 0.22s ease;
+  }
+
+  .lp-footer-socials a:hover {
+    transform: translateY(-2px);
+    background: rgba(255, 255, 255, 0.16);
+  }
+
+  .lp-footer-socials svg {
+    width: 13px;
+    height: 13px;
+  }
+
   .lp-float-chat {
     width: 58px;
     height: 58px;
@@ -2383,7 +2618,8 @@ body {
   }
 
   .lp-service-circle img {
-    width: 180px;
+    width: 226px;
+    transform: translateY(0);
   }
 
   .lp-location-meta {
@@ -2408,3 +2644,2557 @@ body {
     height: 50px;
   }
 }
+
+/* FINAL LOGO POPUP DETAIL LOKASI - DIPISAH DARI LIHAT SEMUA LOKASI */
+.lp-detail-logo-box {
+  width: 60px;
+  height: 52px;
+  border-radius: 16px;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: block;
+  background: transparent;
+  box-shadow: none;
+}
+
+.lp-detail-title-wrap .lp-detail-logo-img {
+  width: 115%;
+  height: 161%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 16px;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  max-width: none;
+}
+
+/* FINAL LOGO POPUP LIHAT SEMUA LOKASI - ATUR UKURAN DI SINI */
+.lp-all-logo-box {
+  width: 52px;
+  height: 46px;
+  border-radius: 14px;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: block;
+  background: transparent;
+  box-shadow: none;
+}
+
+.lp-all-card-header .lp-all-logo-img {
+  width: 112%;
+  height: 148%;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 14px;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  max-width: none;
+}
+/* FIX LOGO BURUNG - POPUP LIHAT SEMUA LOKASI SAJA */
+.lp-all-logo-box {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  box-shadow: none;
+}
+
+.lp-all-card-header .lp-all-logo-img {
+  width: 47px;
+  height: 56px;
+  aspect-ratio: 1 / 1;
+  display: block;
+  -o-object-fit: cover;
+  object-fit: cover;
+  -o-object-position: center;
+  object-position: center;
+  border-radius: 16px;
+  padding: 0;
+  margin: 0;
+  max-width: none;
+  max-height: none;
+  background: transparent;
+  box-shadow: none;
+  transform: scale(1.5);
+  position: relative;
+  left: -8px;
+  top: 17px;
+}
+
+@media (max-width: 768px) {
+  .lp-detail-logo-box {
+    width: 46px;
+    height: 46px;
+    border-radius: 14px;
+  }
+
+  .lp-detail-title-wrap .lp-detail-logo-img {
+    width: 115%;
+    height: 140%;
+    border-radius: 14px;
+  }
+
+  .lp-all-logo-box {
+    width: 42px;
+    height: 38px;
+    border-radius: 12px;
+  }
+
+  .lp-all-card-header .lp-all-logo-img {
+    width: 112%;
+    height: 145%;
+    border-radius: 12px;
+  }
+}
+
+/* === UPDATE FOOTER LIST & CONTACT + DETAIL LOKASI CONTENT === */
+.lp-footer-link-col a {
+  align-items: center;
+  gap: 10px;
+}
+
+.lp-footer-link-col a::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #51a2ff;
+  flex-shrink: 0;
+}
+
+.lp-footer-contact-col {
+  gap: 14px;
+}
+
+.lp-footer-contact-item {
+  display: grid !important;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center !important;
+  gap: 10px !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  text-decoration: none;
+}
+
+.lp-footer-contact-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1.5px solid rgba(255, 255, 255, 0.12);
+  display: grid !important;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.lp-footer-contact-icon svg {
+  width: 17px;
+  height: 17px;
+  color: #ffffff;
+}
+
+.lp-footer-contact-text {
+  display: flex !important;
+  flex-direction: column;
+  align-items: flex-start !important;
+  gap: 3px !important;
+  min-width: 0;
+}
+
+.lp-footer-contact-text small {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+.lp-footer-contact-text strong {
+  color: #ffffff;
+  font-size: 14px;
+  line-height: 1.45;
+  font-weight: 700;
+}
+
+.lp-detail-popup {
+  width: min(780px, 100%);
+}
+
+.lp-detail-popup-header {
+  min-height: 110px;
+}
+
+.lp-detail-popup-body {
+  padding: 32px;
+  background: #ffffff;
+}
+
+.lp-detail-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.lp-detail-summary-card {
+  min-height: 124px;
+  border-radius: 18px;
+  padding: 22px 20px;
+  border: 1px solid transparent;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.lp-detail-summary-blue {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1558ff;
+}
+
+.lp-detail-summary-purple {
+  background: #faf5ff;
+  border-color: #ead5ff;
+  color: #9333ea;
+}
+
+.lp-detail-summary-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: #ffffff;
+  flex-shrink: 0;
+}
+
+.lp-detail-summary-blue .lp-detail-summary-icon {
+  background: #1558ff;
+}
+
+.lp-detail-summary-purple .lp-detail-summary-icon {
+  background: #9333ea;
+}
+
+.lp-detail-summary-icon svg {
+  width: 24px;
+  height: 24px;
+}
+
+.lp-detail-summary-card small {
+  display: block;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.lp-detail-summary-card strong {
+  display: block;
+  font-size: 30px;
+  line-height: 1;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+
+.lp-detail-summary-card p {
+  margin: 0;
+  color: #4b5563;
+  font-size: 13px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.lp-detail-contact-card {
+  border-radius: 18px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  padding: 24px;
+}
+
+.lp-detail-contact-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.lp-detail-contact-title span {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  display: grid;
+  place-items: center;
+  background: #dbeafe;
+  color: #2563eb;
+  flex-shrink: 0;
+}
+
+.lp-detail-contact-title span svg {
+  width: 18px;
+  height: 18px;
+}
+
+.lp-detail-contact-title h3 {
+  margin: 0;
+  color: #1f2937;
+  font-size: 20px;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.lp-detail-contact-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lp-detail-contact-row {
+  min-height: 74px;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 16px;
+}
+
+.lp-detail-contact-row:first-child,
+.lp-detail-contact-row:last-child {
+  grid-template-columns: 52px minmax(0, 1fr);
+}
+
+.lp-detail-contact-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.lp-detail-contact-icon svg {
+  width: 21px;
+  height: 21px;
+}
+
+.lp-detail-contact-row small {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.35;
+  font-weight: 600;
+  margin-bottom: 5px;
+}
+
+.lp-detail-contact-row strong {
+  display: block;
+  color: #111827;
+  font-size: 15px;
+  line-height: 1.45;
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.lp-detail-contact-action {
+  min-width: 82px;
+  height: 38px;
+  border-radius: 12px;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.lp-detail-action-green {
+  background: #16a34a;
+}
+
+.lp-detail-action-purple {
+  background: #9333ea;
+}
+
+@media (max-width: 768px) {
+  .lp-footer-contact-item {
+    grid-template-columns: 36px minmax(0, 1fr);
+  }
+
+  .lp-footer-contact-icon {
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+  }
+
+  .lp-footer-contact-icon svg {
+    width: 15px;
+    height: 15px;
+  }
+
+  .lp-detail-popup-body {
+    padding: 22px;
+  }
+
+  .lp-detail-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-detail-contact-card {
+    padding: 18px;
+  }
+
+  .lp-detail-contact-row,
+  .lp-detail-contact-row:first-child,
+  .lp-detail-contact-row:last-child {
+    grid-template-columns: 44px minmax(0, 1fr);
+  }
+
+  .lp-detail-contact-action {
+    grid-column: 2;
+    width: max-content;
+    margin-top: -4px;
+  }
+}
+
+/* =========================================================
+   UPDATE MAP PIN, POPUP PETA, CHATBOT, DAN DETAIL LOKASI
+   ========================================================= */
+.lp-map-pin {
+  width: 32px;
+  height: 32px;
+  margin-left: -16px;
+  margin-top: -16px;
+  display: grid;
+  place-items: center;
+  z-index: 5;
+}
+
+.lp-map-pin::before {
+  content: "";
+  position: absolute;
+  inset: -16px;
+  border-radius: 50%;
+  background: rgba(74, 87, 199, 0.15);
+  opacity: 0;
+  transform: scale(0.8);
+  transition:
+    opacity 0.22s ease,
+    transform 0.22s ease;
+}
+
+.lp-map-pin span {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #4452d1;
+  transform: none !important;
+  display: grid;
+  place-items: center;
+  box-shadow: 0 9px 18px rgba(74, 87, 199, 0.28);
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    background 0.22s ease;
+}
+
+.lp-map-pin span svg {
+  width: 13px;
+  height: 13px;
+  transform: none !important;
+  color: #ffffff;
+  stroke-width: 2.8;
+}
+
+.lp-map-pin.active::before,
+.lp-map-pin:hover::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.lp-map-pin.active span,
+.lp-map-pin:hover span {
+  transform: scale(1.08) !important;
+  background: #4a57c7;
+  box-shadow: 0 12px 24px rgba(74, 87, 199, 0.34);
+}
+
+.lp-map-location-popup {
+  position: absolute;
+  width: min(330px, calc(100% - 36px));
+  transform: translate(-50%, 28px);
+  z-index: 12;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #ffffff;
+  box-shadow: 0 22px 48px rgba(15, 23, 42, 0.22);
+  border: 1px solid rgba(38, 71, 162, 0.08);
+  pointer-events: auto;
+}
+
+.lp-map-popup-header {
+  min-height: 56px;
+  padding: 16px 18px;
+  background: linear-gradient(135deg, #2c326f 0%, #474c89 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+}
+
+.lp-map-popup-header h3 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 17px;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.lp-map-popup-body {
+  padding: 14px 18px 16px;
+  background: #ffffff;
+}
+
+.lp-map-popup-info-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: flex-start;
+  gap: 10px;
+  color: #1f2937;
+  font-size: 13px;
+  line-height: 1.55;
+  font-weight: 500;
+  margin-bottom: 10px;
+}
+
+.lp-map-popup-info-row svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  color: #4a57c7;
+  flex-shrink: 0;
+}
+
+.lp-map-popup-info-row:nth-child(2) svg {
+  color: #16a34a;
+}
+
+.lp-map-popup-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.lp-map-popup-status,
+.lp-map-popup-paralegal {
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.lp-map-popup-status {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.lp-map-popup-paralegal {
+  background: #edf3ff;
+  color: #335be7;
+  border: 1px solid rgba(51, 91, 231, 0.16);
+}
+
+.lp-map-popup-status svg,
+.lp-map-popup-paralegal svg {
+  width: 14px;
+  height: 14px;
+}
+
+.lp-map-popup-case {
+  color: #1f2937;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.lp-float-chat {
+  right: 28px;
+  bottom: 28px;
+  width: 104px;
+  height: 104px;
+  background: rgba(118, 145, 245, 0.72);
+  color: #ffffff;
+  box-shadow: none;
+  overflow: visible;
+}
+
+.lp-float-chat::before {
+  inset: 24px;
+  border-radius: 50%;
+  background: #0f3f93;
+  box-shadow: 0 14px 28px rgba(15, 63, 147, 0.28);
+}
+
+.lp-float-chat svg {
+  width: 32px;
+  height: 32px;
+  stroke-width: 2.2;
+}
+
+.lp-modal-overlay {
+  padding: 40px 28px;
+  align-items: center;
+  overflow: auto;
+}
+
+.lp-detail-popup {
+  width: min(760px, calc(100% - 28px));
+  max-height: calc(100vh - 80px);
+  display: flex;
+  flex-direction: column;
+}
+
+.lp-detail-popup-header {
+  min-height: 96px;
+  padding: 20px 28px;
+  flex-shrink: 0;
+}
+
+.lp-detail-popup-body {
+  padding: 24px 28px;
+  overflow-y: auto;
+  background: #ffffff;
+}
+
+.lp-detail-summary-grid {
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.lp-detail-summary-card {
+  min-height: 104px;
+  border-radius: 16px;
+  padding: 16px 18px;
+  gap: 12px;
+}
+
+.lp-detail-summary-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+}
+
+.lp-detail-summary-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.lp-detail-summary-card small {
+  font-size: 12px;
+  margin-bottom: 3px;
+}
+
+.lp-detail-summary-card strong {
+  font-size: 28px;
+  margin-bottom: 7px;
+}
+
+.lp-detail-summary-card p {
+  font-size: 12px;
+}
+
+.lp-detail-contact-card {
+  border-radius: 16px;
+  padding: 18px;
+}
+
+.lp-detail-contact-title {
+  margin-bottom: 14px;
+}
+
+.lp-detail-contact-title h3 {
+  font-size: 19px;
+}
+
+.lp-detail-contact-list {
+  gap: 12px;
+}
+
+.lp-detail-contact-row {
+  min-height: 64px;
+  border-radius: 14px;
+  grid-template-columns: 48px minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.lp-detail-contact-row:first-child,
+.lp-detail-contact-row:last-child {
+  grid-template-columns: 48px minmax(0, 1fr);
+}
+
+.lp-detail-contact-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 13px;
+}
+
+.lp-detail-contact-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.lp-detail-contact-row small {
+  font-size: 12px;
+  margin-bottom: 3px;
+}
+
+.lp-detail-contact-row strong {
+  font-size: 14px;
+  line-height: 1.42;
+}
+
+.lp-detail-contact-action {
+  min-width: 76px;
+  height: 36px;
+  border-radius: 11px;
+  font-size: 13px;
+}
+
+.lp-footer-contact-icon {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  padding: 0 !important;
+  line-height: 1;
+}
+
+.lp-footer-contact-icon svg {
+  display: block;
+  margin: 0;
+  transform: translate(0, 0);
+}
+
+@media (max-width: 768px) {
+  .lp-map-location-popup {
+    width: min(300px, calc(100% - 28px));
+    transform: translate(-50%, 26px);
+  }
+
+  .lp-map-popup-header {
+    min-height: 52px;
+    padding: 14px 16px;
+  }
+
+  .lp-map-popup-header h3 {
+    font-size: 15px;
+  }
+
+  .lp-map-popup-body {
+    padding: 12px 16px 14px;
+  }
+
+  .lp-float-chat {
+    width: 82px;
+    height: 82px;
+    right: 14px;
+    bottom: 16px;
+  }
+
+  .lp-float-chat::before {
+    inset: 19px;
+  }
+
+  .lp-float-chat svg {
+    width: 26px;
+    height: 26px;
+  }
+
+  .lp-modal-overlay {
+    padding: 18px 14px;
+    align-items: flex-start;
+  }
+
+  .lp-detail-popup {
+    width: 100%;
+    max-height: calc(100vh - 36px);
+  }
+
+  .lp-detail-popup-header {
+    min-height: auto;
+    padding: 18px;
+  }
+
+  .lp-detail-popup-body {
+    padding: 18px;
+  }
+
+  .lp-detail-summary-grid {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+
+  .lp-detail-summary-card {
+    min-height: 96px;
+    padding: 14px;
+  }
+
+  .lp-detail-contact-card {
+    padding: 14px;
+  }
+
+  .lp-detail-contact-row,
+  .lp-detail-contact-row:first-child,
+  .lp-detail-contact-row:last-child {
+    grid-template-columns: 44px minmax(0, 1fr);
+    min-height: 62px;
+    padding: 11px 12px;
+  }
+
+  .lp-detail-contact-action {
+    grid-column: 2;
+    width: max-content;
+    margin-top: -2px;
+  }
+}
+
+/* =========================================================
+   UPDATE FINAL: MAPS PNG PIN + CHATBOT PANEL
+   ========================================================= */
+.lp-map-pin {
+  width: 40px !important;
+  height: 58px !important;
+  margin-left: -20px !important;
+  margin-top: -58px !important;
+  display: grid !important;
+  place-items: center !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  cursor: pointer;
+  z-index: 8;
+}
+
+.lp-map-pin::before {
+  display: none !important;
+}
+
+.lp-map-pin-mark {
+  width: 34px !important;
+  height: 46px !important;
+  border-radius: 50% 50% 50% 0 !important;
+  background: #4a57c7 !important;
+  transform: rotate(-45deg) !important;
+  display: grid !important;
+  place-items: center !important;
+  box-shadow: 0 12px 22px rgba(74, 87, 199, 0.3) !important;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.lp-map-pin-icon {
+  width: 22px !important;
+  height: 22px !important;
+  border-radius: 50% !important;
+  background: #ffffff !important;
+  transform: rotate(45deg) !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden;
+}
+
+.lp-map-pin-icon img {
+  width: 15px;
+  height: 15px;
+  object-fit: contain;
+  display: block;
+}
+
+.lp-map-pin.active .lp-map-pin-mark,
+.lp-map-pin:hover .lp-map-pin-mark {
+  transform: rotate(-45deg) scale(1.08) !important;
+  box-shadow: 0 15px 28px rgba(74, 87, 199, 0.36) !important;
+}
+
+.lp-map-location-popup {
+  transform: translate(-50%, 18px) !important;
+  width: min(320px, calc(100% - 34px));
+  z-index: 18;
+}
+
+.lp-float-chat {
+  right: 28px !important;
+  bottom: 28px !important;
+  width: 86px !important;
+  height: 86px !important;
+  border: none;
+  border-radius: 50%;
+  background: rgba(118, 145, 245, 0.72) !important;
+  color: #ffffff;
+  box-shadow: none !important;
+  overflow: visible;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  z-index: 96;
+}
+
+.lp-float-chat::before {
+  content: "";
+  position: absolute;
+  inset: 20px !important;
+  border-radius: 50%;
+  background: #0f3f93 !important;
+  box-shadow: 0 14px 28px rgba(15, 63, 147, 0.28);
+}
+
+.lp-float-chat svg {
+  position: relative;
+  z-index: 1;
+  width: 26px !important;
+  height: 26px !important;
+  stroke-width: 2.2;
+}
+
+.lp-float-chat.is-open {
+  width: 58px !important;
+  height: 58px !important;
+  background: #0f3f93 !important;
+  box-shadow: 0 14px 28px rgba(15, 63, 147, 0.28) !important;
+}
+
+.lp-float-chat.is-open::before {
+  display: none;
+}
+
+.lp-float-chat.is-open svg {
+  width: 30px !important;
+  height: 30px !important;
+}
+
+.lp-chatbot-panel {
+  position: fixed;
+  right: 30px;
+  bottom: 104px;
+  width: min(360px, calc(100vw - 28px));
+  height: min(620px, calc(100vh - 130px));
+  z-index: 95;
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px solid rgba(15, 63, 147, 0.22);
+  box-shadow: 0 28px 70px rgba(0, 0, 0, 0.28);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.lp-chatbot-panel.is-large {
+  right: 40px;
+  bottom: 86px;
+  width: calc(100vw - 80px);
+  height: min(82vh, 820px);
+  border-radius: 20px;
+}
+
+.lp-chatbot-header {
+  min-height: 64px;
+  padding: 12px 16px;
+  background: linear-gradient(180deg, #0f3f93 0%, #0a2a62 100%);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-shrink: 0;
+}
+
+.lp-chatbot-title-wrap {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.lp-chatbot-logo {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #0f3f93;
+  display: grid;
+  place-items: center;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.lp-chatbot-logo::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  bottom: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #1bd65f;
+  border: 2px solid #0f3f93;
+}
+
+.lp-chatbot-logo svg {
+  width: 24px;
+  height: 24px;
+}
+
+.lp-chatbot-title-wrap h3 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 16px;
+  line-height: 1.1;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.lp-chatbot-title-wrap p {
+  margin: 4px 0 0;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 11px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.lp-chatbot-title-wrap p span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #1bd65f;
+  display: inline-block;
+}
+
+.lp-chatbot-controls {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.lp-chatbot-controls button {
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+  border: none;
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.lp-chatbot-controls button svg {
+  width: 19px;
+  height: 19px;
+}
+
+.lp-chatbot-body {
+  flex: 1;
+  background: #f9fafb;
+  padding: 20px;
+  overflow: auto;
+}
+
+.lp-chatbot-message {
+  width: min(100%, 260px);
+  border-radius: 12px;
+  background: #ffffff;
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.16);
+  padding: 14px 16px;
+  color: #1f2937;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.lp-chatbot-panel.is-large .lp-chatbot-message {
+  width: min(66%, 880px);
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.lp-chatbot-time {
+  margin-top: 7px;
+  color: #6b7280;
+  font-size: 10px;
+}
+
+.lp-chatbot-topics {
+  padding: 14px 20px 16px;
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.lp-chatbot-topics h4 {
+  margin: 0 0 10px;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.lp-chatbot-topic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.lp-chatbot-topic-grid button {
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1.5px solid #5f92ff;
+  background: #edf3ff;
+  color: #0a1740;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.25;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+}
+
+.lp-chatbot-topic-grid button span {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  background: #0f5bd8;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
+.lp-chatbot-topic-grid button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.lp-chatbot-input-wrap {
+  padding: 14px 16px 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 48px;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border-top: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.lp-chatbot-input {
+  min-height: 40px;
+  border-radius: 14px;
+  border: 1px solid #b9c6d8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+}
+
+.lp-chatbot-input input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: #1f2937;
+  font-size: 12px;
+}
+
+.lp-chatbot-input input::placeholder {
+  color: #7b8495;
+}
+
+.lp-chatbot-input button {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1.5px solid #9aa7c3;
+  background: #ffffff;
+  color: #9aa7c3;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.lp-chatbot-send {
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  border: none;
+  background: #8c8ea6;
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
+}
+
+.lp-chatbot-send svg {
+  width: 20px;
+  height: 20px;
+}
+
+.lp-chatbot-powered {
+  padding: 0 16px 11px;
+  background: #ffffff;
+  color: #6b7280;
+  text-align: center;
+  font-size: 10px;
+  flex-shrink: 0;
+}
+
+.lp-chatbot-panel.is-large .lp-chatbot-header {
+  min-height: 78px;
+  padding: 18px 24px;
+}
+
+.lp-chatbot-panel.is-large .lp-chatbot-logo {
+  width: 56px;
+  height: 56px;
+}
+
+.lp-chatbot-panel.is-large .lp-chatbot-logo svg {
+  width: 30px;
+  height: 30px;
+}
+
+.lp-chatbot-panel.is-large .lp-chatbot-title-wrap h3 {
+  font-size: 24px;
+}
+
+.lp-chatbot-panel.is-large .lp-chatbot-title-wrap p {
+  font-size: 13px;
+}
+
+.lp-chatbot-panel.is-large .lp-chatbot-body {
+  padding: 24px;
+}
+
+.lp-chatbot-panel.is-large .lp-chatbot-topics {
+  padding: 18px 24px;
+}
+
+.lp-chatbot-panel.is-large .lp-chatbot-topic-grid {
+  gap: 12px;
+}
+
+.lp-chatbot-panel.is-large .lp-chatbot-topic-grid button {
+  min-height: 54px;
+  font-size: 13px;
+}
+
+.lp-chatbot-panel.is-large .lp-chatbot-input-wrap {
+  padding: 16px 24px 6px;
+  grid-template-columns: minmax(0, 1fr) 54px;
+}
+
+.lp-chatbot-panel.is-large .lp-chatbot-input {
+  min-height: 46px;
+}
+
+.lp-chatbot-panel.is-large .lp-chatbot-input input {
+  font-size: 14px;
+}
+
+.lp-chatbot-panel.is-large .lp-chatbot-send {
+  width: 50px;
+  height: 50px;
+}
+
+.lp-modal-overlay {
+  padding: 48px 28px !important;
+  align-items: center !important;
+}
+
+.lp-detail-popup {
+  max-height: calc(100vh - 96px) !important;
+}
+
+.lp-detail-popup-body {
+  padding: 26px 28px !important;
+}
+
+@media (max-width: 768px) {
+  .lp-map-pin {
+    width: 36px !important;
+    height: 52px !important;
+    margin-left: -18px !important;
+    margin-top: -52px !important;
+  }
+
+  .lp-map-pin-mark {
+    width: 30px !important;
+    height: 41px !important;
+  }
+
+  .lp-map-pin-icon {
+    width: 20px !important;
+    height: 20px !important;
+  }
+
+  .lp-map-pin-icon img {
+    width: 14px;
+    height: 14px;
+  }
+
+  .lp-chatbot-panel,
+  .lp-chatbot-panel.is-large {
+    right: 14px;
+    bottom: 82px;
+    width: calc(100vw - 28px);
+    height: min(620px, calc(100vh - 104px));
+    border-radius: 18px;
+  }
+
+  .lp-chatbot-panel.is-large .lp-chatbot-title-wrap h3 {
+    font-size: 17px;
+  }
+
+  .lp-chatbot-panel.is-large .lp-chatbot-logo {
+    width: 44px;
+    height: 44px;
+  }
+
+  .lp-chatbot-panel.is-large .lp-chatbot-body,
+  .lp-chatbot-body {
+    padding: 18px;
+  }
+
+  .lp-chatbot-panel.is-large .lp-chatbot-message {
+    width: min(100%, 280px);
+    font-size: 12px;
+  }
+
+  .lp-chatbot-topic-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lp-float-chat,
+  .lp-float-chat.is-open {
+    width: 58px !important;
+    height: 58px !important;
+    right: 14px !important;
+    bottom: 16px !important;
+  }
+
+  .lp-float-chat::before {
+    inset: 13px !important;
+  }
+
+  .lp-float-chat.is-open::before {
+    display: none;
+  }
+}
+
+/* =========================================================
+   UPDATE FINAL: MAP COORDINATE PIN, POPUP, CHATBOT SEND,
+   BACKDROP, LAYER ICON, ZOOM CONTROLS
+   ========================================================= */
+.lp-fake-map {
+  position: relative;
+  overflow: hidden;
+}
+
+.lp-map-content {
+  position: absolute;
+  inset: 0;
+  transform-origin: center center;
+  transition: transform 0.22s ease;
+}
+
+.lp-map-pin {
+  position: absolute;
+  width: 46px !important;
+  height: 58px !important;
+  margin-left: -23px !important;
+  margin-top: -58px !important;
+  display: grid !important;
+  place-items: center !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  cursor: pointer;
+  z-index: 12;
+  box-shadow: none !important;
+  outline: none;
+}
+
+.lp-map-pin::before,
+.lp-map-pin::after,
+.lp-map-pin span,
+.lp-map-pin-mark,
+.lp-map-pin-icon {
+  display: none !important;
+  content: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.lp-map-pin-img {
+  width: 46px !important;
+  height: auto !important;
+  display: block !important;
+  object-fit: contain;
+  object-position: center;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transition: transform 0.22s ease;
+}
+
+.lp-map-pin:hover .lp-map-pin-img,
+.lp-map-pin.active .lp-map-pin-img {
+  transform: scale(1.06);
+}
+
+.lp-map-location-popup {
+  position: absolute;
+  transform: translate(-50%, 4px) !important;
+  width: min(320px, calc(100% - 34px));
+  z-index: 22;
+  pointer-events: auto;
+}
+
+.lp-map-zoom {
+  right: 22px;
+  bottom: 84px;
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 20px rgba(20, 36, 78, 0.14);
+  z-index: 24;
+}
+
+.lp-map-zoom button {
+  width: 48px;
+  height: 48px;
+  border: none;
+  background: transparent;
+  color: #4a57c7;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.lp-map-zoom button + button {
+  border-top: 1px solid rgba(74, 87, 199, 0.12);
+}
+
+.lp-map-zoom button svg {
+  width: 19px;
+  height: 19px;
+  stroke-width: 2.4;
+}
+
+.lp-map-layer {
+  right: 22px;
+  bottom: 20px;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #4f5f7d;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 8px 20px rgba(20, 36, 78, 0.14);
+  z-index: 24;
+}
+
+.lp-map-layer svg {
+  width: 17px;
+  height: 17px;
+  color: #4a57c7;
+}
+
+.lp-user-map-marker {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  margin-left: -12px;
+  margin-top: -12px;
+  border-radius: 50%;
+  background: rgba(81, 162, 255, 0.26);
+  display: grid;
+  place-items: center;
+  z-index: 10;
+}
+
+.lp-user-map-marker span {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #51a2ff;
+  border: 2px solid #ffffff;
+  display: block;
+}
+
+.lp-chatbot-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 7, 18, 0.34);
+  backdrop-filter: blur(3px);
+  z-index: 90;
+}
+
+.lp-chatbot-panel {
+  z-index: 95;
+}
+
+.lp-float-chat {
+  z-index: 96;
+}
+
+.lp-chatbot-send {
+  background: #8c8ea6;
+  transition:
+    background 0.22s ease,
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.lp-chatbot-send:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.lp-chatbot-send.has-text {
+  background: #0f3f93;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(15, 63, 147, 0.24);
+}
+
+.lp-chatbot-send.has-text:hover {
+  transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .lp-map-pin {
+    width: 40px !important;
+    height: 52px !important;
+    margin-left: -20px !important;
+    margin-top: -52px !important;
+  }
+
+  .lp-map-pin-img {
+    width: 40px !important;
+  }
+
+  .lp-map-location-popup {
+    transform: translate(-50%, 2px) !important;
+    width: min(300px, calc(100% - 24px));
+  }
+
+  .lp-map-zoom button {
+    width: 42px;
+    height: 42px;
+  }
+
+  .lp-map-layer {
+    min-height: 38px;
+    font-size: 13px;
+  }
+}
+
+/* =========================
+   OPENSTREETMAP FINAL UPDATE
+   ========================= */
+.lp-osm-map {
+  position: relative;
+  min-height: 560px;
+  height: 560px;
+  background: #e8e5de;
+  overflow: hidden;
+  isolation: isolate;
+  touch-action: pan-x pan-y;
+}
+
+.lp-osm-tile-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.lp-osm-tile {
+  position: absolute;
+  width: 256px;
+  height: 256px;
+  display: block;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.lp-map-pin {
+  position: absolute;
+  width: 46px !important;
+  height: 64px !important;
+  margin-left: -23px !important;
+  margin-top: -64px !important;
+  display: block !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  cursor: pointer;
+  z-index: 5;
+  box-shadow: none !important;
+  outline: none;
+}
+
+.lp-map-pin::before,
+.lp-map-pin::after,
+.lp-map-pin span,
+.lp-map-pin-mark,
+.lp-map-pin-icon {
+  display: none !important;
+  content: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.lp-map-pin-img {
+  width: 46px !important;
+  height: auto !important;
+  display: block !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  filter: none !important;
+  transition: transform 0.22s ease;
+}
+
+.lp-map-pin:hover .lp-map-pin-img,
+.lp-map-pin.active .lp-map-pin-img {
+  transform: scale(1.05);
+}
+
+.lp-map-location-popup {
+  position: absolute;
+  width: min(350px, calc(100% - 24px));
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.22);
+  overflow: hidden;
+  z-index: 7;
+  transform: none !important;
+}
+
+.lp-map-popup-header {
+  min-height: 68px;
+  background: linear-gradient(135deg, #2c326f 0%, #474c89 100%);
+  color: #ffffff;
+  padding: 20px 22px;
+  display: flex;
+  align-items: center;
+}
+
+.lp-map-popup-header h3 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 18px;
+  line-height: 1.25;
+  font-weight: 800;
+}
+
+.lp-map-popup-body {
+  padding: 16px 20px 18px;
+}
+
+.lp-map-popup-info-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
+  align-items: flex-start;
+  color: var(--lp-text-main);
+  font-size: 14px;
+  line-height: 1.55;
+  font-weight: 600;
+}
+
+.lp-map-popup-info-row + .lp-map-popup-info-row {
+  margin-top: 10px;
+}
+
+.lp-map-popup-info-row svg {
+  width: 18px;
+  height: 18px;
+  color: #4b57d4;
+  margin-top: 2px;
+}
+
+.lp-map-popup-info-row:nth-child(2) svg {
+  color: #10a85a;
+}
+
+.lp-map-popup-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.lp-map-popup-status,
+.lp-map-popup-paralegal {
+  min-height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 13px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.lp-map-popup-status {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.lp-map-popup-paralegal {
+  background: #edf3ff;
+  color: #335be7;
+  border: 1px solid #a3c3fb;
+}
+
+.lp-map-popup-status svg,
+.lp-map-popup-paralegal svg {
+  width: 15px;
+  height: 15px;
+}
+
+.lp-map-popup-case {
+  color: var(--lp-text-body);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.lp-map-compass {
+  z-index: 6;
+}
+
+.lp-map-zoom {
+  right: 22px !important;
+  bottom: 106px !important;
+  border-radius: 16px !important;
+  overflow: hidden;
+  z-index: 6;
+  background: #ffffff !important;
+  box-shadow: 0 12px 24px rgba(20, 36, 78, 0.16) !important;
+}
+
+.lp-map-zoom button {
+  display: grid !important;
+  place-items: center;
+  width: 48px !important;
+  height: 48px !important;
+  border: none !important;
+  background: #ffffff !important;
+  color: #4a57c7 !important;
+  cursor: pointer;
+  padding: 0 !important;
+}
+
+.lp-map-zoom button + button {
+  border-top: 1px solid rgba(74, 87, 199, 0.14) !important;
+}
+
+.lp-map-zoom button svg {
+  width: 21px;
+  height: 21px;
+}
+
+.lp-map-layer {
+  right: 22px !important;
+  bottom: 20px !important;
+  min-height: 50px !important;
+  padding: 0 18px !important;
+  border-radius: 18px !important;
+  border: none !important;
+  background: #ffffff !important;
+  color: #4f5f7d !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  font-size: 15px;
+  font-weight: 800;
+  box-shadow: 0 12px 24px rgba(20, 36, 78, 0.16) !important;
+  z-index: 6;
+  cursor: pointer;
+}
+
+.lp-map-layer svg {
+  width: 21px;
+  height: 21px;
+  color: #4a57c7;
+}
+
+.lp-map-scale {
+  left: 18px !important;
+  bottom: 18px !important;
+  min-height: 32px !important;
+  padding: 0 10px !important;
+  border-radius: 10px !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  color: #4f5f7d !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  z-index: 6;
+}
+
+.lp-user-map-marker {
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  margin-left: -14px;
+  margin-top: -14px;
+  border-radius: 50%;
+  background: rgba(74, 87, 199, 0.18);
+  display: grid;
+  place-items: center;
+  z-index: 6;
+}
+
+.lp-user-map-marker span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #4a57c7;
+  border: 2px solid #ffffff;
+}
+
+@media (max-width: 768px) {
+  .lp-osm-map {
+    height: 420px;
+    min-height: 420px;
+  }
+
+  .lp-map-pin {
+    width: 40px !important;
+    height: 56px !important;
+    margin-left: -20px !important;
+    margin-top: -56px !important;
+  }
+
+  .lp-map-pin-img {
+    width: 40px !important;
+  }
+
+  .lp-map-location-popup {
+    width: min(310px, calc(100% - 20px));
+  }
+
+  .lp-map-popup-header {
+    min-height: 58px;
+    padding: 16px 18px;
+  }
+
+  .lp-map-popup-header h3 {
+    font-size: 16px;
+  }
+
+  .lp-map-popup-body {
+    padding: 14px 16px 16px;
+  }
+
+  .lp-map-zoom button {
+    width: 42px !important;
+    height: 42px !important;
+  }
+
+  .lp-map-layer {
+    min-height: 44px !important;
+    padding: 0 14px !important;
+    border-radius: 15px !important;
+    font-size: 13px;
+  }
+}
+
+/* =========================
+   FINAL UPDATE: OSM CONTROL, CTA, DAN HOVER AKSI
+   ========================= */
+.lp-map-zoom button,
+.lp-map-zoom button:focus,
+.lp-map-zoom button:active {
+  color: #111827 !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.lp-map-zoom button:hover {
+  color: #4a57c7 !important;
+  background: rgba(237, 243, 255, 0.72) !important;
+  box-shadow: none !important;
+}
+
+.lp-map-zoom button svg {
+  color: currentColor !important;
+  stroke: currentColor !important;
+  fill: none;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.lp-map-zoom button:nth-child(3),
+.lp-map-zoom button:nth-child(3):hover,
+.lp-map-zoom button:nth-child(3):focus,
+.lp-map-zoom button:nth-child(3):active,
+.lp-map-zoom button:nth-child(3) svg {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.lp-map-layer {
+  color: #111827 !important;
+}
+
+.lp-map-layer svg {
+  color: #111827 !important;
+  stroke: currentColor !important;
+}
+
+.lp-map-layer:hover {
+  color: #4a57c7 !important;
+  box-shadow: 0 12px 26px rgba(20, 36, 78, 0.18) !important;
+}
+
+.lp-map-layer:hover svg {
+  color: #4a57c7 !important;
+}
+
+.lp-map-scale {
+  font-weight: 800;
+  color: #4f5f7d;
+}
+
+.lp-btn-primary:hover,
+.lp-btn-outline:hover,
+.lp-btn-login:hover,
+.lp-btn-danger:hover,
+.lp-red-button:hover,
+.lp-contact-button:hover,
+.lp-detail-map-button:hover,
+.lp-detail-contact-action:hover,
+.lp-chatbot-topic-grid button:hover,
+.lp-chatbot-send:hover,
+.lp-map-layer:hover,
+.lp-see-all-button:hover,
+.lp-modal-close:hover,
+.lp-footer-socials a:hover,
+.lp-float-chat:hover {
+  box-shadow: 0 14px 28px rgba(15, 23, 42, 0.18) !important;
+}
+
+.lp-topbar-link:hover,
+.lp-footer-col a:hover,
+.lp-see-all-button:hover,
+.lp-footer-bottom a:hover,
+.lp-detail-contact-action:hover {
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+  text-underline-offset: 4px;
+}
+
+.lp-red-button:hover,
+.lp-contact-button:hover,
+.lp-btn-primary:hover,
+.lp-btn-outline:hover,
+.lp-detail-map-button:hover,
+.lp-chatbot-send:hover {
+  text-decoration: none;
+}
+
+.lp-footer-col a,
+.lp-topbar-link,
+.lp-see-all-button,
+.lp-detail-contact-action {
+  text-decoration-color: currentColor;
+}
+
+/* =========================
+   FINAL FIX: ICON LOKASI MAPS DAN HOVER FOOTER
+   ========================= */
+.lp-map-zoom .lp-map-current-button,
+.lp-map-zoom .lp-map-current-button:hover,
+.lp-map-zoom .lp-map-current-button:focus,
+.lp-map-zoom .lp-map-current-button:active {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.lp-map-current-icon {
+  width: 20px;
+  height: 20px;
+  display: block;
+  position: relative;
+  border-radius: 50%;
+  border: 2.4px solid currentColor;
+  color: currentColor;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.lp-map-current-icon::before {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  background: currentColor;
+  transform: translate(-50%, -50%);
+}
+
+.lp-map-current-icon::after {
+  content: "";
+  position: absolute;
+  width: 28px;
+  height: 28px;
+  left: 50%;
+  top: 50%;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  opacity: 0.18;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.lp-map-zoom button:hover .lp-map-current-icon {
+  color: #4a57c7 !important;
+}
+
+.lp-footer a:hover,
+.lp-footer a:hover svg,
+.lp-footer-col a:hover,
+.lp-footer-col a:hover svg,
+.lp-footer-link-col a:hover,
+.lp-footer-link-col a:hover svg,
+.lp-footer-socials a:hover,
+.lp-footer-socials a:hover svg,
+.lp-footer-contact-item:hover,
+.lp-footer-contact-item:hover svg,
+.lp-footer-bottom a:hover,
+.lp-footer-bottom a:hover svg {
+  color: inherit !important;
+  text-decoration: none !important;
+  text-decoration-color: transparent !important;
+}
+
+.lp-footer-socials a:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  transform: none !important;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+.lp-footer-contact-item:hover .lp-footer-contact-icon,
+.lp-footer-contact-item:hover .lp-footer-contact-icon svg {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+.lp-footer-link-col a:hover::before {
+  background: #51a2ff !important;
+}
+
+.lp-footer-col a:hover,
+.lp-footer-contact-item:hover,
+.lp-footer-socials a:hover,
+.lp-footer-bottom a:hover {
+  text-underline-offset: 0;
+}
+
+/* =========================
+   FINAL FIX REQUEST: FOOTER UNDERLINE PUTIH + ICON LOKASI IoLocateSharp
+   ========================= */
+.lp-map-zoom .lp-map-current-button,
+.lp-map-zoom .lp-map-current-button:hover,
+.lp-map-zoom .lp-map-current-button:focus,
+.lp-map-zoom .lp-map-current-button:active {
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+.lp-map-current-icon {
+  width: 22px !important;
+  height: 22px !important;
+  display: block !important;
+  color: currentColor !important;
+  stroke: currentColor !important;
+  fill: currentColor !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  position: static !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.lp-map-current-icon::before,
+.lp-map-current-icon::after {
+  content: none !important;
+  display: none !important;
+  border: none !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.lp-map-zoom button:hover .lp-map-current-icon {
+  color: #4a57c7 !important;
+  stroke: #4a57c7 !important;
+  fill: #4a57c7 !important;
+}
+
+.lp-footer a:hover,
+.lp-footer a:hover svg,
+.lp-footer-col a:hover,
+.lp-footer-col a:hover svg,
+.lp-footer-link-col a:hover,
+.lp-footer-link-col a:hover svg,
+.lp-footer-contact-item:hover,
+.lp-footer-contact-item:hover svg,
+.lp-footer-bottom a:hover,
+.lp-footer-bottom a:hover svg {
+  color: inherit !important;
+}
+
+.lp-footer-link-col a:hover,
+.lp-footer-col a:hover,
+.lp-footer-bottom a:hover {
+  text-decoration: underline !important;
+  text-decoration-color: #ffffff !important;
+  text-underline-offset: 4px !important;
+}
+
+.lp-footer-contact-item:hover {
+  text-decoration: none !important;
+}
+
+.lp-footer-contact-item:hover .lp-footer-contact-text strong,
+.lp-footer-contact-item:hover .lp-footer-contact-text small {
+  color: inherit !important;
+  text-decoration: underline !important;
+  text-decoration-color: #ffffff !important;
+  text-underline-offset: 4px !important;
+}
+
+.lp-footer-socials a:hover,
+.lp-footer-socials a:hover svg {
+  color: #ffffff !important;
+  text-decoration: none !important;
+}
+
+.lp-footer-socials a:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  transform: none !important;
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+.lp-footer-contact-item:hover .lp-footer-contact-icon,
+.lp-footer-contact-item:hover .lp-footer-contact-icon svg {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.12) !important;
+}
+
+.lp-footer-link-col a:hover::before {
+  background: #51a2ff !important;
+}
+
+/* =========================
+   FINAL UPDATE: HOVER CHATBOT + FAQ SMOOTH + FOOTER SOCIAL SHADOW
+   ========================= */
+.lp-float-chat {
+  transform-origin: center center;
+  transition:
+    transform 0.24s ease,
+    box-shadow 0.24s ease,
+    background 0.24s ease !important;
+}
+
+.lp-float-chat:not(.is-open):hover {
+  transform: scale(1.2) !important;
+  box-shadow: 0 18px 38px rgba(31, 79, 184, 0.36) !important;
+}
+
+.lp-float-chat.is-open:hover {
+  transform: none !important;
+}
+
+.lp-faq-answer-wrap {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    max-height 0.38s ease,
+    opacity 0.28s ease,
+    transform 0.32s ease;
+  will-change: max-height, opacity, transform;
+}
+
+.lp-faq-answer-wrap.open {
+  max-height: 280px;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.lp-faq-answer-wrap .lp-faq-answer {
+  transition: padding 0.28s ease;
+}
+
+.lp-footer-socials a:hover,
+.lp-footer-socials a:hover svg {
+  color: #ffffff !important;
+  text-decoration: none !important;
+}
+
+.lp-footer-socials a:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.24) !important;
+  transform: none !important;
+}
+
+/* === REVISI: HOVER DROP SHADOW CARD AKUN FOOTER === */
+.lp-footer-socials a {
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    background 0.22s ease;
+}
+
+.lp-footer-socials a:hover {
+  color: #ffffff !important;
+  text-decoration: none !important;
+  box-shadow:
+    0 10px 24px rgba(0, 0, 0, 0.22),
+    0 0 0 1px rgba(255, 255, 255, 0.16) !important;
+}
+
+.lp-footer-socials a:hover svg {
+  color: #ffffff !important;
+}
+
+/* === REVISI: PERKECIL BADGE ONLINE DAN DROP SHADOW FAQ === */
+.lp-online-badge {
+  top: 24px !important;
+  right: 22px !important;
+  min-height: 30px !important;
+  padding: 0 11px !important;
+  gap: 6px !important;
+  font-size: 12px !important;
+  box-shadow: 0 9px 14px rgba(6, 126, 57, 0.14) !important;
+}
+
+.lp-online-dot {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.lp-faq-item {
+  box-shadow:
+    0 8px 20px rgba(15, 23, 42, 0.08),
+    0 2px 6px rgba(15, 23, 42, 0.06) !important;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease !important;
+}
+
+.lp-faq-item:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    0 16px 34px rgba(15, 23, 42, 0.12),
+    0 4px 10px rgba(15, 23, 42, 0.08) !important;
+}
+
+/* ALL POPUP BOTTOM ONLY FIX */
+.lp-all-card-bottom {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.lp-all-mini-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.lp-all-mini-stat {
+  min-height: 92px;
+  border-radius: 16px;
+  padding: 15px 16px 14px;
+  border: 1px solid transparent;
+}
+
+.lp-all-mini-stat span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.lp-all-mini-stat span svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.lp-all-mini-stat strong {
+  display: block;
+  font-size: 26px;
+  line-height: 1;
+  font-weight: 800;
+  margin-bottom: 7px;
+}
+
+.lp-all-mini-stat small {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+.lp-all-mini-stat-blue {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
+}
+
+.lp-all-mini-stat-purple {
+  background: #faf5ff;
+  border-color: #ead5ff;
+  color: #9333ea;
+}
+
+.lp-all-map-button {
+  margin-top: 16px;
+  width: 100%;
+  min-height: 52px;
+  border: none;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #2c326f 0%, #474c89 100%);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(44, 50, 111, 0.22);
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.lp-all-map-button svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+
+.lp-all-map-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 34px rgba(44, 50, 111, 0.34);
+}
+
+@media (max-width: 480px) {
+  .lp-all-mini-stats {
+    grid-template-columns: 1fr;
+  }
+}
+/* END ALL POPUP BOTTOM ONLY FIX */
+
+/* REVISI POPUP LIHAT SEMUA POSBANKUM - HANYA BAGIAN BAWAH CARD */
+.lp-all-popup {
+  max-height: calc(100vh - 56px);
+}
+
+.lp-all-popup-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  align-items: start;
+  overflow-y: auto;
+}
+
+.lp-all-card-body {
+  padding: 18px 20px 20px;
+}
+
+.lp-all-card .lp-detail-info-row {
+  padding: 12px 0;
+}
+
+.lp-all-card .lp-detail-info-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+}
+
+.lp-all-card .lp-detail-info-row small {
+  font-weight: 500;
+}
+
+.lp-all-card .lp-detail-info-row strong {
+  font-weight: 600;
+}
+
+.lp-all-status-badge {
+  border: 2px solid #ffffff !important;
+  box-shadow: none;
+}
+
+.lp-all-card-bottom {
+  display: block !important;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.lp-all-mini-stats {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.lp-all-mini-stat {
+  min-height: 88px;
+  border-radius: 16px;
+  padding: 14px 16px 13px;
+  border: 1px solid transparent;
+}
+
+.lp-all-mini-stat span {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.lp-all-mini-stat span svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.lp-all-mini-stat strong {
+  display: block;
+  font-size: 26px;
+  line-height: 1;
+  font-weight: 800;
+  margin-bottom: 7px;
+}
+
+.lp-all-mini-stat small {
+  display: block;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1.2;
+  font-weight: 500;
+}
+
+.lp-all-mini-stat-blue {
+  background: #eff6ff;
+  border-color: #bfdbfe;
+  color: #2563eb;
+}
+
+.lp-all-mini-stat-purple {
+  background: #faf5ff;
+  border-color: #ead5ff;
+  color: #9333ea;
+}
+
+.lp-all-map-button {
+  margin-top: 16px;
+  width: 100%;
+  min-height: 52px;
+  border: none;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #2c326f 0%, #474c89 100%);
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(44, 50, 111, 0.22);
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
+}
+
+.lp-all-map-button svg {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+
+.lp-all-map-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 34px rgba(44, 50, 111, 0.34);
+}
+
+@media (max-width: 480px) {
+  .lp-all-mini-stats {
+    grid-template-columns: 1fr;
+  }
+}
+/* END REVISI POPUP LIHAT SEMUA POSBANKUM */

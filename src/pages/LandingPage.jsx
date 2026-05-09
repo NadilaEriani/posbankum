@@ -1,39 +1,69 @@
+import { MdOutlineLocationOn } from "react-icons/md";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 
+import {
+  AiOutlineThunderbolt,
+  AiOutlineMail,
+  AiOutlineCheck,
+  AiOutlineYoutube,
+  AiOutlineClose,
+  AiOutlineQuestionCircle,
+} from "react-icons/ai";
+import { BiRightArrowAlt, BiFile, BiShield } from "react-icons/bi";
 import { MdLanguage } from "react-icons/md";
-import { BsTelephone, BsClock } from "react-icons/bs";
-import { AiOutlineMail, AiOutlineCheck } from "react-icons/ai";
-import { BiShield } from "react-icons/bi";
+import { BsTelephone, BsClock, BsInstagram } from "react-icons/bs";
 import { BsFillPersonCheckFill } from "react-icons/bs";
-import { TbArrowBarRight } from "react-icons/tb";
+import {
+  TbArrowBarRight,
+  TbArrowsDiagonal,
+  TbArrowsDiagonalMinimize,
+} from "react-icons/tb";
 import {
   FiUsers,
   FiSearch,
   FiPhone,
   FiMail,
   FiExternalLink,
+  FiFacebook,
+  FiTwitter,
+  FiMessageCircle,
+  FiSend,
+  FiLayers,
+  FiZoomIn,
+  FiZoomOut,
 } from "react-icons/fi";
 import { HiArrowTrendingUp } from "react-icons/hi2";
+import { HiOutlineScale } from "react-icons/hi";
 import { SlLocationPin } from "react-icons/sl";
-import { IoCloseOutline } from "react-icons/io5";
+import { IoCloseOutline, IoLocateSharp } from "react-icons/io5";
+import { IoIosArrowDown, IoIosArrowUp, IoMdTime } from "react-icons/io";
 
 import burung from "../assets/burung.png";
 import burung1 from "../assets/burung1.png";
 import burung5 from "../assets/burung5.png";
 import burung8 from "../assets/burung8.png";
 import logo from "../assets/logo.png";
+import medalIcon from "../assets/medal.png";
+import earthIcon from "../assets/earth.png";
+import mapsIcon from "../assets/maps.png";
 import "./landingPage.css";
 
 const ORG_FULL = "Kantor Wilayah Kementerian Hukum Riau";
-const ORG_ADDR =
-  "Jl. Jend. Sudirman No.233, Sumahilang, Kec. Pekanbaru Kota, Kota Pekanbaru, Riau 28111";
+const ORG_ADDR = "Kanwil Kemenkum Riau, Pekanbaru";
 const ORG_EMAIL = "humaskumriau@gmail.com";
 const ORG_WA_DISPLAY = "0811-6904-422";
 const ORG_WA_TEL = "628116904422";
 const ORG_HOURS_DAYS = "Senin - Jumat";
 const ORG_HOURS_TIME = "08:00 - 16:00 WIB";
+
+const SOCIAL_LINKS = {
+  facebook: "#",
+  twitter: "#",
+  instagram: "#",
+  youtube: "#",
+};
 
 const markerPositions = [
   { top: "22%", left: "35%" },
@@ -48,42 +78,59 @@ const markerPositions = [
 
 const faqItems = [
   {
+    // SLOT ICON FAQ 1: import icon di atas, lalu ganti null dengan nama icon.
+    // Contoh: icon: AiOutlineQuestionCircle,
+    icon: AiOutlineQuestionCircle,
     question:
       "Apa itu Pos Bantuan Hukum dan siapa yang berhak mendapatkan layanannya?",
     answer:
       "Pos Bantuan Hukum adalah layanan penyuluhan, konsultasi, dan pendampingan hukum yang diberikan secara gratis kepada masyarakat tidak mampu melalui paralegal terlatih di setiap kelurahan.",
   },
   {
+    // SLOT ICON FAQ 2
+    icon: MdOutlineLocationOn,
     question: "Bagaimana cara mengetahui lokasi Posbankum di kelurahan saya?",
     answer:
       "Anda dapat menemukan lokasi Posbankum terdekat melalui peta interaktif di website ini atau menghubungi kantor kelurahan/desa setempat untuk informasi layanan terdekat.",
   },
   {
+    // SLOT ICON FAQ 3
+    icon: FiUsers,
     question: "Apa saja tugas paralegal di Posbankum?",
     answer:
       "Paralegal Posbankum bertugas memberikan konsultasi hukum awal, membantu penyusunan dokumen sederhana, memberi informasi hak-hak hukum, dan menghubungkan masyarakat dengan layanan bantuan hukum lanjutan.",
   },
   {
+    // SLOT ICON FAQ 4
+    icon: BiFile,
     question: "Apa saja dokumen yang dikelola dalam sistem Posbankum?",
     answer:
       "Dokumen yang biasanya diperlukan antara lain KTP, Kartu Keluarga, surat keterangan tidak mampu jika ada, dan dokumen pendukung lain yang berkaitan dengan permasalahan hukum Anda.",
   },
   {
+    // SLOT ICON FAQ 5
+    icon: HiOutlineScale,
     question: "Apakah layanan Posbankum benar-benar gratis?",
     answer:
       "Ya, layanan Posbankum diberikan secara gratis untuk masyarakat yang membutuhkan bantuan hukum dan memenuhi persyaratan layanan yang berlaku.",
   },
   {
+    // SLOT ICON FAQ 6
+    icon: IoMdTime,
     question: "Berapa lama proses penanganan kasus di Posbankum?",
     answer:
       "Waktu penanganan kasus bervariasi tergantung kompleksitas masalah hukum. Konsultasi awal umumnya dapat dilakukan pada hari yang sama, sedangkan tindak lanjut menyesuaikan jenis kasus.",
   },
   {
+    // SLOT ICON FAQ 7
+    icon: BsTelephone,
     question: "Bagaimana cara menghubungi paralegal Posbankum?",
     answer:
       "Anda dapat menghubungi paralegal Posbankum melalui nomor telepon atau WhatsApp, email, atau datang langsung ke Posbankum terdekat pada jam layanan yang tersedia.",
   },
   {
+    // SLOT ICON FAQ 8
+    icon: HiOutlineScale,
     question: "Apa perbedaan antara Posbankum dengan Advokat/Pengacara?",
     answer:
       "Posbankum menyediakan layanan konsultasi awal, informasi hukum, dan pendampingan dasar secara gratis. Untuk penanganan perkara yang membutuhkan kuasa hukum di pengadilan, masyarakat dapat dirujuk ke lembaga bantuan hukum atau advokat sesuai kebutuhan.",
@@ -108,20 +155,6 @@ const KATEGORI_ALIASES = {
 const canonKategori = (kategori) => {
   const key = norm(kategori);
   return KATEGORI_ALIASES[key] ?? key;
-};
-
-const normalizeStatus = (status) => {
-  const value = norm(status);
-
-  if (["disetujui", "setuju", "approved", "approve", "ok"].includes(value)) {
-    return "disetujui";
-  }
-
-  if (["ditolak", "tolak", "rejected", "reject"].includes(value)) {
-    return "ditolak";
-  }
-
-  return "menunggu";
 };
 
 const normalizeMap = (items, idKey) => {
@@ -151,6 +184,116 @@ const hasValidCoordinate = (item) => {
   );
 
   return Number.isFinite(lat) && Number.isFinite(lng);
+};
+
+const clampNumber = (value, min, max) => Math.min(Math.max(value, min), max);
+
+const OSM_TILE_SIZE = 256;
+const OSM_DEFAULT_CENTER = { lat: 0.5071, lng: 101.4478 };
+const OSM_DEFAULT_ZOOM = 13;
+
+const getCoordinate = (item) => {
+  const lat = Number(item?.latitude ?? item?.lat ?? item?.latitude_pos);
+  const lng = Number(
+    item?.longitude ?? item?.lng ?? item?.long ?? item?.longitude_pos,
+  );
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+
+  return { lat, lng };
+};
+
+const getMapCenterFromItems = (items) => {
+  const coordinates = (items || []).map(getCoordinate).filter(Boolean);
+
+  if (!coordinates.length) return OSM_DEFAULT_CENTER;
+
+  const total = coordinates.reduce(
+    (acc, coordinate) => ({
+      lat: acc.lat + coordinate.lat,
+      lng: acc.lng + coordinate.lng,
+    }),
+    { lat: 0, lng: 0 },
+  );
+
+  return {
+    lat: total.lat / coordinates.length,
+    lng: total.lng / coordinates.length,
+  };
+};
+
+const latLngToWorldPixel = (lat, lng, zoom) => {
+  const safeLat = clampNumber(lat, -85.05112878, 85.05112878);
+  const safeLng = clampNumber(lng, -180, 180);
+  const sinLat = Math.sin((safeLat * Math.PI) / 180);
+  const scale = OSM_TILE_SIZE * 2 ** zoom;
+
+  return {
+    x: ((safeLng + 180) / 360) * scale,
+    y: (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * scale,
+  };
+};
+
+const getOsmTiles = (center, zoom, size) => {
+  const safeWidth = Math.max(Number(size?.width) || 760, 320);
+  const safeHeight = Math.max(Number(size?.height) || 560, 320);
+  const centerPixel = latLngToWorldPixel(center.lat, center.lng, zoom);
+  const startX = centerPixel.x - safeWidth / 2;
+  const startY = centerPixel.y - safeHeight / 2;
+  const startTileX = Math.floor(startX / OSM_TILE_SIZE);
+  const endTileX = Math.floor((startX + safeWidth) / OSM_TILE_SIZE);
+  const startTileY = Math.floor(startY / OSM_TILE_SIZE);
+  const endTileY = Math.floor((startY + safeHeight) / OSM_TILE_SIZE);
+  const tileCount = 2 ** zoom;
+  const tiles = [];
+
+  for (let x = startTileX; x <= endTileX; x += 1) {
+    const wrappedX = ((x % tileCount) + tileCount) % tileCount;
+
+    for (let y = startTileY; y <= endTileY; y += 1) {
+      if (y < 0 || y >= tileCount) continue;
+
+      tiles.push({
+        key: `${zoom}-${x}-${y}`,
+        src: `https://tile.openstreetmap.org/${zoom}/${wrappedX}/${y}.png`,
+        left: Math.round(x * OSM_TILE_SIZE - startX),
+        top: Math.round(y * OSM_TILE_SIZE - startY),
+      });
+    }
+  }
+
+  return tiles;
+};
+
+const getOsmPixelPosition = (item, center, zoom, size) => {
+  const coordinate = getCoordinate(item);
+
+  if (!coordinate) return null;
+
+  const safeWidth = Math.max(Number(size?.width) || 760, 320);
+  const safeHeight = Math.max(Number(size?.height) || 560, 320);
+  const centerPixel = latLngToWorldPixel(center.lat, center.lng, zoom);
+  const targetPixel = latLngToWorldPixel(coordinate.lat, coordinate.lng, zoom);
+  const left = targetPixel.x - centerPixel.x + safeWidth / 2;
+  const top = targetPixel.y - centerPixel.y + safeHeight / 2;
+
+  return {
+    top,
+    left,
+    popupTop: clampNumber(top + 8, 12, Math.max(safeHeight - 220, 12)),
+    popupLeft: clampNumber(left - 96, 12, Math.max(safeWidth - 360, 12)),
+    mapWidth: safeWidth,
+    mapHeight: safeHeight,
+  };
+};
+
+const formatPosbankumTitle = (name) => {
+  const value = String(name ?? "").trim();
+
+  if (!value) return "Posbankum";
+  if (/^posbankum/i.test(value)) return value;
+
+  return `Posbankum Kec. ${value}`;
 };
 
 function Reveal({ children, className = "", direction = "up", delay = 0 }) {
@@ -186,58 +329,6 @@ function Reveal({ children, className = "", direction = "up", delay = 0 }) {
     >
       {children}
     </div>
-  );
-}
-
-function IconLightning() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="lp-why-icon-svg"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.4"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M13 2L6 13h5l-1 9 8-12h-5l0-8z" />
-    </svg>
-  );
-}
-
-function IconMedal() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="lp-why-icon-svg"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M8.5 3h7l-1.3 5.2a4.5 4.5 0 11-4.4 0L8.5 3z" />
-      <path d="M9.8 14.8v5.7L12 18.9l2.2 1.6v-5.7" />
-    </svg>
-  );
-}
-
-function IconWorld() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className="lp-why-icon-svg"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="9" />
-      <path d="M3 12h18" />
-      <path d="M12 3a14 14 0 0 1 0 18" />
-      <path d="M12 3a14 14 0 0 0 0 18" />
-    </svg>
   );
 }
 
@@ -294,6 +385,158 @@ function LocationCard({ item, index, active, onClick }) {
   );
 }
 
+function MapInfoPopup({ location, position }) {
+  if (!location || !position) return null;
+
+  return (
+    <div
+      className="lp-map-location-popup"
+      style={{ top: `${position.popupTop}px`, left: `${position.popupLeft}px` }}
+      onClick={(event) => event.stopPropagation()}
+    >
+      <div className="lp-map-popup-header">
+        <h3>{formatPosbankumTitle(location.name)}</h3>
+      </div>
+
+      <div className="lp-map-popup-body">
+        <div className="lp-map-popup-info-row">
+          <SlLocationPin />
+          <span>{location.address}</span>
+        </div>
+
+        <div className="lp-map-popup-info-row">
+          <FiPhone />
+          <span>{location.phone}</span>
+        </div>
+
+        <div className="lp-map-popup-meta">
+          <span className="lp-map-popup-status">
+            <AiOutlineCheck /> {location.status}
+          </span>
+
+          <span className="lp-map-popup-paralegal">
+            <FiUsers /> {location.paralegalCount} Paralegal
+          </span>
+
+          <span className="lp-map-popup-case">{location.caseCount} kasus</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ChatbotPanel({ open, large, onToggleLarge, onClose }) {
+  const [message, setMessage] = useState("");
+  const hasMessage = message.trim().length > 0;
+
+  if (!open) return null;
+
+  return (
+    <div className={`lp-chatbot-panel ${large ? "is-large" : ""}`}>
+      <div className="lp-chatbot-header">
+        <div className="lp-chatbot-title-wrap">
+          <span className="lp-chatbot-logo">
+            <FiMessageCircle />
+          </span>
+
+          <div>
+            <h3>Chatbot Posbankum</h3>
+            <p>
+              <span></span>
+              Aktif sekarang
+            </p>
+          </div>
+        </div>
+
+        <div className="lp-chatbot-controls">
+          <button
+            type="button"
+            onClick={onToggleLarge}
+            aria-label={large ? "Perkecil chatbot" : "Perbesar chatbot"}
+          >
+            {large ? <TbArrowsDiagonalMinimize /> : <TbArrowsDiagonal />}
+          </button>
+
+          <button type="button" onClick={onClose} aria-label="Tutup chatbot">
+            <AiOutlineClose />
+          </button>
+        </div>
+      </div>
+
+      <div className="lp-chatbot-body">
+        <div className="lp-chatbot-message">
+          Selamat datang di Chatbot Posbankum! Saya siap membantu Anda dengan
+          informasi seputar layanan bantuan hukum. Silakan pilih topik di bawah
+          atau ketik pertanyaan Anda.
+        </div>
+
+        <div className="lp-chatbot-time">13.33</div>
+      </div>
+
+      <div className="lp-chatbot-topics">
+        <h4>Topik Populer:</h4>
+
+        <div className="lp-chatbot-topic-grid">
+          <button type="button">
+            <span>
+              <SlLocationPin />
+            </span>
+            Cek Posbankum Terdekat
+          </button>
+
+          <button type="button">
+            <span>
+              <BiShield />
+            </span>
+            Syarat Bantuan Hukum
+          </button>
+
+          <button type="button">
+            <span>
+              <BsClock />
+            </span>
+            Jam Operasional
+          </button>
+
+          <button type="button">
+            <span>
+              <BsTelephone />
+            </span>
+            Kontak Admin
+          </button>
+        </div>
+      </div>
+
+      <div className="lp-chatbot-input-wrap">
+        <label className="lp-chatbot-input">
+          <input
+            type="text"
+            placeholder="Ketik pesan Anda..."
+            value={message}
+            onChange={(event) => setMessage(event.target.value)}
+          />
+          <button type="button" aria-label="Bantuan">
+            ?
+          </button>
+        </label>
+
+        <button
+          type="button"
+          className={`lp-chatbot-send ${hasMessage ? "has-text" : ""}`}
+          aria-label="Kirim pesan"
+          disabled={!hasMessage}
+        >
+          <FiSend />
+        </button>
+      </div>
+
+      <div className="lp-chatbot-powered">
+        Powered by Posbankum AI Assistant
+      </div>
+    </div>
+  );
+}
+
 function DetailPopup({ location, onClose }) {
   if (!location) return null;
 
@@ -302,17 +545,25 @@ function DetailPopup({ location, onClose }) {
       <div className="lp-detail-popup">
         <div className="lp-detail-popup-header">
           <div className="lp-detail-title-wrap">
-            <img src={burung5} alt="Logo Posbankum" />
+            <span className="lp-detail-logo-box">
+              <img
+                src={burung5}
+                alt="Logo Posbankum"
+                className="lp-detail-logo-img"
+              />
+            </span>
 
             <div>
-              <h2>{location.name}</h2>
+              <h2>{formatPosbankumTitle(location.name)}</h2>
 
               <div className="lp-detail-subline">
                 <span className="lp-detail-status">
                   <AiOutlineCheck /> {location.status}
                 </span>
 
-                <span>{location.district}</span>
+                <span>
+                  {location.region || "Kabupaten/Kota belum tersedia"}
+                </span>
               </div>
             </div>
           </div>
@@ -328,77 +579,104 @@ function DetailPopup({ location, onClose }) {
         </div>
 
         <div className="lp-detail-popup-body">
-          <div className="lp-detail-info-row">
-            <span className="lp-detail-info-icon lp-info-blue">
-              <SlLocationPin />
-            </span>
-
-            <div>
-              <small>Alamat</small>
-              <strong>{location.address}</strong>
-            </div>
-          </div>
-
-          <div className="lp-detail-info-row">
-            <span className="lp-detail-info-icon lp-info-green">
-              <FiPhone />
-            </span>
-
-            <div>
-              <small>Telepon</small>
-              <strong>{location.phone}</strong>
-            </div>
-          </div>
-
-          <div className="lp-detail-info-row">
-            <span className="lp-detail-info-icon lp-info-purple">
-              <FiMail />
-            </span>
-
-            <div>
-              <small>Email</small>
-              <strong>{location.email}</strong>
-            </div>
-          </div>
-
-          <div className="lp-detail-info-row">
-            <span className="lp-detail-info-icon lp-info-orange">
-              <BsClock />
-            </span>
-
-            <div>
-              <small>Jam Operasional</small>
-              <strong>{location.operationalHours}</strong>
-            </div>
-          </div>
-
-          <div className="lp-detail-stats-grid">
-            <div className="lp-detail-stat-box lp-detail-stat-blue">
-              <span>
-                <FiUsers /> Paralegal
+          <div className="lp-detail-summary-grid">
+            <div className="lp-detail-summary-card lp-detail-summary-blue">
+              <span className="lp-detail-summary-icon">
+                <FiUsers />
               </span>
 
-              <strong>{location.paralegalCount}</strong>
-              <small>Aktif</small>
+              <div>
+                <small>Paralegal Aktif</small>
+                <strong>{location.paralegalCount}</strong>
+                <p>Siap membantu Anda</p>
+              </div>
             </div>
 
-            <div className="lp-detail-stat-box lp-detail-stat-purple">
-              <span>
-                <AiOutlineCheck /> Kasus
+            <div className="lp-detail-summary-card lp-detail-summary-purple">
+              <span className="lp-detail-summary-icon">
+                <AiOutlineCheck />
               </span>
 
-              <strong>{location.caseCount}</strong>
-              <small>Ditangani</small>
+              <div>
+                <small>Kasus Ditangani</small>
+                <strong>{location.caseCount}</strong>
+                <p>Total penanganan kasus</p>
+              </div>
             </div>
           </div>
 
-          <button
-            type="button"
-            className="lp-detail-map-button"
-            onClick={onClose}
-          >
-            <FiExternalLink /> Lihat di Peta
-          </button>
+          <div className="lp-detail-contact-card">
+            <div className="lp-detail-contact-title">
+              <span>
+                <SlLocationPin />
+              </span>
+              <h3>Informasi Kontak</h3>
+            </div>
+
+            <div className="lp-detail-contact-list">
+              <div className="lp-detail-contact-row">
+                <span className="lp-detail-contact-icon lp-info-blue">
+                  <SlLocationPin />
+                </span>
+
+                <div>
+                  <small>Alamat Lengkap</small>
+                  <strong>{location.address}</strong>
+                </div>
+              </div>
+
+              <div className="lp-detail-contact-row">
+                <span className="lp-detail-contact-icon lp-info-green">
+                  <FiPhone />
+                </span>
+
+                <div>
+                  <small>Nomor Telepon</small>
+                  <strong>{location.phone}</strong>
+                </div>
+
+                {location.phone && location.phone !== "-" ? (
+                  <a
+                    className="lp-detail-contact-action lp-detail-action-green"
+                    href={`tel:${location.phone}`}
+                  >
+                    Telepon
+                  </a>
+                ) : null}
+              </div>
+
+              <div className="lp-detail-contact-row">
+                <span className="lp-detail-contact-icon lp-info-purple">
+                  <FiMail />
+                </span>
+
+                <div>
+                  <small>Email</small>
+                  <strong>{location.email}</strong>
+                </div>
+
+                {location.email && location.email !== "-" ? (
+                  <a
+                    className="lp-detail-contact-action lp-detail-action-purple"
+                    href={`mailto:${location.email}`}
+                  >
+                    Email
+                  </a>
+                ) : null}
+              </div>
+
+              <div className="lp-detail-contact-row">
+                <span className="lp-detail-contact-icon lp-info-orange">
+                  <BsClock />
+                </span>
+
+                <div>
+                  <small>Jam Operasional</small>
+                  <strong>{location.operationalHours}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -457,12 +735,18 @@ function AllLocationsPopup({
             locations.map((item) => (
               <div className="lp-all-card" key={item.id}>
                 <div className="lp-all-card-header">
-                  <img src={burung5} alt="Logo Posbankum" />
+                  <span className="lp-all-logo-box">
+                    <img
+                      src={burung5}
+                      alt="Logo Posbankum"
+                      className="lp-all-logo-img"
+                    />
+                  </span>
 
                   <div>
                     <h3>{item.name}</h3>
 
-                    <span>
+                    <span className="lp-all-status-badge">
                       <AiOutlineCheck /> {item.status}
                     </span>
                   </div>
@@ -513,33 +797,35 @@ function AllLocationsPopup({
                     </div>
                   </div>
 
-                  <div className="lp-detail-stats-grid">
-                    <div className="lp-detail-stat-box lp-detail-stat-blue">
-                      <span>
-                        <FiUsers /> Paralegal
-                      </span>
+                  <div className="lp-all-card-bottom">
+                    <div className="lp-all-mini-stats">
+                      <div className="lp-all-mini-stat lp-all-mini-stat-blue">
+                        <span>
+                          <FiUsers /> Paralegal
+                        </span>
 
-                      <strong>{item.paralegalCount}</strong>
-                      <small>Aktif</small>
+                        <strong>{item.paralegalCount}</strong>
+                        <small>Aktif</small>
+                      </div>
+
+                      <div className="lp-all-mini-stat lp-all-mini-stat-purple">
+                        <span>
+                          <AiOutlineCheck /> Kasus
+                        </span>
+
+                        <strong>{item.caseCount}</strong>
+                        <small>Ditangani</small>
+                      </div>
                     </div>
 
-                    <div className="lp-detail-stat-box lp-detail-stat-purple">
-                      <span>
-                        <AiOutlineCheck /> Kasus
-                      </span>
-
-                      <strong>{item.caseCount}</strong>
-                      <small>Ditangani</small>
-                    </div>
+                    <button
+                      type="button"
+                      className="lp-all-map-button"
+                      onClick={() => onSelect(item)}
+                    >
+                      <FiExternalLink /> Lihat di Peta
+                    </button>
                   </div>
-
-                  <button
-                    type="button"
-                    className="lp-detail-map-button"
-                    onClick={() => onSelect(item)}
-                  >
-                    <FiExternalLink /> Lihat di Peta
-                  </button>
                 </div>
               </div>
             ))
@@ -568,12 +854,45 @@ export default function LandingPage() {
   const [posbankumError, setPosbankumError] = useState("");
 
   const [detailPopup, setDetailPopup] = useState(null);
+  const [mapPopup, setMapPopup] = useState(null);
+  const [mapZoom, setMapZoom] = useState(OSM_DEFAULT_ZOOM);
+  const [mapCenter, setMapCenter] = useState(OSM_DEFAULT_CENTER);
+  const [mapSize, setMapSize] = useState({ width: 760, height: 560 });
+  const [userMapMarker, setUserMapMarker] = useState(null);
+  const [chatbotOpen, setChatbotOpen] = useState(false);
+  const [chatbotLarge, setChatbotLarge] = useState(false);
   const [showAllLocations, setShowAllLocations] = useState(false);
   const [allSearchTerm, setAllSearchTerm] = useState("");
 
   const heroRef = useRef(null);
   const whyRef = useRef(null);
   const mapRef = useRef(null);
+  const osmMapRef = useRef(null);
+
+  useEffect(() => {
+    const node = osmMapRef.current;
+    if (!node) return undefined;
+
+    const updateSize = () => {
+      const rect = node.getBoundingClientRect();
+      setMapSize({
+        width: Math.max(Math.round(rect.width), 320),
+        height: Math.max(Math.round(rect.height), 320),
+      });
+    };
+
+    updateSize();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateSize);
+      return () => window.removeEventListener("resize", updateSize);
+    }
+
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(node);
+
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const initSession = async () => {
@@ -771,7 +1090,7 @@ export default function LandingPage() {
             id: item.id_posbankum,
             name: item.nama || `Posbankum ${index + 1}`,
             district: kecamatanName || kabupatenName || "Provinsi Riau",
-            region: kabupatenName || "Riau",
+            region: kabupatenName || "Kabupaten/Kota belum tersedia",
             address: item.alamat || "Alamat belum tersedia",
             paralegalCount:
               Number(item.jml_paralegal) > 0
@@ -894,10 +1213,88 @@ export default function LandingPage() {
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const mapSourceLocations = filteredLocations.length
+    ? filteredLocations
+    : locations;
+
+  useEffect(() => {
+    const center = getMapCenterFromItems(mapSourceLocations);
+    setMapCenter(center);
+    setMapPopup(null);
+  }, [mapSourceLocations]);
+
+  const osmTiles = useMemo(() => {
+    return getOsmTiles(mapCenter, mapZoom, mapSize);
+  }, [mapCenter, mapZoom, mapSize]);
+
+  const mapMarkers = useMemo(() => {
+    return mapSourceLocations
+      .filter(hasValidCoordinate)
+      .map((item) => ({
+        item,
+        position: getOsmPixelPosition(item, mapCenter, mapZoom, mapSize),
+      }))
+      .filter((marker) => marker.position);
+  }, [mapSourceLocations, mapCenter, mapZoom, mapSize]);
+
+  const userMapMarkerPosition = useMemo(() => {
+    if (!userMapMarker) return null;
+
+    return getOsmPixelPosition(userMapMarker, mapCenter, mapZoom, mapSize);
+  }, [userMapMarker, mapCenter, mapZoom, mapSize]);
+
+  const handleMapPinClick = (item, position) => {
+    setSelectedLocation(item);
+    setMapPopup((current) =>
+      current?.item?.id === item.id ? null : { item, position },
+    );
+  };
+
+  const locateCurrentUser = () => {
+    setMapPopup(null);
+
+    if (!navigator.geolocation) {
+      setMapCenter(getMapCenterFromItems(mapSourceLocations));
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const coordinate = {
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        };
+
+        setUserMapMarker(coordinate);
+        setMapCenter({ lat: coords.latitude, lng: coords.longitude });
+      },
+      () => {
+        setMapCenter(getMapCenterFromItems(mapSourceLocations));
+      },
+      { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 },
+    );
+  };
+
   const selectLocationFromPopup = (item) => {
+    const coordinate = getCoordinate(item);
+    const popupPosition = coordinate
+      ? getOsmPixelPosition(item, coordinate, mapZoom, mapSize)
+      : null;
+
     setSelectedLocation(item);
     setShowAllLocations(false);
-    setDetailPopup(item);
+    setDetailPopup(null);
+
+    if (coordinate) {
+      setMapCenter(coordinate);
+      setMapPopup({ item, position: popupPosition });
+    } else {
+      setMapPopup(null);
+    }
+
+    window.setTimeout(() => {
+      mapRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
   };
 
   return (
@@ -1054,7 +1451,7 @@ export default function LandingPage() {
                   >
                     <SlLocationPin />
                     Lihat Posbankum Terdekat
-                    <TbArrowBarRight />
+                    <BiRightArrowAlt />
                   </button>
 
                   <button
@@ -1069,7 +1466,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="lp-section" ref={whyRef}>
+        <section className="lp-section lp-why-section" ref={whyRef}>
           <div className="lp-container">
             <Reveal className="lp-center-head" direction="down">
               <div className="lp-label-pill">KEUNGGULAN LAYANAN</div>
@@ -1086,7 +1483,7 @@ export default function LandingPage() {
               <Reveal direction="up" delay={40}>
                 <div className="lp-why-card lp-why-card-blue">
                   <div className="lp-why-icon">
-                    <IconLightning />
+                    <AiOutlineThunderbolt />
                   </div>
 
                   <h3>Akses Mudah &amp; Cepat</h3>
@@ -1101,7 +1498,12 @@ export default function LandingPage() {
               <Reveal direction="up" delay={120}>
                 <div className="lp-why-card lp-why-card-orange">
                   <div className="lp-why-icon">
-                    <IconMedal />
+                    <img
+                      src={medalIcon}
+                      alt=""
+                      className="lp-why-image-icon"
+                      aria-hidden="true"
+                    />
                   </div>
 
                   <h3>Paralegal Berpengalaman</h3>
@@ -1113,7 +1515,12 @@ export default function LandingPage() {
               <Reveal direction="up" delay={200}>
                 <div className="lp-why-card lp-why-card-green">
                   <div className="lp-why-icon">
-                    <IconWorld />
+                    <img
+                      src={earthIcon}
+                      alt=""
+                      className="lp-why-image-icon"
+                      aria-hidden="true"
+                    />
                   </div>
 
                   <h3>Jangkauan Luas</h3>
@@ -1232,7 +1639,7 @@ export default function LandingPage() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    Hubungi Paralegal <TbArrowBarRight />
+                    Hubungi Paralegal <BiRightArrowAlt />
                   </a>
                 </div>
               </Reveal>
@@ -1278,68 +1685,119 @@ export default function LandingPage() {
                     </div>
                   </div>
 
-                  <div className="lp-fake-map">
-                    <div className="lp-road-h road-1"></div>
-                    <div className="lp-road-h road-2"></div>
-                    <div className="lp-road-h road-3"></div>
-                    <div className="lp-road-h road-4"></div>
-                    <div className="lp-road-v road-5"></div>
-                    <div className="lp-road-v road-6"></div>
-                    <div className="lp-road-v road-7"></div>
-                    <div className="lp-road-v road-8"></div>
-
-                    <div className="lp-block-green block-1">Taman</div>
-                    <div className="lp-block-green block-2"></div>
-
-                    <div className="lp-river">Sungai Siak</div>
-
-                    <div className="lp-map-label label-1">
-                      Jl. HR Soebrantas
+                  <div
+                    className="lp-osm-map"
+                    ref={osmMapRef}
+                    onClick={() => setMapPopup(null)}
+                  >
+                    <div className="lp-osm-tile-layer" aria-hidden="true">
+                      {osmTiles.map((tile) => (
+                        <img
+                          key={tile.key}
+                          src={tile.src}
+                          alt=""
+                          className="lp-osm-tile"
+                          draggable="false"
+                          style={{ left: tile.left, top: tile.top }}
+                        />
+                      ))}
                     </div>
-                    <div className="lp-map-label label-2">Jl. Arifin Ahmad</div>
-                    <div className="lp-map-label label-3">
-                      Jl. Kaharuddin Nasution
-                    </div>
-                    <div className="lp-map-label label-4">Jl. Riau</div>
-                    <div className="lp-map-label label-5">Jl. Garuda Sakti</div>
 
-                    {filteredLocations
-                      .slice(0, markerPositions.length)
-                      .map((item, index) => {
-                        const marker = markerPositions[index];
-                        const active = item.id === selectedLocation?.id;
+                    {mapMarkers.map(({ item, position }) => {
+                      const active = item.id === selectedLocation?.id;
 
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            className={`lp-map-pin ${active ? "active" : ""}`}
-                            style={{
-                              top: marker.top,
-                              left: marker.left,
-                            }}
-                            onClick={() => {
-                              setSelectedLocation(item);
-                              setDetailPopup(item);
-                            }}
-                            aria-label={item.name}
-                          >
-                            <span>
-                              <SlLocationPin />
-                            </span>
-                          </button>
-                        );
-                      })}
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          className={`lp-map-pin ${active ? "active" : ""}`}
+                          style={{
+                            top: `${position.top}px`,
+                            left: `${position.left}px`,
+                          }}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleMapPinClick(item, position);
+                          }}
+                          aria-label={item.name}
+                        >
+                          <img
+                            src={mapsIcon}
+                            alt="Lokasi Posbankum"
+                            className="lp-map-pin-img"
+                          />
+                        </button>
+                      );
+                    })}
+
+                    {userMapMarkerPosition ? (
+                      <span
+                        className="lp-user-map-marker"
+                        style={{
+                          top: `${userMapMarkerPosition.top}px`,
+                          left: `${userMapMarkerPosition.left}px`,
+                        }}
+                        aria-label="Posisi saat ini"
+                      >
+                        <span></span>
+                      </span>
+                    ) : null}
+
+                    {mapPopup ? (
+                      <MapInfoPopup
+                        location={mapPopup.item}
+                        position={mapPopup.position}
+                      />
+                    ) : null}
 
                     <div className="lp-map-compass">N</div>
 
-                    <div className="lp-map-zoom">
-                      <button type="button">+</button>
-                      <button type="button">−</button>
+                    <div
+                      className="lp-map-zoom"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMapZoom((value) => Math.min(value + 1, 18))
+                        }
+                        aria-label="Perbesar peta"
+                      >
+                        <FiZoomIn />
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setMapZoom((value) => Math.max(value - 1, 10))
+                        }
+                        aria-label="Perkecil peta"
+                      >
+                        <FiZoomOut />
+                      </button>
+
+                      <button
+                        type="button"
+                        className="lp-map-current-button"
+                        onClick={locateCurrentUser}
+                        aria-label="Lihat posisi saat ini"
+                      >
+                        <IoLocateSharp
+                          className="lp-map-current-icon"
+                          aria-hidden="true"
+                        />
+                      </button>
                     </div>
 
-                    <div className="lp-map-scale">2 km</div>
-                    <div className="lp-map-layer">Layer</div>
+                    <div className="lp-map-scale">Peta Posbankum</div>
+
+                    <button
+                      type="button"
+                      className="lp-map-layer"
+                      onClick={(event) => event.stopPropagation()}
+                    >
+                      <FiLayers /> Layer
+                    </button>
                   </div>
                 </div>
               </Reveal>
@@ -1350,9 +1808,7 @@ export default function LandingPage() {
                     <div>
                       <h3>Daftar Posbankum</h3>
 
-                      <p>
-                        {selectedLocation?.district || "Kota Pekanbaru, Riau"}
-                      </p>
+                      <p>Kota Pekanbaru, Riau</p>
                     </div>
 
                     <button
@@ -1380,6 +1836,7 @@ export default function LandingPage() {
                           active={item.id === selectedLocation?.id}
                           onClick={() => {
                             setSelectedLocation(item);
+                            setMapPopup(null);
                             setDetailPopup(item);
                           }}
                         />
@@ -1396,7 +1853,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="lp-section">
+        <section className="lp-section lp-faq-section">
           <div className="lp-container">
             <div className="lp-faq-wrap">
               <div className="lp-center-head">
@@ -1416,6 +1873,7 @@ export default function LandingPage() {
               <div className="lp-faq-list">
                 {faqItems.map((item, index) => {
                   const open = openFaq === index;
+                  const FaqIcon = item.icon;
 
                   return (
                     <div className="lp-faq-item" key={item.question}>
@@ -1425,21 +1883,34 @@ export default function LandingPage() {
                         onClick={() => setOpenFaq(open ? null : index)}
                       >
                         <div className="lp-faq-button-left">
-                          <span className="lp-faq-icon-wrap">?</span>
+                          <span className="lp-faq-icon-wrap">
+                            {FaqIcon ? (
+                              typeof FaqIcon === "function" ? (
+                                <FaqIcon />
+                              ) : (
+                                FaqIcon
+                              )
+                            ) : (
+                              <span className="lp-faq-icon-placeholder">?</span>
+                            )}
+                          </span>
 
                           <span className="lp-faq-question">
                             {item.question}
                           </span>
                         </div>
 
-                        <span className={`lp-faq-arrow ${open ? "open" : ""}`}>
-                          ⌄
+                        <span className="lp-faq-arrow">
+                          {open ? <IoIosArrowUp /> : <IoIosArrowDown />}
                         </span>
                       </button>
 
-                      {open ? (
+                      <div
+                        className={`lp-faq-answer-wrap ${open ? "open" : ""}`}
+                        aria-hidden={!open}
+                      >
                         <div className="lp-faq-answer">{item.answer}</div>
-                      ) : null}
+                      </div>
                     </div>
                   );
                 })}
@@ -1460,7 +1931,7 @@ export default function LandingPage() {
 
               <a
                 className="lp-contact-button"
-                href={`https://wa.me/${ORG_WA_TEL}`}
+                href="https://riau.kemenkum.go.id/"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -1476,7 +1947,9 @@ export default function LandingPage() {
           <div className="lp-footer-grid">
             <div className="lp-footer-brand">
               <div className="lp-footer-logo">
-                <img src={logo} alt="Logo Posbankum" />
+                <span className="lp-footer-logo-box">
+                  <img src={burung5} alt="Logo SiBapak" />
+                </span>
                 <span>SiBapak</span>
               </div>
 
@@ -1484,16 +1957,54 @@ export default function LandingPage() {
                 Pos Bantuan Hukum yang tersebar di seluruh Indonesia untuk
                 memberikan akses keadilan bagi masyarakat.
               </p>
+
+              <div className="lp-footer-socials" aria-label="Akun sosial media">
+                <a
+                  href={SOCIAL_LINKS.facebook}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Facebook SiBapak"
+                >
+                  <FiFacebook />
+                </a>
+
+                <a
+                  href={SOCIAL_LINKS.twitter}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Twitter SiBapak"
+                >
+                  <FiTwitter />
+                </a>
+
+                <a
+                  href={SOCIAL_LINKS.instagram}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Instagram SiBapak"
+                >
+                  <BsInstagram />
+                </a>
+
+                <a
+                  href={SOCIAL_LINKS.youtube}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="YouTube SiBapak"
+                >
+                  <AiOutlineYoutube />
+                </a>
+              </div>
             </div>
 
-            <div className="lp-footer-col">
+            <div className="lp-footer-col lp-footer-link-col">
               <h4>Tautan Cepat</h4>
               <a href="#">Tentang Kami</a>
               <a href="#">Layanan</a>
               <a href="#">Kontak</a>
             </div>
 
-            <div className="lp-footer-col">
+            <div className="lp-footer-col lp-footer-link-col">
               <h4>Layanan Kami</h4>
               <a href="#">Cek Posbankum</a>
               <a href="#">Data Paralegal</a>
@@ -1501,12 +2012,49 @@ export default function LandingPage() {
               <a href="#">Pengaduan</a>
             </div>
 
-            <div className="lp-footer-col">
+            <div className="lp-footer-col lp-footer-contact-col">
               <h4>Hubungi Kami</h4>
-              <span>{ORG_EMAIL}</span>
-              <span>{ORG_WA_DISPLAY}</span>
-              <span>{ORG_HOURS_TIME}</span>
-              <span>{ORG_ADDR}</span>
+
+              <a
+                className="lp-footer-contact-item"
+                href={`mailto:${ORG_EMAIL}`}
+              >
+                <span className="lp-footer-contact-icon">
+                  <AiOutlineMail />
+                </span>
+
+                <span className="lp-footer-contact-text">
+                  <small>Email</small>
+                  <strong>{ORG_EMAIL}</strong>
+                </span>
+              </a>
+
+              <a
+                className="lp-footer-contact-item"
+                href={`https://wa.me/${ORG_WA_TEL}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                <span className="lp-footer-contact-icon">
+                  <BsTelephone />
+                </span>
+
+                <span className="lp-footer-contact-text">
+                  <small>Telepon</small>
+                  <strong>{ORG_WA_DISPLAY}</strong>
+                </span>
+              </a>
+
+              <span className="lp-footer-contact-item">
+                <span className="lp-footer-contact-icon">
+                  <SlLocationPin />
+                </span>
+
+                <span className="lp-footer-contact-text">
+                  <small>Alamat</small>
+                  <strong>{ORG_ADDR}</strong>
+                </span>
+              </span>
             </div>
           </div>
 
@@ -1520,15 +2068,30 @@ export default function LandingPage() {
         </div>
       </footer>
 
-      <a
-        className="lp-float-chat"
-        href={`https://wa.me/${ORG_WA_TEL}`}
-        target="_blank"
-        rel="noreferrer"
-        aria-label="Hubungi Posbankum"
+      {chatbotOpen ? (
+        <div
+          className="lp-chatbot-backdrop"
+          onClick={() => setChatbotOpen(false)}
+        ></div>
+      ) : null}
+
+      <ChatbotPanel
+        open={chatbotOpen}
+        large={chatbotLarge}
+        onToggleLarge={() => setChatbotLarge((value) => !value)}
+        onClose={() => setChatbotOpen(false)}
+      />
+
+      <button
+        type="button"
+        className={`lp-float-chat ${chatbotOpen ? "is-open" : ""}`}
+        onClick={() => setChatbotOpen((value) => !value)}
+        aria-label={
+          chatbotOpen ? "Tutup chatbot Posbankum" : "Buka chatbot Posbankum"
+        }
       >
-        <BsTelephone />
-      </a>
+        {chatbotOpen ? <AiOutlineClose /> : <FiMessageCircle />}
+      </button>
 
       <DetailPopup
         location={detailPopup}

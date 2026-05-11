@@ -63,7 +63,7 @@
   margin: 0;
   font-size: 24px;
   line-height: 1.08;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.02em;
   color: #151c2e;
 }
@@ -160,7 +160,7 @@
   border-radius: 18px;
   padding: 16px 20px;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .apf-alert.is-danger {
@@ -211,7 +211,7 @@
   gap: 9px;
   text-transform: uppercase;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
 }
 .apf-badge svg {
   font-size: 18px;
@@ -250,7 +250,7 @@
 
 .apf-heroInner h3 {
   font-size: 21px;
-  font-weight: 800;
+  font-weight: 700;
   color: #fff;
   line-height: 1.25;
 }
@@ -287,7 +287,7 @@
 .apf-loading {
   padding: 24px 6px;
   color: #475467;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .apf-grid {
@@ -362,7 +362,7 @@
 .apf-helper,
 .apf-errorText {
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .apf-helper {
@@ -391,7 +391,7 @@
   align-items: center;
   gap: 10px;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .apf-securityHead {
@@ -421,7 +421,7 @@
 
 .apf-securityTitle {
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
   color: #151c2e;
 }
 
@@ -521,7 +521,7 @@
   align-items: center;
   gap: 10px;
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .apf-modalClose {
@@ -698,4 +698,138 @@
 .ppf-inputWrap:focus-within {
   box-shadow: none !important;
   border-color: #dde3eb !important; /* tetap netral */
+}
+/* Revisi avatar profil admin: lingkaran putih, foto tampil jika tersedia. */
+.apf-avatarWrap {
+  width: 118px;
+  height: 118px;
+  border-radius: 999px;
+  background: #ffffff;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  box-shadow: none;
+}
+
+.apf-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  object-fit: cover;
+  display: block;
+}
+
+.apf-securityHead svg {
+  color: #ea580c;
+  font-size: 28px;
+}
+
+.apf-lastChangedIcon {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+}
+
+/* Struktur Informasi Penting: icon di kiri, teks sejajar di kanan. */
+.apf-infoCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.apf-infoIcon {
+  width: 28px;
+  height: 28px;
+  color: #1749a6;
+  flex: 0 0 auto;
+  margin-top: 0;
+}
+
+.apf-infoTextWrap {
+  min-width: 0;
+}
+
+.apf-infoHead {
+  display: block;
+  line-height: 1.25;
+}
+
+.apf-infoCard p {
+  margin-top: 8px;
+}
+
+.apf-ruleList {
+  list-style: none;
+  padding-left: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.apf-ruleList li {
+  position: relative;
+  padding-left: 17px;
+}
+
+.apf-ruleList li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.65em;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: currentColor;
+  transform: translateY(-50%);
+}
+
+.apf-ruleList li.is-valid::before {
+  background: #22c55e;
+}
+
+/* Mode edit profil admin: tempat tambah/ganti foto berada di bawah avatar. */
+.apf-avatarEditBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.apf-avatarEditBox.is-editing {
+  margin-bottom: 4px;
+}
+
+.apf-photoInput {
+  display: none;
+}
+
+.apf-photoBtn {
+  min-height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: #ffffff;
+  color: #0f3f93;
+  padding: 0 16px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: none;
+}
+
+.apf-photoBtn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.apf-photoHint {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+.apf-photoBtn:hover,
+.apf-photoBtn:focus-visible {
+  box-shadow: none !important;
+  transform: none !important;
+  filter: brightness(1.04);
 }

@@ -259,6 +259,7 @@ export default function VerifikasiDataPosbankum() {
   const [locQuery, setLocQuery] = useState("");
   const [locDraft, setLocDraft] = useState({ lat: "", lng: "", alamat: "" });
   const [locErr, setLocErr] = useState("");
+  const [locSearching, setLocSearching] = useState(false);
   const [locDirty, setLocDirty] = useState(false);
   const mapBoxRef = useRef(null);
   const mapRef = useRef(null);
@@ -378,6 +379,14 @@ export default function VerifikasiDataPosbankum() {
   };
 
   const pickTaggingTanggal = (pos, taggingLatest) => {
+    const savedVerificationDate =
+      pos?.tgl_verifikasi_tagging_area ??
+      pos?.tanggal_verifikasi_tagging_area ??
+      pos?.tgl_verifikasi_tagging ??
+      pos?.tgl_verifikasi_lokasi ??
+      null;
+
+    if (savedVerificationDate) return savedVerificationDate;
     if (taggingLatest) return pickTimestamp(taggingLatest);
     if (!hasTaggingArea(pos)) return null;
 
@@ -390,17 +399,26 @@ export default function VerifikasiDataPosbankum() {
     );
   };
 
-  const getTaggingStatus = (pos, hasCoords) => {
-    const raw =
-      pos?.status_verifikasi_tagging_area ??
-      pos?.status_tagging_area ??
-      pos?.status_verifikasi_tagging ??
-      pos?.status_tagging ??
-      pos?.status_lokasi ??
-      pos?.status_verifikasi_lokasi ??
-      pos?.verification_status_location ??
-      "";
+  const pickTaggingRawStatus = (pos) =>
+    pos?.status_verifikasi_tagging_area ??
+    pos?.status_tagging_area ??
+    pos?.status_verifikasi_tagging ??
+    pos?.status_tagging ??
+    pos?.status_lokasi ??
+    pos?.status_verifikasi_lokasi ??
+    pos?.verification_status_location ??
+    "";
+
+  const getTaggingStatus = (pos, hasCoords, taggingLatest = null) => {
+    const raw = pickTaggingRawStatus(pos);
     if (raw) return normalizeStatus(raw);
+
+    if (taggingLatest) {
+      return normalizeStatus(
+        taggingLatest?.status_verifikasi ?? taggingLatest?.status,
+      );
+    }
+
     return hasCoords ? "menunggu" : "menunggu";
   };
 
@@ -634,6 +652,10 @@ export default function VerifikasiDataPosbankum() {
     const lo = Number(lng);
     if (!Number.isFinite(la) || !Number.isFinite(lo)) return;
 
+    try {
+      map.invalidateSize(true);
+    } catch {}
+
     map.setView([la, lo], zoom);
 
     if (markerRef.current) {
@@ -704,9 +726,14 @@ export default function VerifikasiDataPosbankum() {
 
   const searchLocation = async () => {
     const keyword = locQuery.trim();
-    if (!keyword) return;
+
+    if (!keyword) {
+      setLocErr("Warning: Isi kolom pencarian lokasi terlebih dahulu.");
+      return;
+    }
 
     setLocErr("");
+    setLocSearching(true);
 
     try {
       const res = await fetch(
@@ -724,7 +751,9 @@ export default function VerifikasiDataPosbankum() {
       const hit = json?.[0];
 
       if (!hit) {
-        setLocErr("Lokasi tidak ditemukan.");
+        setLocErr(
+          "Warning: Lokasi tidak ditemukan. Periksa kembali penulisan lokasi, lalu tekan Cari lagi.",
+        );
         return;
       }
 
@@ -732,7 +761,7 @@ export default function VerifikasiDataPosbankum() {
       const lng = Number(hit.lon);
 
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-        setLocErr("Koordinat lokasi tidak valid.");
+        setLocErr("Warning: Koordinat lokasi tidak valid.");
         return;
       }
 
@@ -749,13 +778,17 @@ export default function VerifikasiDataPosbankum() {
         moveMarker(lat, lng, 16);
       }, 120);
     } catch {
-      setLocErr("Pencarian lokasi gagal.");
+      setLocErr(
+        "Warning: Pencarian lokasi gagal. Periksa koneksi internet, lalu coba lagi.",
+      );
+    } finally {
+      setLocSearching(false);
     }
   };
 
   const useMyLocation = () => {
     if (!navigator.geolocation) {
-      setLocErr("Browser tidak mendukung geolocation.");
+      setLocErr("Warning: Browser tidak mendukung geolocation.");
       return;
     }
 
@@ -789,7 +822,7 @@ export default function VerifikasiDataPosbankum() {
         }
       },
       () => {
-        setLocErr("Gagal mengambil lokasi saat ini.");
+        setLocErr("Warning: Gagal mengambil lokasi saat ini.");
       },
       {
         enableHighAccuracy: true,
@@ -930,56 +963,24 @@ export default function VerifikasiDataPosbankum() {
           const hasCoords = hasTaggingArea(p);
           const taggingDate = pickTaggingTanggal(p, taggingLatest);
 
-          if (hasCoords) {
-            return {
-              label: req.label,
-              key: req.key,
-              tanggal: formatTanggal(taggingDate),
-              status: getTaggingStatus(p, hasCoords),
-              path: "__tagging_area__",
-              mime: "map",
-              name: "Tagging Area",
-              uploadId: null,
-              files: [],
-              viewerType: "tagging_area",
-              latitude: p.latitude ?? p.lat ?? p.latitude_pos,
-              longitude: p.longitude ?? p.lng ?? p.long ?? p.longitude_pos,
-              alamat: p.alamat ?? "",
-              raw: p,
-              fileCount: 1,
-            };
-          }
-
-          if (taggingLatest) {
-            return {
-              label: req.label,
-              key: req.key,
-              tanggal: formatTanggal(taggingDate),
-              status: normalizeStatus(
-                taggingLatest?.status_verifikasi ?? taggingLatest?.status,
-              ),
-              path: pickPath(taggingLatest),
-              mime: pickMime(taggingLatest),
-              name: pickName(taggingLatest),
-              uploadId: pickUploadId(taggingLatest),
-              files: taggingUploads,
-              raw: taggingLatest,
-              fileCount: taggingUploads.length,
-            };
-          }
+          const taggingStatus = getTaggingStatus(p, hasCoords, taggingLatest);
 
           return {
             label: req.label,
             key: req.key,
-            tanggal: "-",
-            status: "menunggu",
-            path: "",
-            mime: "",
-            name: "",
-            uploadId: null,
-            files: [],
-            raw: null,
-            fileCount: 0,
+            tanggal: formatTanggal(taggingDate),
+            status: taggingStatus,
+            path: "__tagging_area__",
+            mime: "map",
+            name: "Tagging Area",
+            uploadId: taggingLatest ? pickUploadId(taggingLatest) : null,
+            files: taggingUploads,
+            viewerType: "tagging_area",
+            latitude: p.latitude ?? p.lat ?? p.latitude_pos ?? "",
+            longitude: p.longitude ?? p.lng ?? p.long ?? p.longitude_pos ?? "",
+            alamat: p.alamat ?? "",
+            raw: p,
+            fileCount: hasCoords ? 1 : taggingUploads.length,
           };
         }
 
@@ -1051,6 +1052,7 @@ export default function VerifikasiDataPosbankum() {
     setLocQuery("");
     setLocDraft({ lat: "", lng: "", alamat: "" });
     setLocErr("");
+    setLocSearching(false);
     setLocDirty(false);
     destroyMap();
   };
@@ -1250,7 +1252,7 @@ export default function VerifikasiDataPosbankum() {
           });
         });
       } catch {
-        setLocErr("Peta gagal dimuat.");
+        setLocErr("Warning: Peta gagal dimuat.");
       }
     };
 
@@ -1284,6 +1286,8 @@ export default function VerifikasiDataPosbankum() {
 
   const setDocStatusLocal = (posId, key, status, reason = "", options = {}) => {
     const shouldSaveLocation = Boolean(options.saveLocation);
+    const taggingUploadId = options.taggingUploadId || null;
+    const now = options.now || new Date().toISOString();
     const nextAlamat = simplifyLocationAddress(locDraft.alamat);
     const nextLat = Number(locDraft.lat);
     const nextLng = Number(locDraft.lng);
@@ -1360,10 +1364,43 @@ export default function VerifikasiDataPosbankum() {
                     : item.longitude,
                 }
               : {}),
-            updated_at: new Date().toISOString(),
+            updated_at: now,
           };
         }),
       );
+
+      setUploadsByPos((prev) => {
+        const list = prev?.[posId] ?? [];
+        const latestIndex = list.findIndex(
+          (item) => canonKategori(item?.kategori) === "tagging_area",
+        );
+
+        const nextItem = {
+          ...(latestIndex >= 0 ? list[latestIndex] : {}),
+          id_data:
+            taggingUploadId ||
+            (latestIndex >= 0 ? list[latestIndex]?.id_data : undefined),
+          id_posbankum: posId,
+          kategori: "tagging_area",
+          path_berkas: "__tagging_area__",
+          nama_berkas: "Tagging Area",
+          mime_type: "map",
+          status_verifikasi: status,
+          catatan_admin: status === "ditolak" ? reason : "",
+          tgl_verifikasi: now,
+          tgl_upload:
+            latestIndex >= 0 ? list[latestIndex]?.tgl_upload || now : now,
+        };
+
+        if (latestIndex < 0) {
+          return { ...prev, [posId]: sortUploads([nextItem, ...list]) };
+        }
+
+        const nextList = list.slice();
+        nextList[latestIndex] = nextItem;
+        return { ...prev, [posId]: sortUploads(nextList) };
+      });
+
       return;
     }
 
@@ -1474,6 +1511,37 @@ export default function VerifikasiDataPosbankum() {
     }
   };
 
+  const syncExistingTaggingStatusToDataPosbankum = async (
+    status,
+    reason,
+    verifierId,
+    now,
+  ) => {
+    if (!selectedDoc.uploadId) return null;
+
+    const updatePayload = {
+      status_verifikasi: status,
+      id_user_verifikator: verifierId,
+      tgl_verifikasi: now,
+      nama_berkas: "Tagging Area",
+      mime_type: "map",
+      catatan_admin: status === "ditolak" ? reason : "",
+    };
+
+    try {
+      await updateDataPosbankumWithSchemaFallback(updatePayload);
+      return selectedDoc.uploadId;
+    } catch (error) {
+      const message = String(error?.message || "").toLowerCase();
+      const isRlsError =
+        message.includes("row-level security") ||
+        message.includes("violates row-level security");
+
+      if (isRlsError) return selectedDoc.uploadId;
+      throw error;
+    }
+  };
+
   const updateTaggingVerification = async (
     status,
     reason = "",
@@ -1553,8 +1621,17 @@ export default function VerifikasiDataPosbankum() {
 
     await updatePosbankumWithSchemaFallback(payload);
 
+    const taggingUploadId = await syncExistingTaggingStatusToDataPosbankum(
+      status,
+      reason,
+      verifierId,
+      now,
+    );
+
     setDocStatusLocal(selectedDoc.posId, selectedDoc.key, status, reason, {
       saveLocation: shouldSaveLocation,
+      taggingUploadId,
+      now,
     });
   };
 
@@ -1849,8 +1926,12 @@ export default function VerifikasiDataPosbankum() {
           <div className="vd-loading">Memuat data...</div>
         ) : pageItems.length ? (
           pageItems.map((p) => {
-            const kabName = kabupatenNameById[p.id_kabupaten] ?? "";
-            const kecName = kecamatanNameById[p.id_kecamatan] ?? "";
+            const kabName = stripKnownAddressPrefix(
+              kabupatenNameById[p.id_kabupaten] ?? "",
+            );
+            const kecName = stripKnownAddressPrefix(
+              kecamatanNameById[p.id_kecamatan] ?? "",
+            );
             const loc = [kabName, kecName].filter(Boolean).join(" • ") || "-";
 
             return (
@@ -1890,8 +1971,12 @@ export default function VerifikasiDataPosbankum() {
                         <button
                           className="vd-eyeBtn"
                           type="button"
-                          disabled={!d.path}
-                          title={!d.path ? "Belum ada berkas" : "Lihat"}
+                          disabled={!d.path && d.key !== "tagging_area"}
+                          title={
+                            !d.path && d.key !== "tagging_area"
+                              ? "Belum ada berkas"
+                              : "Lihat"
+                          }
                           onClick={() => openPreview(d, p.id_posbankum)}
                         >
                           <FiEye />
@@ -1904,7 +1989,15 @@ export default function VerifikasiDataPosbankum() {
             );
           })
         ) : (
-          <div className="vd-loading">Data tidak ditemukan.</div>
+          <div className="vd-emptyCard">
+            <div className="vd-emptyIcon">
+              <FiFileText />
+            </div>
+            <h2>Tidak Ada Data Ditemukan</h2>
+            <p>
+              Tidak ada data posbankum yang sesuai dengan filter yang dipilih.
+            </p>
+          </div>
         )}
       </div>
 
@@ -2095,11 +2188,14 @@ export default function VerifikasiDataPosbankum() {
                     className="vd-locSearchInput"
                     placeholder="Cari lokasi (contoh: Jl. Sudirman, Pekanbaru)"
                     value={locQuery}
-                    onChange={(e) => setLocQuery(e.target.value)}
+                    onChange={(e) => {
+                      setLocQuery(e.target.value);
+                      if (locErr) setLocErr("");
+                    }}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") searchLocation();
                     }}
-                    disabled={verifyBusy}
+                    disabled={verifyBusy || locSearching}
                   />
                 </div>
 
@@ -2107,9 +2203,9 @@ export default function VerifikasiDataPosbankum() {
                   className="vd-locCariBtn"
                   type="button"
                   onClick={searchLocation}
-                  disabled={verifyBusy}
+                  disabled={verifyBusy || locSearching}
                 >
-                  Cari
+                  {locSearching ? "Mencari..." : "Cari"}
                 </button>
 
                 <button
@@ -2117,11 +2213,17 @@ export default function VerifikasiDataPosbankum() {
                   type="button"
                   onClick={useMyLocation}
                   title="Gunakan lokasi saat ini"
-                  disabled={verifyBusy}
+                  disabled={verifyBusy || locSearching}
                 >
                   <MdLocationSearching />
                 </button>
               </div>
+
+              {locErr ? (
+                <div className="vd-locSearchWarning" role="alert">
+                  {locErr}
+                </div>
+              ) : null}
 
               <div className="vd-mapWrap">
                 <div className="vd-mapShell">
@@ -2147,14 +2249,7 @@ export default function VerifikasiDataPosbankum() {
                     ) : null}
                   </div>
 
-                  <div
-                    className={`vd-mapBox ${locErr ? "has-error" : ""}`}
-                    ref={mapBoxRef}
-                  >
-                    {locErr ? (
-                      <div className="vd-mapFallbackText">{locErr}</div>
-                    ) : null}
-                  </div>
+                  <div className="vd-mapBox" ref={mapBoxRef}></div>
                 </div>
               </div>
 
@@ -2213,8 +2308,6 @@ export default function VerifikasiDataPosbankum() {
                   saat ini.
                 </span>
               </div>
-
-              {locErr ? <div className="vd-inlineErr">{locErr}</div> : null}
 
               <div className="vd-locationActions">
                 <div className="vd-previewActions">

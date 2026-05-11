@@ -1,9 +1,8 @@
 import { FiBriefcase } from "react-icons/fi";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../../lib/supabaseClient";
-import burung5 from "../../assets/burung5.png";
 import {
   FiEdit,
   FiSave,
@@ -14,10 +13,11 @@ import {
   FiMapPin,
   FiEyeOff,
 } from "react-icons/fi";
-import { BiLockAlt, BiShield } from "react-icons/bi";
+import { BiShield } from "react-icons/bi";
 import { AiOutlineArrowLeft } from "react-icons/ai";
 import { FiKey } from "react-icons/fi";
 import { IoAlertCircleOutline } from "react-icons/io5";
+import { MdOutlineShield } from "react-icons/md";
 import "./adminProfile.css";
 import posbankum from "../../assets/icon.png";
 import SuccessToast from "../../components/ui/SuccessToast";
@@ -31,6 +31,7 @@ const INITIAL_FORM = {
   jabatan: "",
   unit_kerja: "",
   alamat_kantor: "",
+  foto_profile: "",
 };
 
 const INITIAL_PASSWORD = {
@@ -38,6 +39,27 @@ const INITIAL_PASSWORD = {
   newPassword: "",
   confirmPassword: "",
 };
+
+const BUCKET_PROFILE = "profile-photos";
+
+const cleanFilename = (name) =>
+  String(name || "file")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9.\-_]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+const isExternalUrl = (value) => /^https?:\/\//i.test(String(value || ""));
+const isDataOrBlob = (value) => /^(data:|blob:)/i.test(String(value || ""));
+
+function getProfilePhotoUrl(value) {
+  const path = safeTrim(value);
+  if (!path) return "";
+  if (isExternalUrl(path) || isDataOrBlob(path)) return path;
+  const { data } = supabase.storage.from(BUCKET_PROFILE).getPublicUrl(path);
+  return data?.publicUrl || "";
+}
 
 function getFriendlyError(error) {
   return error?.message || "Terjadi kesalahan. Silakan coba lagi.";
@@ -68,6 +90,7 @@ function buildFormData(data, adminName, sessionEmail) {
     unit_kerja:
       sanitizeText(data?.unit_kerja) || "Kantor Wilayah Kementerian Hukum Riau",
     alamat_kantor: sanitizeText(data?.alamat_kantor),
+    foto_profile: sanitizeText(data?.foto_profile),
   };
 }
 
@@ -99,6 +122,48 @@ function validateAdminPassword(values) {
   return errors;
 }
 
+function normalizeEmail(value) {
+  return safeTrim(value).toLowerCase();
+}
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(value));
+}
+
+function getEmailUpdateError(error) {
+  const message = safeTrim(error?.message);
+  if (!message) return "Gagal mengubah email login.";
+
+  const lower = message.toLowerCase();
+  if (lower.includes("invalid") && lower.includes("email")) {
+    return "Email login tidak valid. Periksa kembali penulisan email.";
+  }
+
+  if (lower.includes("already") || lower.includes("registered")) {
+    return "Email login sudah digunakan oleh akun lain.";
+  }
+
+  return message;
+}
+
+function getPasswordRules(password) {
+  const value = password || "";
+  return [
+    { key: "min", label: "Minimal 8 karakter", valid: value.length >= 8 },
+    {
+      key: "upper",
+      label: "Mengandung huruf besar",
+      valid: /[A-Z]/.test(value),
+    },
+    {
+      key: "lower",
+      label: "Mengandung huruf kecil",
+      valid: /[a-z]/.test(value),
+    },
+    { key: "number", label: "Mengandung angka", valid: /[0-9]/.test(value) },
+  ];
+}
+
 export default function AdminProfile({ sessionUser, adminName, onBack }) {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -120,6 +185,9 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
   });
   const [hasExtendedSchema, setHasExtendedSchema] = useState(true);
   const [successMessage, setSuccessMessage] = useState("");
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState("");
+  const photoInputRef = useRef(null);
 
   useEffect(() => {
     let alive = true;
@@ -171,7 +239,22 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
           return;
         }
 
-        const next = buildFormData(data, adminName, sessionUser.email);
+        let optionalPhoto = "";
+        const photoResponse = await supabase
+          .from("profiles")
+          .select("foto_profile")
+          .eq("id", sessionUser.id)
+          .maybeSingle();
+
+        if (!photoResponse.error) {
+          optionalPhoto = photoResponse.data?.foto_profile || "";
+        }
+
+        const next = buildFormData(
+          { ...data, foto_profile: optionalPhoto },
+          adminName,
+          sessionUser.email,
+        );
 
         if (!alive) return;
         setHasExtendedSchema(true);
@@ -192,6 +275,14 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
     };
   }, [sessionUser?.id, sessionUser?.email, adminName]);
 
+  useEffect(() => {
+    return () => {
+      if (photoPreview && photoPreview.startsWith("blob:")) {
+        URL.revokeObjectURL(photoPreview);
+      }
+    };
+  }, [photoPreview]);
+
   const displayEmail = useMemo(
     () =>
       sanitizeText(form.email_kantor) ||
@@ -200,14 +291,84 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
     [form.email_kantor, sessionUser?.email],
   );
 
+  const displayPhoto = useMemo(
+    () => photoPreview || getProfilePhotoUrl(form.foto_profile),
+    [form.foto_profile, photoPreview],
+  );
+
+  const passwordRules = useMemo(
+    () => getPasswordRules(passwordForm.newPassword),
+    [passwordForm.newPassword],
+  );
+
   const handleChange = (field, value) => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const resetSelectedPhoto = () => {
+    if (photoPreview && photoPreview.startsWith("blob:")) {
+      URL.revokeObjectURL(photoPreview);
+    }
+    setPhotoFile(null);
+    setPhotoPreview("");
+    if (photoInputRef.current) photoInputRef.current.value = "";
+  };
+
   const handleCancel = () => {
     setForm(initialForm);
+    resetSelectedPhoto();
     setEditing(false);
     setSubmitError("");
+  };
+
+  const handlePhotoClick = () => {
+    if (!editing || saving) return;
+    photoInputRef.current?.click();
+  };
+
+  const handlePhotoChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!["image/png", "image/jpeg", "image/jpg"].includes(file.type)) {
+      setSubmitError("Format foto harus PNG, JPG, atau JPEG.");
+      event.target.value = "";
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setSubmitError("Ukuran foto maksimal 5MB.");
+      event.target.value = "";
+      return;
+    }
+
+    if (photoPreview && photoPreview.startsWith("blob:")) {
+      URL.revokeObjectURL(photoPreview);
+    }
+
+    setSubmitError("");
+    setPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+  };
+
+  const uploadProfilePhoto = async () => {
+    if (!photoFile) return safeTrim(form.foto_profile);
+
+    const ext = photoFile.name.includes(".")
+      ? photoFile.name.split(".").pop()
+      : "jpg";
+    const name = cleanFilename(photoFile.name.replace(/\.[^.]+$/, ""));
+    const filePath = `admin/${sessionUser.id}/${Date.now()}-${name || "foto-profile"}.${ext}`;
+
+    const { error } = await supabase.storage
+      .from(BUCKET_PROFILE)
+      .upload(filePath, photoFile, {
+        cacheControl: "3600",
+        upsert: false,
+      });
+
+    if (error) throw error;
+    return filePath;
   };
 
   const handleSave = async () => {
@@ -217,13 +378,47 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
     setSubmitError("");
 
     try {
+      const nextEmail = normalizeEmail(form.email_kantor);
+
+      if (!nextEmail) {
+        throw new Error("Email wajib diisi.");
+      }
+
+      if (!isValidEmail(nextEmail)) {
+        throw new Error(
+          "Format email tidak valid. Periksa kembali penulisan email.",
+        );
+      }
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError) throw userError;
+
+      const currentEmail = normalizeEmail(user?.email || sessionUser?.email);
+      const isEmailChanged = nextEmail !== currentEmail;
+
+      if (isEmailChanged) {
+        const { error: emailError } = await supabase.auth.updateUser({
+          email: nextEmail,
+        });
+
+        if (emailError) {
+          throw new Error(getEmailUpdateError(emailError));
+        }
+      }
+
+      const nextPhoto = await uploadProfilePhoto();
       const payload = {
         full_name: safeTrim(form.full_name),
+        foto_profile: nextPhoto,
       };
 
       if (hasExtendedSchema) {
         payload.nip = safeTrim(form.nip);
-        payload.email_kantor = safeTrim(form.email_kantor);
+        payload.email_kantor = nextEmail;
         payload.nomor_telepon = safeTrim(form.nomor_telepon);
         payload.nomor_kantor = safeTrim(form.nomor_kantor);
         payload.jabatan = safeTrim(form.jabatan);
@@ -238,11 +433,20 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
 
       if (error) throw error;
 
-      const next = buildFormData(form, adminName, sessionUser?.email);
+      const next = buildFormData(
+        { ...form, email_kantor: nextEmail, foto_profile: nextPhoto },
+        adminName,
+        nextEmail || currentEmail,
+      );
       setForm(next);
       setInitialForm(next);
+      resetSelectedPhoto();
       setEditing(false);
-      setSuccessMessage("Profil admin berhasil diperbarui!");
+      setSuccessMessage(
+        isEmailChanged
+          ? "Profil admin diperbarui. Jika konfirmasi email aktif, buka email baru untuk mengaktifkan email login."
+          : "Profil admin berhasil diperbarui!",
+      );
     } catch (error) {
       setSubmitError(getFriendlyError(error));
     } finally {
@@ -403,8 +607,37 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
           </span>
 
           <div className="apf-heroInner">
-            <div className="apf-avatarWrap">
-              <img src={burung5} alt="Logo SIBAPAK" className="apf-avatar" />
+            <div className={`apf-avatarEditBox ${editing ? "is-editing" : ""}`}>
+              <div className="apf-avatarWrap">
+                {displayPhoto ? (
+                  <img
+                    src={displayPhoto}
+                    alt="Foto profil admin"
+                    className="apf-avatar"
+                  />
+                ) : null}
+              </div>
+
+              {editing ? (
+                <>
+                  <input
+                    ref={photoInputRef}
+                    className="apf-photoInput"
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg"
+                    onChange={handlePhotoChange}
+                  />
+                  <button
+                    className="apf-photoBtn"
+                    type="button"
+                    onClick={handlePhotoClick}
+                    disabled={saving}
+                  >
+                    {displayPhoto ? "Ganti Foto" : "Tambah Foto"}
+                  </button>
+                  <div className="apf-photoHint">PNG atau JPG maksimal 5MB</div>
+                </>
+              ) : null}
             </div>
 
             <h3>
@@ -496,7 +729,7 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
 
               <div className="apf-security">
                 <div className="apf-securityHead">
-                  <BiShield /> Keamanan Akun
+                  <MdOutlineShield /> Keamanan Akun
                 </div>
 
                 <div className="apf-securityCard">
@@ -509,7 +742,7 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
                     </p>
 
                     <div className="apf-securityMeta">
-                      <IoAlertCircleOutline />
+                      <IoAlertCircleOutline className="apf-lastChangedIcon" />
                       <span>
                         Terakhir diubah: mengikuti sistem autentikasi aktif
                       </span>
@@ -529,14 +762,16 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
               </div>
 
               <div className="apf-infoCard">
-                <div className="apf-infoHead">
-                  <IoAlertCircleOutline /> Informasi Penting
+                <IoAlertCircleOutline className="apf-infoIcon" />
+                <div className="apf-infoTextWrap">
+                  <div className="apf-infoHead">Informasi Penting</div>
+                  <p>
+                    Data profil ini digunakan untuk keperluan administrasi
+                    sistem. Pastikan semua informasi yang Anda masukkan akurat
+                    dan terkini. Perubahan data akan langsung tersimpan dalam
+                    sistem.
+                  </p>
                 </div>
-                <p>
-                  Data profil ini digunakan untuk keperluan administrasi sistem.
-                  Pastikan semua informasi yang Anda masukkan akurat dan
-                  terkini. Perubahan data akan langsung tersimpan dalam sistem.
-                </p>
               </div>
             </>
           )}
@@ -566,7 +801,7 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
                 </span>
                 <span className="apf-inputWrap">
                   <span className="apf-inputIcon">
-                    <BiLockAlt />
+                    <FiKey />
                   </span>
                   <input
                     className="apf-input"
@@ -606,7 +841,7 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
                 </span>
                 <span className="apf-inputWrap">
                   <span className="apf-inputIcon">
-                    <BiLockAlt />
+                    <FiKey />
                   </span>
                   <input
                     className="apf-input"
@@ -641,10 +876,11 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
               </label>
 
               <ul className="apf-ruleList">
-                <li>Minimal 8 karakter</li>
-                <li>Mengandung huruf besar</li>
-                <li>Mengandung huruf kecil</li>
-                <li>Mengandung angka</li>
+                {passwordRules.map((rule) => (
+                  <li key={rule.key} className={rule.valid ? "is-valid" : ""}>
+                    {rule.label}
+                  </li>
+                ))}
               </ul>
 
               <label className="apf-field is-full">
@@ -654,7 +890,7 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
                 </span>
                 <span className="apf-inputWrap">
                   <span className="apf-inputIcon">
-                    <BiLockAlt />
+                    <FiKey />
                   </span>
                   <input
                     className="apf-input"

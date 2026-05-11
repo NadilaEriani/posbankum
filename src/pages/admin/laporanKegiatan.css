@@ -20,7 +20,7 @@
   color: #111827;
   font-size: 30px;
   line-height: 1.15;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -0.035em;
 }
 
@@ -50,7 +50,7 @@
   border-radius: 13px;
   padding: 22px 23px;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 21px;
   color: #ffffff;
   box-shadow: 0 13px 24px rgba(15, 23, 42, 0.18);
@@ -80,6 +80,8 @@
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.23);
   display: grid;
+  margin-top: 0;
+  align-self: flex-start;
   place-items: center;
   color: #ffffff;
 }
@@ -105,7 +107,7 @@
   color: #ffffff;
   font-size: 37px;
   line-height: 0.95;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -149,12 +151,12 @@
   background: transparent;
   color: #344054;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .rk-searchBox input::placeholder {
   color: #9aa3b2;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .rk-searchClear {
@@ -191,7 +193,7 @@
   gap: 10px;
   font-size: 14px;
   line-height: 1;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -212,7 +214,7 @@
   background: #e5e9f0;
   color: #667085;
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .rk-tab.is-active .rk-tabCount {
@@ -288,7 +290,7 @@
   color: #111827;
   font-size: 18px;
   line-height: 1.25;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -299,7 +301,7 @@
   color: #343a73;
   font-size: 13px;
   line-height: 1.35;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 9px;
 }
 
@@ -325,7 +327,7 @@
   color: #b91c1c;
   font-size: 12px;
   line-height: 1.2;
-  font-weight: 900;
+  font-weight: 700;
   margin-bottom: 5px;
 }
 
@@ -340,7 +342,7 @@
   color: #ef4444;
   font-size: 12px;
   line-height: 1.3;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .rk-detailBtn {
@@ -356,7 +358,7 @@
   justify-content: center;
   gap: 8px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
   box-shadow: 0 7px 13px rgba(52, 58, 115, 0.31);
 }
@@ -379,7 +381,7 @@
   gap: 6px;
   font-size: 12px;
   line-height: 1;
-  font-weight: 900;
+  font-weight: 700;
   white-space: nowrap;
   border: 1.27px solid transparent;
 }
@@ -431,7 +433,7 @@
 .rk-emptyCard.is-loading {
   min-height: 150px;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .rk-emptyIcon {
@@ -455,7 +457,7 @@
   color: #111827;
   font-size: 20px;
   line-height: 1.2;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -464,7 +466,7 @@
   color: #475467;
   font-size: 15px;
   line-height: 1.45;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .rk-emptyBtn {
@@ -475,7 +477,7 @@
   background: #343a73;
   color: #ffffff;
   font-size: 14px;
-  font-weight: 900;
+  font-weight: 700;
   cursor: pointer;
   box-shadow: 0 9px 18px rgba(52, 58, 115, 0.25);
 }
@@ -503,7 +505,7 @@
   align-items: center;
   justify-content: center;
   font-size: 14px;
-  font-weight: 900;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -618,7 +620,7 @@
   color: #ffffff;
   font-size: 31px;
   line-height: 1.15;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -0.035em;
 }
 
@@ -636,7 +638,7 @@
   color: #ffffff;
   font-size: 15px;
   line-height: 1.25;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .rk-detailHeroMeta svg {
@@ -674,7 +676,7 @@
   color: #667085;
   font-size: 13px;
   line-height: 1.2;
-  font-weight: 800;
+  font-weight: 700;
   margin-bottom: 9px;
 }
 
@@ -683,7 +685,7 @@
   color: #111827;
   font-size: 16px;
   line-height: 1.25;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .rk-detailSection {
@@ -695,7 +697,7 @@
   color: #111827;
   font-size: 22px;
   line-height: 1.2;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -750,7 +752,7 @@
   gap: 9px;
   color: #ffffff;
   font-size: 16px;
-  font-weight: 900;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -834,7 +836,7 @@
   color: #ffffff;
   font-size: 23px;
   line-height: 1.1;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -875,7 +877,7 @@
   color: #111827;
   font-size: 15px;
   line-height: 1.2;
-  font-weight: 900;
+  font-weight: 700;
   margin-bottom: 13px;
 }
 
@@ -895,7 +897,7 @@
   color: #111827;
   font-size: 16px;
   line-height: 1.55;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .rk-rejectTextarea::placeholder {
@@ -908,7 +910,7 @@
   color: #667085;
   font-size: 13px;
   line-height: 1.4;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .rk-rejectActions {
@@ -930,7 +932,7 @@
   background: #e5e7eb;
   font-size: 16px;
   line-height: 1;
-  font-weight: 900;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -1191,4 +1193,34 @@
 .rk-searchBox input:focus-visible {
   outline: none;
   box-shadow: none;
+}
+
+/* Revisi warna metadata dan shadow card statistik laporan kegiatan. */
+.rk-statCard {
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.rk-cardMeta,
+.rk-cardMeta svg {
+  color: #898989;
+}
+/* ===== Drop shadow card statistik admin - lebih tegas ===== */
+.ad-card,
+.dp-topBox,
+.vd-topBox,
+.rk-statCard {
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.18),
+    0 10px 15px -3px rgba(0, 0, 0, 0.18) !important;
+}
+
+.ad-cardIcon,
+.dp-topIcon,
+.vd-topIcon,
+.rk-statIcon {
+  box-shadow:
+    0 2px 4px -2px rgba(0, 0, 0, 0.14),
+    0 4px 6px -1px rgba(0, 0, 0, 0.14) !important;
 }

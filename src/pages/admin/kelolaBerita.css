@@ -41,7 +41,7 @@
 .kb-title {
   margin: 0;
   font-size: 30px;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -162,7 +162,7 @@
   background: #fff;
   padding: 18px 20px;
   color: var(--kb-muted);
-  font-weight: 600;
+  font-weight: 700;
   box-shadow: 0 10px 24px rgba(28, 37, 68, 0.06);
 }
 
@@ -234,7 +234,7 @@
   margin: 0;
   font-size: 20px;
   line-height: 1.35;
-  font-weight: 800;
+  font-weight: 700;
   color: #21283a;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -355,7 +355,7 @@
 
 .kb-modalTitle {
   font-size: 22px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .kb-modalClose,
@@ -553,7 +553,7 @@
   padding: 0 26px;
   border-radius: 18px;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .kb-btnPrimary {
@@ -616,7 +616,7 @@
   color: #fff;
   font-size: 28px;
   line-height: 1.28;
-  font-weight: 800;
+  font-weight: 700;
   text-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
 }
 
@@ -673,7 +673,7 @@
 .kb-deleteTitle {
   color: #1f2937;
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .kb-deleteText {
@@ -730,7 +730,7 @@
   display: grid;
   place-items: center;
   border: 2px solid currentColor;
-  font-weight: 900;
+  font-weight: 700;
   font-size: 22px;
   flex-shrink: 0;
 }
@@ -738,7 +738,7 @@
 .kb-toastText {
   flex: 1;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .kb-toastClose {
@@ -932,7 +932,7 @@
   color: #111827;
   font-size: 20px;
   line-height: 1.2;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -941,5 +941,115 @@
   color: #475467;
   font-size: 15px;
   line-height: 1.45;
-  font-weight: 600;
+  font-weight: 700;
+}
+
+/* Modal hapus berita mengikuti tampilan konfirmasi pada desain. */
+.kb-deleteOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.64);
+}
+
+.kb-deleteModal {
+  width: min(450px, calc(100vw - 48px));
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 26px 24px 24px;
+  text-align: center;
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.kb-deleteIconWrap {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 18px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #fee2e2;
+  color: #e7000b;
+}
+
+.kb-deleteIconWrap svg {
+  width: 30px;
+  height: 30px;
+  stroke-width: 2.4;
+}
+
+.kb-deleteTitle {
+  margin: 0;
+  color: #161616;
+  font-size: 21px;
+  line-height: 1.2;
+  font-weight: 700;
+}
+
+.kb-deleteText {
+  margin: 12px auto 26px;
+  max-width: 370px;
+  color: #898989;
+  font-size: 16px;
+  line-height: 1.55;
+  font-weight: 400;
+}
+
+.kb-deleteActions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.kb-deleteCancel,
+.kb-deleteConfirm {
+  height: 48px;
+  border: 0;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kb-deleteCancel {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.kb-deleteConfirm {
+  background: #e7000b;
+  color: #ffffff;
+}
+
+.kb-deleteCancel:disabled,
+.kb-deleteConfirm:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.kb-metaAuthor,
+.kb-detailAuthor {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.kb-metaAuthor svg,
+.kb-detailAuthor svg {
+  width: 14px;
+  height: 14px;
+  color: currentColor;
+}
+
+.kb-detailModal {
+  width: min(92vw, 980px);
+}
+
+.kb-detailHero {
+  min-height: 330px;
 }

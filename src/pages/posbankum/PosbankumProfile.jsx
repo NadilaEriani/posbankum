@@ -520,7 +520,7 @@ export default function PosbankumProfile({
 
     const requiredPosbankumFields = [
       form.nama,
-      form.email_akun,
+      initialForm.email_akun,
       form.nomor_tlp,
       form.alamat,
       form.kode_pos,
@@ -569,7 +569,9 @@ export default function PosbankumProfile({
 
       const payload = {
         nama: form.nama.trim(),
-        email_akun: form.email_akun.trim(),
+        email_akun: String(
+          initialForm.email_akun || form.email_akun || "",
+        ).trim(),
         nomor_tlp: form.nomor_tlp.trim(),
         alamat: form.alamat.trim(),
         kode_pos: form.kode_pos.trim(),
@@ -910,15 +912,9 @@ export default function PosbankumProfile({
                     className="ppf-input"
                     type="email"
                     value={form.email_akun}
-                    readOnly={!editing}
-                    disabled={!editing}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        email_akun: event.target.value,
-                      }))
-                    }
-                    placeholder="Masukkan email Posbankum"
+                    readOnly
+                    disabled
+                    placeholder="Email Posbankum"
                   />
                 </span>
               </label>

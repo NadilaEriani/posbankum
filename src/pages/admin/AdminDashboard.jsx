@@ -19,6 +19,7 @@ import {
   FiPhone,
   FiAlertCircle,
   FiUserPlus,
+  FiUser,
 } from "react-icons/fi";
 import { TbFileCheck } from "react-icons/tb";
 import { BsCheck2Circle } from "react-icons/bs";
@@ -197,10 +198,6 @@ export default function AdminDashboard() {
   const [activityAll, setActivityAll] = useState([]);
   const [detailRows, setDetailRows] = useState([]);
 
-  const chartPanelRef = useRef(null);
-  const [hoverTip, setHoverTip] = useState(null);
-  const TIP_W = 260;
-
   const [detailSearch, setDetailSearch] = useState("");
   const [detailPage, setDetailPage] = useState(1);
   const detailPageSize = 6;
@@ -210,23 +207,6 @@ export default function AdminDashboard() {
   const [activityTab, setActivityTab] = useState("all");
 
   const [selectedPosDetail, setSelectedPosDetail] = useState(null);
-
-  const showTip = (e, row) => {
-    if (!chartPanelRef.current || !row) return;
-    const panelRect = chartPanelRef.current.getBoundingClientRect();
-    const itemRect = e.currentTarget.getBoundingClientRect();
-
-    let x = itemRect.left - panelRect.left + itemRect.width / 2;
-    const y = itemRect.top - panelRect.top + 8;
-
-    const pad = 14;
-    const half = TIP_W / 2;
-    x = Math.max(half + pad, Math.min(panelRect.width - half - pad, x));
-
-    setHoverTip({ x, y, row });
-  };
-
-  const hideTip = () => setHoverTip(null);
 
   const menu = useMemo(
     () => [
@@ -535,8 +515,7 @@ export default function AdminDashboard() {
         .select(
           "id_posbankum,nama_paralegal,nomor_telepon,is_primary,updated_at,created_at",
         )
-        .order("is_primary", { ascending: false })
-        .order("updated_at", { ascending: false })
+        .order("created_at", { ascending: true })
         .limit(5000);
 
       if (paralegalErr) throw paralegalErr;
@@ -669,7 +648,7 @@ export default function AdminDashboard() {
           namaPendek: pos.nama_pendek || stripPosbankumPrefix(pos.nama),
           alamat: pos.alamat || "-",
           nomor_tlp: pos.nomor_tlp || "-",
-          nama_paralegal: paralegal.nama_paralegal || pos.nama_paralegal || "-",
+          nama_paralegal: paralegal.nama_paralegal || "-",
           nomor_paralegal: paralegal.nomor_telepon || pos.nomor_tlp || "",
           latitude: pos.latitude,
           longitude: pos.longitude,
@@ -1040,7 +1019,7 @@ export default function AdminDashboard() {
             {dashError ? <div className="ad-errorBox">{dashError}</div> : null}
 
             <div className="ad-panels">
-              <section className="ad-panel ad-panelChart" ref={chartPanelRef}>
+              <section className="ad-panel ad-panelChart">
                 <div className="ad-panelHead">
                   <div>
                     <div className="ad-panelTitle">Posbankum Paling Aktif</div>
@@ -1094,50 +1073,17 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {hoverTip && !dashLoading ? (
-                  <div
-                    className="ad-hoverTip"
-                    style={{ left: hoverTip.x, top: hoverTip.y }}
-                    role="tooltip"
-                    aria-hidden="true"
-                  >
-                    <div className="ad-tipTitle">{hoverTip.row?.nama}</div>
-                    <div className="ad-tipGrid">
-                      <div className="ad-tipLabel">Total:</div>
-                      <div className="ad-tipVal">
-                        {hoverTip.row?.total ?? 0}
-                      </div>
-                      <div className="ad-tipLabel">Kegiatan:</div>
-                      <div className="ad-tipVal">
-                        {hoverTip.row?.kegiatan ?? 0}
-                      </div>
-                      <div className="ad-tipLabel">Kasus:</div>
-                      <div className="ad-tipVal">
-                        {hoverTip.row?.kasus ?? 0}
-                      </div>
-                    </div>
-                    <div
-                      className={`ad-tipGrowth ${(hoverTip.row?.growthPct ?? 0) >= 0 ? "is-up" : "is-down"}`}
-                    >
-                      {(hoverTip.row?.growthPct ?? 0) >= 0 ? "+" : ""}
-                      {hoverTip.row?.growthPct ?? 0}% {periodLabel(rangeDays)}
-                    </div>
-                  </div>
-                ) : null}
-
                 <div className="ad-activeBars">
                   {(dashLoading ? Array.from({ length: 6 }) : topActive).map(
                     (row, idx) => (
-                      <div
+                      <button
                         key={row?.id_posbankum || idx}
                         className="ad-activeItem"
-                        onMouseEnter={(e) =>
-                          !dashLoading && row && showTip(e, row)
+                        type="button"
+                        onClick={() =>
+                          !dashLoading && row && setSelectedPosDetail(row)
                         }
-                        onMouseLeave={hideTip}
-                        onFocus={(e) => !dashLoading && row && showTip(e, row)}
-                        onBlur={hideTip}
-                        tabIndex={dashLoading ? -1 : 0}
+                        disabled={dashLoading || !row}
                       >
                         <div className="ad-activeTop">
                           {dashLoading ? (
@@ -1178,7 +1124,7 @@ export default function AdminDashboard() {
                             </span>
                           )}
                         </div>
-                      </div>
+                      </button>
                     ),
                   )}
                 </div>
@@ -1419,6 +1365,15 @@ export default function AdminDashboard() {
             Halaman <b>{active}</b> belum dibuat.
           </div>
         )}
+        <footer className="ad-footer">
+          <div className="ad-footerText">
+            © 2026 Kementerian Hukum Riau. All rights reserved.
+          </div>
+
+          <div className="ad-footerText">
+            Dikembangkan oleh Politeknik Caltex Riau
+          </div>
+        </footer>
       </main>
 
       {selectedPosDetail ? (
@@ -1526,8 +1481,8 @@ export default function AdminDashboard() {
                   </div>
 
                   <div className="ad-detailInfoItem">
-                    <div className="ad-detailInfoIcon is-orange">
-                      <PosbankumAssetIcon className="ad-detailInfoAssetIcon" />
+                    <div className="ad-detailInfoIcon is-user">
+                      <FiUser />
                     </div>
                     <div>
                       <div className="ad-detailInfoLabel">Kepala Posbankum</div>

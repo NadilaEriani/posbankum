@@ -89,7 +89,7 @@
 .ad-brandName {
   font-size: 19px;
   line-height: 1.1;
-  font-weight: 800;
+  font-weight: 700;
   color: #fff;
 }
 
@@ -187,7 +187,7 @@
 
 .ad-pageIntroTitle {
   font-size: 26px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.1;
   color: #171d30;
 }
@@ -233,7 +233,7 @@
 .ad-wireTitle {
   font-size: 28px;
   line-height: 1.1;
-  font-weight: 800;
+  font-weight: 700;
   color: var(--ad-navy);
   margin-bottom: 22px;
   position: relative;
@@ -307,14 +307,14 @@
 .ad-cardTitle {
   font-size: 16px;
   line-height: 1.2;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .ad-cardValue {
   margin-top: 6px;
   font-size: 38px;
   line-height: 1;
-  font-weight: 800;
+  font-weight: 700;
 }
 .ad-cardIcon {
   align-self: flex-start;
@@ -439,7 +439,7 @@
   border-radius: 12px;
   text-align: left;
   padding: 10px 12px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -483,7 +483,7 @@
   background: #fff7ed;
   border: 1px solid #fed7aa;
   color: #c2410c;
-  font-weight: 600;
+  font-weight: 700;
   padding: 14px 16px;
   border-radius: 16px;
 }
@@ -492,81 +492,32 @@
   position: relative;
 }
 
-.ad-hoverTip {
-  position: absolute;
-  width: 260px;
-  transform: translate(-50%, -100%);
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: #111827;
-  color: #fff;
-  box-shadow: var(--ad-shadow-lg);
-  z-index: 40;
-  pointer-events: none;
-}
-
-.ad-hoverTip::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: -8px;
-  transform: translateX(-50%);
-  border-width: 8px 8px 0 8px;
-  border-style: solid;
-  border-color: #111827 transparent transparent transparent;
-}
-
-.ad-tipTitle {
-  font-size: 18px;
-  font-weight: 700;
-}
-
-.ad-tipGrid {
-  margin-top: 10px;
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 7px 12px;
-}
-
-.ad-tipLabel {
-  opacity: 0.9;
-  font-size: 13px;
-}
-
-.ad-tipVal {
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.ad-tipGrowth {
-  margin-top: 12px;
-  font-size: 13px;
-  font-weight: 700;
-}
-
-.ad-tipGrowth.is-up {
-  color: #4ade80;
-}
-
-.ad-tipGrowth.is-down {
-  color: #f87171;
-}
-
+/* Tampilan card statistik Posbankum Paling Aktif */
 .ad-activeBars {
   display: flex;
-  align-items: flex-end;
+  align-items: stretch;
   justify-content: space-between;
-  gap: 14px;
-  min-height: 300px;
+  gap: 16px;
+  min-height: 350px;
   padding: 8px 8px 0;
 }
 
 .ad-activeItem {
   flex: 1;
   min-width: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
+  display: grid;
+  grid-template-rows: 24px 230px 58px 24px;
+  align-items: end;
+  justify-items: center;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  appearance: none;
+}
+
+.ad-activeItem:disabled {
+  cursor: default;
 }
 
 .ad-activeItem:focus-visible {
@@ -582,11 +533,11 @@
 }
 
 .ad-activeTop {
-  margin-bottom: 8px;
   font-size: 18px;
   line-height: 1;
   font-weight: 700;
   color: #161c2c;
+  align-self: end;
 }
 
 .ad-barArea {
@@ -597,24 +548,41 @@
   justify-content: center;
 }
 
+/* Bentuk bar hijau pada statistik posbankum */
 .ad-pillBar {
   width: min(100%, 72px);
   border-radius: 24px;
   background: linear-gradient(180deg, #08c45a 0%, #06bc54 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: filter 0.18s ease;
+}
+
+/* Hover bar: cukup ubah kecerahan warna, tanpa shadow */
+.ad-activeItem:not(:disabled):hover .ad-pillBar {
+  filter: brightness(1.06);
 }
 
 .ad-activeName {
+  align-self: start;
   margin-top: 12px;
+  min-height: 40px;
+  max-width: 100%;
+  padding: 0 4px;
   font-size: 14px;
-  line-height: 1.2;
+  line-height: 1.25;
   font-weight: 700;
   text-align: center;
   color: #243041;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .ad-activeGrowth {
-  margin-top: 8px;
+  align-self: start;
+  margin-top: 6px;
+  min-height: 18px;
   font-size: 14px;
   line-height: 1.2;
   font-weight: 700;
@@ -806,7 +774,7 @@
   border-bottom: 1px solid #eef0f4;
   font-size: 14px;
   line-height: 1.35;
-  font-weight: 600;
+  font-weight: 700;
   color: #1f2937;
 }
 
@@ -840,7 +808,7 @@
 
 .ad-posName {
   min-width: 0;
-  font-weight: 600;
+  font-weight: 700;
   color: #20273a;
   white-space: normal;
   overflow: visible;
@@ -851,7 +819,7 @@
 .ad-totalNum {
   font-size: 18px;
   line-height: 1;
-  font-weight: 800;
+  font-weight: 700;
   color: #1d2437;
 }
 
@@ -884,7 +852,7 @@
   background: #f3f4f6;
   color: #6b7280;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
 }
 
@@ -981,7 +949,7 @@
 .ad-modalTitle {
   font-size: 22px;
   line-height: 1.15;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .ad-detailModalSub,
@@ -1052,7 +1020,7 @@
   margin-top: 10px;
   font-size: 22px;
   line-height: 1;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .ad-detailStatLabel {
@@ -1110,6 +1078,10 @@
 
 .ad-detailInfoIcon.is-orange {
   color: #f97316;
+}
+
+.ad-detailInfoIcon.is-user {
+  color: #ea580c;
 }
 
 .ad-detailInfoLabel {
@@ -1443,9 +1415,24 @@
 .ad-main [role="button"]:active {
   transform: translateY(0);
 }
-/* ===== FIX TEXT ACTION (ADMIN DASHBOARD) ===== */
 
-/* pastikan semua link/text action tidak punya shadow */
+/* Khusus item bar Posbankum Paling Aktif: hilangkan efek hover global agar tidak muncul card putih/drop shadow */
+.ad button.ad-activeItem:not(:disabled):hover,
+.ad-main button.ad-activeItem:not(:disabled):hover,
+.ad button.ad-activeItem:not(:disabled):focus-visible,
+.ad-main button.ad-activeItem:not(:disabled):focus-visible {
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+  filter: none !important;
+}
+
+/* Saat item bar di-hover, yang berubah hanya warna bar hijau saja */
+.ad button.ad-activeItem:not(:disabled):hover .ad-pillBar,
+.ad-main button.ad-activeItem:not(:disabled):hover .ad-pillBar {
+  filter: brightness(1.06);
+}
+
 .ad-link,
 .ad-linkBtn,
 button.ad-link,
@@ -1470,4 +1457,55 @@ button.ad-linkBtn {
   transform: none !important;
   filter: none !important;
   outline: none !important;
+}
+.ad-footer {
+  margin: 4px 30px 0;
+  padding: 22px 0 18px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.ad-footerText {
+  font-family: "Outfit", sans-serif;
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.4;
+  color: #6c6c6c;
+}
+
+@media (max-width: 768px) {
+  .ad-footer {
+    margin: 4px 24px 0;
+    padding: 18px 0 16px;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .ad-footerText {
+    font-size: 10px;
+  }
+}
+/* Hover button pagination tabel */
+.ad-pagerBtn:not(:disabled):hover,
+.ad-pagerBtn:not(:disabled):focus-visible {
+  background: linear-gradient(135deg, #32396f 0%, #4b5392 100%);
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(53, 60, 118, 0.2);
+  transform: translateY(-1px);
+}
+
+/* Efek saat button ditekan */
+.ad-pagerBtn:not(:disabled):active {
+  transform: translateY(0);
+}
+/*  shadow card statistik  */
+.ad-card,
+.ad-panel {
+  box-shadow:
+    0 4px 6px -4px rgba(0, 0, 0, 0.1),
+    0 10px 15px -3px rgba(0, 0, 0, 0.1);
 }

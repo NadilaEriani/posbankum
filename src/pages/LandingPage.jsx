@@ -1274,6 +1274,15 @@ export default function LandingPage() {
       { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 },
     );
   };
+  const clearMapView = () => {
+    const center = getMapCenterFromItems(mapSourceLocations);
+
+    setUserMapMarker(null);
+    setMapZoom(OSM_DEFAULT_ZOOM);
+    setMapCenter(center);
+    setMapPopup(null);
+    setSelectedLocation(null);
+  };
 
   const selectLocationFromPopup = (item) => {
     const coordinate = getCoordinate(item);
@@ -1302,20 +1311,15 @@ export default function LandingPage() {
       <div className="lp-topbar">
         <div className="lp-container lp-topbar-inner">
           <div className="lp-topbar-left">
-            <a className="lp-topbar-link" href={`mailto:${ORG_EMAIL}`}>
+            <span className="lp-topbar-link lp-topbar-info">
               <AiOutlineMail />
               <span>{ORG_EMAIL}</span>
-            </a>
+            </span>
 
-            <a
-              className="lp-topbar-link"
-              href={`https://wa.me/${ORG_WA_TEL}`}
-              target="_blank"
-              rel="noreferrer"
-            >
+            <span className="lp-topbar-link lp-topbar-info">
               <BsTelephone />
               <span>{ORG_WA_DISPLAY}</span>
-            </a>
+            </span>
           </div>
 
           <div className="lp-topbar-right">
@@ -1789,8 +1793,16 @@ export default function LandingPage() {
                       </button>
                     </div>
 
-                    <div className="lp-map-scale">Peta Posbankum</div>
-
+                    <button
+                      type="button"
+                      className="lp-map-scale lp-map-clear-button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        clearMapView();
+                      }}
+                    >
+                      Clear
+                    </button>
                     <button
                       type="button"
                       className="lp-map-layer"

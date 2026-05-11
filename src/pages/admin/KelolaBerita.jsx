@@ -8,11 +8,11 @@ import {
   FiPlus,
   FiSearch,
   FiTrash2,
+  FiUser,
   FiX,
 } from "react-icons/fi";
 import { supabase } from "../../lib/supabaseClient";
 import "./kelolaBerita.css";
-import DeleteConfirmModal from "../../components/ui/DeleteConfirmModal";
 
 const BUCKET_BERITA = "berita-images";
 const KATEGORI_OPTIONS = [
@@ -215,10 +215,7 @@ export default function KelolaBerita({ currentUserId, currentUserName }) {
       return {
         ...item,
         kategori: String(item?.kategori || inferCategory(item)),
-        authorName:
-          authorMap.get(item?.id_user) ||
-          currentUserName ||
-          "Admin Kemenkumham Riau",
+        authorName: "Admin",
         imageUrl: getStorageUrl(item?.gambar),
       };
     });
@@ -241,7 +238,7 @@ export default function KelolaBerita({ currentUserId, currentUserName }) {
     setForm({
       judul: "",
       isi: "",
-      kategori: KATEGORI_OPTIONS[0],
+      kategori: "",
       gambarFile: null,
     });
     setExistingImagePath("");
@@ -561,7 +558,10 @@ export default function KelolaBerita({ currentUserId, currentUserName }) {
                     <FiCalendar />
                     {formatDateID(item.tgl_publish)}
                   </span>
-                  <span className="kb-metaAuthor">{item.authorName}</span>
+                  <span className="kb-metaAuthor">
+                    <FiUser />
+                    {item.authorName}
+                  </span>
                 </div>
               </div>
 
@@ -689,6 +689,9 @@ export default function KelolaBerita({ currentUserId, currentUserName }) {
                         }))
                       }
                     >
+                      <option value="" disabled>
+                        Pilih Kategori Berita
+                      </option>
                       {KATEGORI_OPTIONS.map((option) => (
                         <option key={option} value={option}>
                           {option}
@@ -778,6 +781,7 @@ export default function KelolaBerita({ currentUserId, currentUserName }) {
                     {formatDateID(activeItem.tgl_publish)}
                   </span>
                   <span className="kb-detailAuthor">
+                    <FiUser />
                     {activeItem.authorName}
                   </span>
                 </div>
@@ -806,16 +810,48 @@ export default function KelolaBerita({ currentUserId, currentUserName }) {
         </div>
       ) : null}
 
-      <DeleteConfirmModal
-        open={deleteOpen && !!activeItem}
-        title="Hapus Berita?"
-        subtitle="Tindakan ini tidak dapat dibatalkan"
-        description="Apakah Anda yakin ingin menghapus berita ini? Semua data dan gambar terkait akan dihapus permanen."
-        confirmLabel="Ya, Hapus"
-        loading={deleting}
-        onCancel={closeDelete}
-        onConfirm={handleDelete}
-      />
+      {deleteOpen && activeItem ? (
+        <div className="kb-deleteOverlay" role="presentation">
+          <div
+            className="kb-deleteModal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="kb-delete-title"
+          >
+            <div className="kb-deleteIconWrap" aria-hidden="true">
+              <FiTrash2 />
+            </div>
+
+            <h2 id="kb-delete-title" className="kb-deleteTitle">
+              Hapus Berita
+            </h2>
+
+            <p className="kb-deleteText">
+              Apakah Anda yakin ingin menghapus berita ini? Data yang sudah
+              dihapus tidak dapat dikembalikan.
+            </p>
+
+            <div className="kb-deleteActions">
+              <button
+                className="kb-deleteCancel"
+                type="button"
+                onClick={closeDelete}
+                disabled={deleting}
+              >
+                Batal
+              </button>
+              <button
+                className="kb-deleteConfirm"
+                type="button"
+                onClick={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? "Menghapus..." : "Hapus"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }

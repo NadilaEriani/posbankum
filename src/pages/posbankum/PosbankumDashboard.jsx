@@ -1326,6 +1326,15 @@ export default function PosbankumDashboard() {
             Halaman <b>{active}</b> belum dibuat
           </div>
         )}
+        <footer className="pb2Footer">
+          <div className="pb2FooterText">
+            © 2026 Kementerian Hukum Riau. All rights reserved.
+          </div>
+
+          <div className="pb2FooterText">
+            Dikembangkan oleh Politeknik Caltex Riau
+          </div>
+        </footer>
 
         {notifOpen ? (
           <div

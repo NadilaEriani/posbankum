@@ -22,6 +22,12 @@ import { supabase } from "../../lib/supabaseClient";
 
 const BUCKET = "posbankum-docs";
 
+function stripKotaPrefix(value) {
+  return String(value || "")
+    .trim()
+    .replace(/^(kota|kabupaten|kab\.?)\s+/i, "");
+}
+
 /* =========================
    Custom Dropdown (Kab/Kec)
 ========================= */
@@ -906,8 +912,12 @@ export default function DataPosbankum() {
             const pid = item.id_posbankum;
             const isOpen = expandedId === pid;
 
-            const kabName = kabById[item.id_kabupaten]?.nama || "";
-            const kecName = kecById[item.id_kecamatan]?.nama || "";
+            const kabName = stripKotaPrefix(
+              kabById[item.id_kabupaten]?.nama || "",
+            );
+            const kecName = stripKotaPrefix(
+              kecById[item.id_kecamatan]?.nama || "",
+            );
             const loc = [kabName, kecName].filter(Boolean).join(" • ") || "-";
 
             const badgeText =
@@ -934,7 +944,6 @@ export default function DataPosbankum() {
                   <div className="dp-titleWrap">
                     <div className="dp-name">{item.nama}</div>
                     <div className="dp-sub">
-                      <FiMapPin className="dp-subIcon" />
                       <span className="dp-subText">{loc}</span>
                     </div>
                   </div>

@@ -127,24 +127,24 @@ body {
 }
 
 .lp-header-inner {
-  min-height: 90px;
+  min-height: 75px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 14px;
 }
 
 .lp-brand {
   display: inline-flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   text-decoration: none;
   color: var(--lp-text-main);
 }
 
 .lp-brand-logo {
-  width: 58px;
-  height: 58px;
+  width: 40px;
+  height: 50px;
   border-radius: 6px;
   display: grid;
   place-items: center;
@@ -155,24 +155,24 @@ body {
 }
 
 .lp-brand-logo img {
-  width: 58px;
-  height: 58px;
+  width: 50px;
+  height: 50px;
   object-fit: contain;
   display: block;
 }
 
 .lp-brand-divider {
-  width: 3px;
-  height: 58px;
+  width: 2px;
+  height: 46px;
   border-radius: 999px;
   background: #163e93;
   flex-shrink: 0;
 }
 
 .lp-brand-bird {
-  width: 58px;
-  height: 58px;
-  border-radius: 19px;
+  width: 50px;
+  height: 50px;
+  border-radius: 16px;
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -182,14 +182,22 @@ body {
 }
 
 .lp-brand-bird img {
-  width: 76px;
-  height: 76px;
+  width: 66px;
+  height: 66px;
   object-fit: cover;
   object-position: center;
   display: block;
-  transform: translateY(7px);
+  transform: translateY(6px);
 }
 
+.lp-brand-title {
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: #0b1f52;
+  margin-left: -4px;
+}
 .lp-brand-title {
   font-size: 30px;
   font-weight: 800;
@@ -5197,4 +5205,26 @@ body {
     grid-template-columns: 1fr;
   }
 }
-/* END REVISI POPUP LIHAT SEMUA POSBANKUM */
+.lp-map-clear-button {
+  border: none !important;
+  cursor: pointer;
+  font-family: inherit;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    background 0.22s ease;
+}
+
+.lp-map-clear-button:hover {
+  color: #4a57c7 !important;
+  background: rgba(255, 255, 255, 0.96) !important;
+  box-shadow: 0 14px 28px rgba(20, 36, 78, 0.22) !important;
+  transform: translateY(-2px);
+  text-decoration: none !important;
+}
+
+.lp-map-clear-button:focus,
+.lp-map-clear-button:active {
+  outline: none !important;
+  border: none !important;
+}

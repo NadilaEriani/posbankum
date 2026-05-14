@@ -1,3 +1,4 @@
+import { BiInfoCircle } from "react-icons/bi";
 import { useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import { useNavigate } from "react-router-dom";
@@ -15,11 +16,15 @@ import {
   FiEyeOff,
   FiSave,
   FiEdit,
+  FiUsers,
+  FiCheckCircle,
 } from "react-icons/fi";
 import { AiOutlineArrowLeft } from "react-icons/ai";
 import { FiKey } from "react-icons/fi";
 import { BiLockAlt } from "react-icons/bi";
 import { IoAlertCircleOutline } from "react-icons/io5";
+import { BsTelephone } from "react-icons/bs";
+import { HiOutlineCheckCircle } from "react-icons/hi";
 import "./posbankumProfile.css";
 import SuccessToast from "../../components/ui/SuccessToast";
 
@@ -46,8 +51,27 @@ function friendlyError(error) {
   return error?.message || "Terjadi kesalahan. Silakan coba lagi.";
 }
 
-function normalizePhone(value) {
-  return String(value || "").replace(/[^0-9+\- ]/g, "");
+function normalizeIndonesianPhone(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("62")) return `+${digits}`;
+  if (digits.startsWith("0")) return `+62${digits.slice(1)}`;
+  return `+62${digits}`;
+}
+
+function phoneWithIndonesiaPrefix(value) {
+  return normalizeIndonesianPhone(value) || "+62";
+}
+
+function hasCompletedPhone(value) {
+  const digits = String(value || "").replace(/\D/g, "");
+  return digits.length > 2;
+}
+
+function formatPosbankumDisplayName(value) {
+  const name = String(value || "").trim();
+  if (!name) return "Posbankum";
+  return /^posbankum\b/i.test(name) ? name : `Posbankum ${name}`;
 }
 
 function isUuid(value) {
@@ -78,7 +102,6 @@ function computeProfileComplete(form, paralegals) {
   const baseComplete = [
     form.nama,
     form.email_akun,
-    form.nomor_tlp,
     form.alamat,
     form.kode_pos,
     form.id_kabupaten,
@@ -88,7 +111,7 @@ function computeProfileComplete(form, paralegals) {
   const validParalegal = (paralegals || []).some(
     (item) =>
       String(item?.nama_paralegal || "").trim() &&
-      String(item?.nomor_telepon || "").trim(),
+      hasCompletedPhone(item?.nomor_telepon),
   );
 
   return baseComplete && validParalegal;
@@ -102,18 +125,23 @@ function validateParalegals(paralegals) {
     const errors = {};
     const nama = String(item?.nama_paralegal || "").trim();
     const nomor = String(item?.nomor_telepon || "").trim();
+    const hasPhone = hasCompletedPhone(nomor);
 
     if (index === 0) {
       if (!nama) errors.nama_paralegal = "Nama paralegal utama wajib diisi.";
-      if (!nomor) errors.nomor_telepon = "Nomor telepon wajib diisi.";
+      if (!hasPhone) {
+        errors.nomor_telepon = "Nomor telepon wajib diisi.";
+      }
     }
 
-    if ((nama && !nomor) || (!nama && nomor)) {
+    if ((nama && !hasPhone) || (!nama && hasPhone)) {
       if (!nama) errors.nama_paralegal = "Nama paralegal wajib diisi.";
-      if (!nomor) errors.nomor_telepon = "Nomor telepon wajib diisi.";
+      if (!hasPhone) {
+        errors.nomor_telepon = "Nomor telepon wajib diisi.";
+      }
     }
 
-    if (nama && nomor) hasAny = true;
+    if (nama && hasPhone) hasAny = true;
     next.push(errors);
   });
 
@@ -291,7 +319,7 @@ export default function PosbankumProfile({
             buildTempParalegal(
               `legacy-${profile.id_posbankum}`,
               row?.nama_paralegal || "",
-              row?.nomor_tlp || "",
+              normalizeIndonesianPhone(row?.nomor_tlp || ""),
               true,
             ),
           ];
@@ -300,7 +328,7 @@ export default function PosbankumProfile({
           const mapped = (membersResponse.data || []).map((item, index) => ({
             id: item.id_paralegal,
             nama_paralegal: item.nama_paralegal || "",
-            nomor_telepon: item.nomor_telepon || "",
+            nomor_telepon: normalizeIndonesianPhone(item.nomor_telepon || ""),
             is_primary: index === 0 ? true : !!item.is_primary,
           }));
 
@@ -311,7 +339,7 @@ export default function PosbankumProfile({
               buildTempParalegal(
                 `legacy-${profile.id_posbankum}`,
                 row?.nama_paralegal || "",
-                row?.nomor_tlp || "",
+                normalizeIndonesianPhone(row?.nomor_tlp || ""),
                 true,
               ),
             ];
@@ -321,7 +349,7 @@ export default function PosbankumProfile({
         const nextForm = {
           nama: row?.nama || "",
           email_akun: row?.email_akun || profile?.email || "",
-          nomor_tlp: row?.nomor_tlp || "",
+          nomor_tlp: normalizeIndonesianPhone(row?.nomor_tlp || ""),
           alamat: row?.alamat || "",
           kode_pos: row?.kode_pos || "",
           id_kabupaten: row?.id_kabupaten || "",
@@ -364,9 +392,14 @@ export default function PosbankumProfile({
       paralegals.filter(
         (item) =>
           String(item?.nama_paralegal || "").trim() &&
-          String(item?.nomor_telepon || "").trim(),
+          hasCompletedPhone(item?.nomor_telepon),
       ).length,
     [paralegals],
+  );
+
+  const primaryParalegalPhone = useMemo(
+    () => paralegals[0]?.nomor_telepon || form.nomor_tlp || "",
+    [form.nomor_tlp, paralegals],
   );
 
   const handleParalegalChange = (index, field, value) => {
@@ -376,7 +409,9 @@ export default function PosbankumProfile({
           ? {
               ...item,
               [field]:
-                field === "nomor_telepon" ? normalizePhone(value) : value,
+                field === "nomor_telepon"
+                  ? phoneWithIndonesiaPrefix(value)
+                  : value,
             }
           : item,
       ),
@@ -389,7 +424,7 @@ export default function PosbankumProfile({
       {
         id: `tmp-${Date.now()}-${prev.length}`,
         nama_paralegal: "",
-        nomor_telepon: "",
+        nomor_telepon: "+62",
         is_primary: false,
         isTemp: true,
       },
@@ -428,13 +463,13 @@ export default function PosbankumProfile({
       .filter(
         (item) =>
           String(item?.nama_paralegal || "").trim() &&
-          String(item?.nomor_telepon || "").trim(),
+          hasCompletedPhone(item?.nomor_telepon),
       )
       .map((item, index) => ({
         id_paralegal: isUuid(item.id) ? item.id : undefined,
         id_posbankum: posbankumId,
         nama_paralegal: String(item.nama_paralegal || "").trim(),
-        nomor_telepon: String(item.nomor_telepon || "").trim(),
+        nomor_telepon: phoneWithIndonesiaPrefix(item.nomor_telepon),
         is_primary: index === 0,
       }));
 
@@ -507,7 +542,7 @@ export default function PosbankumProfile({
     return (refreshedRows || []).map((item, index) => ({
       id: item.id_paralegal,
       nama_paralegal: item.nama_paralegal || "",
-      nomor_telepon: item.nomor_telepon || "",
+      nomor_telepon: normalizeIndonesianPhone(item.nomor_telepon || ""),
       is_primary: index === 0 ? true : !!item.is_primary,
     }));
   };
@@ -521,7 +556,6 @@ export default function PosbankumProfile({
     const requiredPosbankumFields = [
       form.nama,
       initialForm.email_akun,
-      form.nomor_tlp,
       form.alamat,
       form.kode_pos,
       form.id_kabupaten,
@@ -558,21 +592,23 @@ export default function PosbankumProfile({
         .filter(
           (item) =>
             String(item?.nama_paralegal || "").trim() &&
-            String(item?.nomor_telepon || "").trim(),
+            hasCompletedPhone(item?.nomor_telepon),
         )
         .map((item, index) => ({
           ...item,
           nama_paralegal: String(item.nama_paralegal || "").trim(),
-          nomor_telepon: String(item.nomor_telepon || "").trim(),
+          nomor_telepon: phoneWithIndonesiaPrefix(item.nomor_telepon),
           is_primary: index === 0,
         }));
+
+      const primaryPhone = cleanParalegals[0]?.nomor_telepon || "";
 
       const payload = {
         nama: form.nama.trim(),
         email_akun: String(
           initialForm.email_akun || form.email_akun || "",
         ).trim(),
-        nomor_tlp: form.nomor_tlp.trim(),
+        nomor_tlp: primaryPhone,
         alamat: form.alamat.trim(),
         kode_pos: form.kode_pos.trim(),
         id_kabupaten: form.id_kabupaten,
@@ -607,7 +643,7 @@ export default function PosbankumProfile({
             ? cleanParalegals
             : [buildInitialParalegal()];
 
-      const nextForm = { ...form };
+      const nextForm = { ...form, nomor_tlp: primaryPhone };
       setInitialForm(nextForm);
       setInitialParalegals(finalParalegals);
       setParalegals(finalParalegals);
@@ -711,13 +747,13 @@ export default function PosbankumProfile({
           <div className="ppf-gateHero">
             <img src={burung5} alt="Logo SIBAPAK" className="ppf-gateLogo" />
             <h2>Selamat Datang!</h2>
-            <p>{form.nama || "Posbankum"}</p>
+            <p>{formatPosbankumDisplayName(form.nama)}</p>
           </div>
 
           <div className="ppf-gateBody">
             <div className="ppf-gateNotice">
               <div className="ppf-gateNoticeIcon">
-                <IoAlertCircleOutline />
+                <BiInfoCircle />
               </div>
               <div>
                 <div className="ppf-gateNoticeTitle">
@@ -735,18 +771,33 @@ export default function PosbankumProfile({
 
             <div className="ppf-gateChecklist">
               {[
-                "Informasi lengkap Posbankum (alamat, kontak, wilayah)",
-                "Data paralegal dan tim yang bertugas",
-                "Profil kepala Posbankum",
-                "Kontak darurat dan koordinasi",
-              ].map((label) => (
-                <div key={label} className="ppf-gateItem">
-                  <span
-                    className="ppf-gateItemIcon"
-                    style={{ "--mask-url": `url(${posbankumIcon})` }}
-                  />
-                  <span>{label}</span>
-                  <span className="ppf-gateCheck">✓</span>
+                {
+                  label:
+                    "Informasi lengkap Posbankum (alamat, kontak, wilayah)",
+                  icon: (
+                    <span
+                      className="ppf-gateItemIcon"
+                      style={{ "--mask-url": `url(${posbankumIcon})` }}
+                    />
+                  ),
+                },
+                {
+                  label: "Data paralegal dan tim yang bertugas",
+                  icon: <FiUsers className="ppf-gateItemSvg" />,
+                },
+                {
+                  label: "Profil kepala Posbankum",
+                  icon: <FiUser className="ppf-gateItemSvg" />,
+                },
+                {
+                  label: "Kontak darurat dan koordinasi",
+                  icon: <BsTelephone className="ppf-gateItemSvg" />,
+                },
+              ].map((item) => (
+                <div key={item.label} className="ppf-gateItem">
+                  <span className="ppf-gateItemIconBox">{item.icon}</span>
+                  <span>{item.label}</span>
+                  <HiOutlineCheckCircle className="ppf-gateCheck" />
                 </div>
               ))}
             </div>
@@ -859,7 +910,7 @@ export default function PosbankumProfile({
               <FiMail /> {form.email_akun || "-"}
             </span>
             <span>
-              <FiPhone /> {form.nomor_tlp || "-"}
+              <FiPhone /> {primaryParalegalPhone || "-"}
             </span>
             <span>
               <FiUser /> {paralegalCount} Paralegal
@@ -915,28 +966,6 @@ export default function PosbankumProfile({
                     readOnly
                     disabled
                     placeholder="Email Posbankum"
-                  />
-                </span>
-              </label>
-
-              <label className="ppf-field is-full">
-                <span className="ppf-label">
-                  Nomor Telepon <span className="ppf-required">*</span>
-                </span>
-                <span className="ppf-inputWrap">
-                  <FiPhone className="ppf-inputIcon" />
-                  <input
-                    className="ppf-input"
-                    value={form.nomor_tlp}
-                    readOnly={!editing}
-                    disabled={!editing}
-                    onChange={(event) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        nomor_tlp: normalizePhone(event.target.value),
-                      }))
-                    }
-                    placeholder="Masukkan nomor telepon Posbankum"
                   />
                 </span>
               </label>
@@ -1001,7 +1030,6 @@ export default function PosbankumProfile({
                   Alamat <span className="ppf-required">*</span>
                 </span>
                 <span className="ppf-inputWrap is-textarea">
-                  <FiMapPin className="ppf-inputIcon" />
                   <textarea
                     className="ppf-input"
                     rows="4"
@@ -1024,7 +1052,6 @@ export default function PosbankumProfile({
                   Kode Pos <span className="ppf-required">*</span>
                 </span>
                 <span className="ppf-inputWrap">
-                  <FiMapPin className="ppf-inputIcon" />
                   <input
                     className="ppf-input"
                     value={form.kode_pos}
@@ -1078,7 +1105,9 @@ export default function PosbankumProfile({
                         <span className="ppf-badgeBlue">Paralegal Utama</span>
                       ) : null}
                       {index === 0 ? (
-                        <span className="ppf-badgeGreen">Wajib</span>
+                        <span className="ppf-badgeGreen">
+                          <FiCheckCircle /> Wajib
+                        </span>
                       ) : null}
                     </div>
                     {editing && index > 0 ? (
@@ -1140,6 +1169,15 @@ export default function PosbankumProfile({
                               event.target.value,
                             )
                           }
+                          onFocus={() => {
+                            if (!item.nomor_telepon) {
+                              handleParalegalChange(
+                                index,
+                                "nomor_telepon",
+                                "+62",
+                              );
+                            }
+                          }}
                           placeholder="+62 xxx-xxxx-xxxx"
                         />
                       </span>
@@ -1155,9 +1193,12 @@ export default function PosbankumProfile({
             </div>
 
             <div className="ppf-noteBox">
-              <IoAlertCircleOutline /> Catatan: Paralegal pertama (utama) adalah
-              wajib dan tidak dapat dihapus. Anda dapat menambahkan paralegal
-              tambahan sesuai kebutuhan.
+              <IoAlertCircleOutline className="ppf-noteIcon" />
+              <span>
+                <strong>Catatan:</strong> Paralegal pertama (utama) adalah wajib
+                dan tidak dapat dihapus. Anda dapat menambahkan paralegal
+                tambahan sesuai kebutuhan.
+              </span>
             </div>
           </section>
         </div>
@@ -1307,9 +1348,12 @@ export default function PosbankumProfile({
               ) : null}
 
               <div className="ppf-passwordInfo">
-                <IoAlertCircleOutline /> Pastikan Anda mengingat password baru.
-                Gunakan kombinasi huruf, angka, dan simbol untuk keamanan lebih
-                baik.
+                <IoAlertCircleOutline className="ppf-passwordInfoIcon" />
+                <span>
+                  Pastikan Anda mengingat password baru.
+                  <br />
+                  Gunakan kombinasi huruf, angka, dan simbol.
+                </span>
               </div>
             </div>
 

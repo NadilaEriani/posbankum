@@ -27,7 +27,7 @@
   display: grid;
   place-items: center;
   border: 2px solid currentColor;
-  font-weight: 900;
+  font-weight: 700;
   font-size: 20px;
   flex-shrink: 0;
 }
@@ -39,7 +39,7 @@
 
 .rt-toastText {
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   line-height: 1.45;
   word-break: break-word;
 }

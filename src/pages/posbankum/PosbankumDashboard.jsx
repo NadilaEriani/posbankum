@@ -852,7 +852,7 @@ export default function PosbankumDashboard() {
       const { data, error } = await supabase
         .from("kegiatan")
         .select(
-          "id_kegiatan, judul, status, tgl_upload, tgl_mulai, tgl_selesai, catatan",
+          "id_kegiatan, judul, status, tgl_upload, tgl_mulai, tgl_selesai, catatan, lokasi, jumlah_peserta",
         )
         .eq("id_posbankum", id_posbankum)
         .order("tgl_upload", { ascending: false })
@@ -871,8 +871,8 @@ export default function PosbankumDashboard() {
           id: x.id_kegiatan,
           judul: x.judul || "Kegiatan",
           tanggal,
-          lokasi: meta.lokasi,
-          peserta: meta.peserta,
+          lokasi: x.lokasi || meta.lokasi,
+          peserta: x.jumlah_peserta ?? meta.peserta,
           status: selesai ? "Selesai" : x.status || "Dalam Proses",
           selesai,
         };
@@ -1294,7 +1294,7 @@ export default function PosbankumDashboard() {
 
                           {x.peserta ? (
                             <span className="pb2MetaChip">
-                              {x.peserta} peserta
+                              <FiUsers /> {x.peserta} peserta
                             </span>
                           ) : null}
                         </div>

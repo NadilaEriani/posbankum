@@ -1276,7 +1276,7 @@ export default function KelolaPengaduan({ profile }) {
 
             .print-value {
               font-size: 15px;
-              font-weight: 600;
+              font-weight: 700;
               color: #111827;
             }
 
@@ -1333,7 +1333,7 @@ export default function KelolaPengaduan({ profile }) {
 
             .print-timeline-date {
               font-size: 13px;
-              font-weight: 600;
+              font-weight: 700;
               color: #4b5563;
               white-space: nowrap;
             }

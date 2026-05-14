@@ -62,7 +62,7 @@
   color: #111827;
   font-size: 25px;
   line-height: 1.2;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -158,7 +158,7 @@
   color: #fff;
   font-size: 30px;
   line-height: 1;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .kk-row {
@@ -227,7 +227,7 @@
   background: var(--kk-blue-2);
   color: #fff;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -252,7 +252,7 @@
   padding: 12px 2px;
   color: rgba(15, 23, 42, 0.62);
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .kk-list {
@@ -295,7 +295,7 @@
   gap: 5px;
   border: 0;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
 }
 
@@ -329,7 +329,7 @@
 .kk-judul {
   color: #111827;
   font-size: 17px;
-  font-weight: 900;
+  font-weight: 700;
   line-height: 1.35;
   letter-spacing: -0.01em;
 }
@@ -372,7 +372,7 @@
   margin-bottom: 5px;
   color: var(--kk-red);
   font-size: 11px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .kk-rejectText {
@@ -402,7 +402,7 @@
   justify-content: center;
   gap: 8px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .kk-btnIcon {
@@ -469,7 +469,7 @@
 .kk-modal-title {
   color: #fff;
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.01em;
 }
 
@@ -503,12 +503,12 @@
   margin-bottom: 10px;
   color: #111827;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .kk-req {
   color: var(--kk-red);
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .kk-input {
@@ -593,7 +593,7 @@
 .kk-thumbEmptyText {
   color: #374151;
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .kk-thumbEmptySub {
@@ -670,7 +670,7 @@
   border-radius: 14px;
   cursor: pointer;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .kk-btn:disabled {
@@ -761,7 +761,7 @@
   justify-content: center;
   color: #fff;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .kk-detail-status.is-accept {
@@ -782,7 +782,7 @@
   color: #fff;
   font-size: 30px;
   line-height: 1.18;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -820,7 +820,7 @@
   margin-bottom: 14px;
   color: #111827;
   font-size: 17px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .kk-detail-desc {
@@ -847,7 +847,7 @@
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .kk-memberChip svg {
@@ -866,7 +866,7 @@
   margin-bottom: 6px;
   color: var(--kk-red);
   font-size: 13px;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 .kk-adminAlertText {
@@ -1038,7 +1038,7 @@
 .kk-emptyCard.is-loading {
   min-height: 150px;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .kk-emptyIcon {
@@ -1062,7 +1062,7 @@
   color: #111827;
   font-size: 20px;
   line-height: 1.2;
-  font-weight: 900;
+  font-weight: 700;
   letter-spacing: -0.02em;
 }
 
@@ -1071,7 +1071,7 @@
   color: #475467;
   font-size: 15px;
   line-height: 1.45;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 /* ===== Pop up kirim ulang kegiatan ditolak ===== */
@@ -1124,7 +1124,7 @@
   color: #1f2937;
   font-size: 18px;
   line-height: 1.2;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .kk-resubmit-subtitle {
@@ -1234,7 +1234,7 @@
   justify-content: center;
   gap: 8px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .kk-memberSelectChip svg {
@@ -1295,14 +1295,14 @@
   margin-bottom: 3px;
   color: #6b7280;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .kk-detail-infoValue {
   color: #111827;
   font-size: 14px;
   line-height: 1.35;
-  font-weight: 900;
+  font-weight: 700;
 }
 
 @media (max-width: 720px) {

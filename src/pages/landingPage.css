@@ -94,7 +94,7 @@ body {
 }
 
 .lp-topbar-right strong {
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .lp-topbar-link svg,
@@ -192,7 +192,7 @@ body {
 
 .lp-brand-title {
   font-size: 27px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1;
   color: #0b1f52;
@@ -200,7 +200,7 @@ body {
 }
 .lp-brand-title {
   font-size: 30px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1;
   color: #0b1f52;
@@ -377,7 +377,7 @@ body {
 .lp-hero-name strong {
   display: block;
   font-size: 22px;
-  font-weight: 800;
+  font-weight: 700;
   margin-bottom: 8px;
 }
 
@@ -419,7 +419,7 @@ body {
   font-size: clamp(36px, 4vw, 54px);
   line-height: 1.12;
   letter-spacing: -0.04em;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .lp-hero-title span,
@@ -514,7 +514,7 @@ body {
   padding: 0 32px;
   border-radius: 20px;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -597,7 +597,7 @@ body {
   background: #d8e4fb;
   color: #163e93;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   margin-bottom: 28px;
   box-shadow: 0 9px 18px rgba(53, 96, 193, 0.12);
 }
@@ -611,7 +611,7 @@ body {
   font-size: clamp(36px, 4vw, 56px);
   line-height: 1.16;
   letter-spacing: -0.03em;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .lp-section-subtitle {
@@ -759,7 +759,7 @@ body {
   margin: 0 0 16px;
   font-size: 20px;
   line-height: 1.35;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .lp-why-card p {
@@ -789,7 +789,7 @@ body {
   padding: 0 18px;
   border-radius: 999px;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   border: 1.6px solid transparent;
   box-shadow: 0 8px 16px rgba(38, 63, 122, 0.08);
 }
@@ -923,7 +923,7 @@ body {
 .lp-info-footer strong {
   display: block;
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
   margin-bottom: 8px;
 }
 
@@ -965,7 +965,7 @@ body {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   box-shadow: 0 9px 14px rgba(6, 126, 57, 0.14);
   z-index: 2;
 }
@@ -1002,7 +1002,7 @@ body {
   background: linear-gradient(180deg, #ff0030 0%, #ff0055 100%);
   color: #fff;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   gap: 10px;
@@ -1092,7 +1092,7 @@ body {
   align-items: center;
   gap: 8px;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   border: 1px solid rgba(51, 91, 231, 0.12);
   white-space: nowrap;
 }
@@ -1230,7 +1230,7 @@ body {
   display: grid;
   place-items: center;
   color: #6e9ebe;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .lp-map-label {
@@ -1314,7 +1314,7 @@ body {
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-weight: 800;
+  font-weight: 700;
   color: #4a57c7;
 }
 
@@ -1327,7 +1327,7 @@ body {
   display: inline-flex;
   align-items: center;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
   color: #4f5f7d;
 }
 
@@ -1391,7 +1391,7 @@ body {
 .lp-location-header h3 {
   margin: 0 0 8px;
   font-size: 22px;
-  font-weight: 800;
+  font-weight: 700;
   color: #ffffff;
 }
 
@@ -1452,7 +1452,7 @@ body {
   background: linear-gradient(180deg, #5362d8 0%, #4655cd 100%);
   color: #fff;
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
   box-shadow: 0 10px 18px rgba(75, 87, 212, 0.18);
 }
 
@@ -1465,7 +1465,7 @@ body {
   font-size: 18px;
   line-height: 1.35;
   color: #2247a4;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .lp-location-item p {
@@ -1586,7 +1586,7 @@ body {
   margin: 0 0 8px;
   font-size: 28px;
   line-height: 1.2;
-  font-weight: 800;
+  font-weight: 700;
   color: #ffffff;
 }
 
@@ -1609,7 +1609,7 @@ body {
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .lp-detail-status svg {
@@ -1689,7 +1689,7 @@ body {
   display: block;
   color: #6b7280;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 5px;
 }
 
@@ -1720,7 +1720,7 @@ body {
   align-items: center;
   gap: 8px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
   margin-bottom: 10px;
 }
 
@@ -1733,7 +1733,7 @@ body {
   display: block;
   font-size: 28px;
   line-height: 1;
-  font-weight: 800;
+  font-weight: 700;
   margin-bottom: 8px;
 }
 
@@ -1764,7 +1764,7 @@ body {
   background: linear-gradient(135deg, #2c326f 0%, #474c89 100%);
   color: #ffffff;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1797,7 +1797,7 @@ body {
   margin: 0 0 8px;
   font-size: 28px;
   line-height: 1.2;
-  font-weight: 800;
+  font-weight: 700;
   color: #ffffff;
 }
 
@@ -1885,7 +1885,7 @@ body {
   margin: 0 0 6px;
   font-size: 17px;
   line-height: 1.25;
-  font-weight: 800;
+  font-weight: 700;
   color: #ffffff;
 }
 
@@ -1899,7 +1899,7 @@ body {
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .lp-all-card-header span svg {
@@ -2033,7 +2033,7 @@ body {
   background: #edf3ff;
   color: #4a57c7;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .lp-faq-icon-wrap svg {
@@ -2119,7 +2119,7 @@ body {
   align-items: center;
   gap: 10px;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   text-decoration: none;
   box-shadow: 0 10px 20px rgba(255, 255, 255, 0.12);
 }
@@ -2155,7 +2155,7 @@ body {
   align-items: center;
   gap: 10px;
   font-size: 22px;
-  font-weight: 800;
+  font-weight: 700;
   color: #ffffff;
 }
 
@@ -2227,7 +2227,7 @@ body {
 .lp-footer-col h4 {
   margin: 0 0 8px;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   color: #ffffff;
 }
 
@@ -2899,7 +2899,7 @@ body {
   display: block;
   font-size: 13px;
   line-height: 1.35;
-  font-weight: 800;
+  font-weight: 700;
   margin-bottom: 4px;
 }
 
@@ -2907,7 +2907,7 @@ body {
   display: block;
   font-size: 30px;
   line-height: 1;
-  font-weight: 800;
+  font-weight: 700;
   margin-bottom: 10px;
 }
 
@@ -2954,7 +2954,7 @@ body {
   color: #1f2937;
   font-size: 20px;
   line-height: 1.25;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .lp-detail-contact-list {
@@ -2999,7 +2999,7 @@ body {
   color: #6b7280;
   font-size: 13px;
   line-height: 1.35;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: 5px;
 }
 
@@ -3022,7 +3022,7 @@ body {
   justify-content: center;
   text-decoration: none;
   font-size: 14px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .lp-detail-action-green {
@@ -3163,7 +3163,7 @@ body {
   color: #ffffff;
   font-size: 17px;
   line-height: 1.25;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .lp-map-popup-body {
@@ -3212,7 +3212,7 @@ body {
   align-items: center;
   gap: 6px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .lp-map-popup-status {
@@ -3235,7 +3235,7 @@ body {
 .lp-map-popup-case {
   color: #1f2937;
   font-size: 13px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .lp-float-chat {
@@ -3672,7 +3672,7 @@ body {
   color: #ffffff;
   font-size: 16px;
   line-height: 1.1;
-  font-weight: 800;
+  font-weight: 700;
   white-space: nowrap;
 }
 
@@ -3780,7 +3780,7 @@ body {
   padding: 8px 10px;
   font-size: 11px;
   line-height: 1.25;
-  font-weight: 800;
+  font-weight: 700;
   text-align: left;
   cursor: pointer;
 }
@@ -3846,7 +3846,7 @@ body {
   display: grid;
   place-items: center;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
   cursor: pointer;
   flex-shrink: 0;
 }
@@ -4336,7 +4336,7 @@ body {
   color: #ffffff;
   font-size: 18px;
   line-height: 1.25;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .lp-map-popup-body {
@@ -4351,7 +4351,7 @@ body {
   color: var(--lp-text-main);
   font-size: 14px;
   line-height: 1.55;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .lp-map-popup-info-row + .lp-map-popup-info-row {
@@ -4386,7 +4386,7 @@ body {
   gap: 7px;
   padding: 0 13px;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .lp-map-popup-status {
@@ -4409,7 +4409,7 @@ body {
 .lp-map-popup-case {
   color: var(--lp-text-body);
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .lp-map-compass {
@@ -4461,7 +4461,7 @@ body {
   justify-content: center;
   gap: 9px;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   box-shadow: 0 12px 24px rgba(20, 36, 78, 0.16) !important;
   z-index: 6;
   cursor: pointer;
@@ -4613,7 +4613,7 @@ body {
 }
 
 .lp-map-scale {
-  font-weight: 800;
+  font-weight: 700;
   color: #4f5f7d;
 }
 
@@ -4988,7 +4988,7 @@ body {
   gap: 7px;
   font-size: 12px;
   line-height: 1.2;
-  font-weight: 800;
+  font-weight: 700;
   margin-bottom: 8px;
 }
 
@@ -5002,7 +5002,7 @@ body {
   display: block;
   font-size: 26px;
   line-height: 1;
-  font-weight: 800;
+  font-weight: 700;
   margin-bottom: 7px;
 }
 
@@ -5035,7 +5035,7 @@ body {
   background: linear-gradient(135deg, #2c326f 0%, #474c89 100%);
   color: #ffffff;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -5096,7 +5096,7 @@ body {
 }
 
 .lp-all-card .lp-detail-info-row strong {
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .lp-all-status-badge {
@@ -5130,7 +5130,7 @@ body {
   gap: 7px;
   font-size: 12px;
   line-height: 1.2;
-  font-weight: 800;
+  font-weight: 700;
   margin-bottom: 8px;
 }
 
@@ -5144,7 +5144,7 @@ body {
   display: block;
   font-size: 26px;
   line-height: 1;
-  font-weight: 800;
+  font-weight: 700;
   margin-bottom: 7px;
 }
 
@@ -5177,7 +5177,7 @@ body {
   background: linear-gradient(135deg, #2c326f 0%, #474c89 100%);
   color: #ffffff;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   display: inline-flex !important;
   align-items: center;
   justify-content: center;

@@ -244,6 +244,7 @@ function getLocationStatusRaw(row, hasCoords) {
     row.status_tagging ??
     row.status_tagging_area ??
     row.status_verifikasi_lokasi ??
+    row.status_verifikasi_tagging_area ??
     row.status_verifikasi_tagging ??
     row.verification_status_location ??
     "";
@@ -1138,11 +1139,12 @@ export default function KelolaDataPosbankum({ profile }) {
     setUploadErr("");
 
     try {
-      const rowsToInsert = [];
       const uploadedPaths = [];
+      const uploadedItems = [];
+      let committedToDatabase = false;
 
       for (const file of selectedFiles) {
-        const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+        const safeName = file.name.replace(/[^\w.-]+/g, "_");
         const path = `${posbankumId}/${uploadKey}/${Date.now()}_${Math.random()
           .toString(36)
           .slice(2, 8)}_${safeName}`;
@@ -1156,31 +1158,83 @@ export default function KelolaDataPosbankum({ profile }) {
         if (upErr) throw upErr;
 
         uploadedPaths.push(path);
-        rowsToInsert.push({
+        uploadedItems.push({ file, path });
+      }
+
+      const replaceTargets = rowsToReplace.filter((row) => row?.id_data);
+      const updateItems = uploadedItems.slice(0, replaceTargets.length);
+      const insertItems = uploadedItems.slice(updateItems.length);
+      const oldPathsToRemove = [];
+
+      for (const [index, item] of updateItems.entries()) {
+        const target = replaceTargets[index];
+        const resetPayload = {
+          kategori: uploadKey,
+          path_berkas: item.path,
+          tgl_upload: new Date().toISOString(),
+          status_verifikasi: "menunggu",
+          id_user_verifikator: null,
+          tgl_verifikasi: null,
+          nama_berkas: item.file.name,
+          mime_type: item.file.type,
+          size_bytes: item.file.size,
+          catatan_admin: null,
+        };
+
+        if (Object.prototype.hasOwnProperty.call(target, "catatan_admin")) {
+          resetPayload.catatan_admin = null;
+        }
+        if (Object.prototype.hasOwnProperty.call(target, "catatan_penolakan")) {
+          resetPayload.catatan_penolakan = null;
+        }
+        if (Object.prototype.hasOwnProperty.call(target, "alasan_penolakan")) {
+          resetPayload.alasan_penolakan = null;
+        }
+
+        const { error: updErr } = await supabase
+          .from(TABLE_DOC)
+          .update(resetPayload)
+          .eq("id_data", target.id_data);
+
+        if (updErr) throw updErr;
+        committedToDatabase = true;
+        if (target.path_berkas) oldPathsToRemove.push(target.path_berkas);
+      }
+
+      if (insertItems.length) {
+        const rowsToInsert = insertItems.map(({ file, path }) => ({
           id_posbankum: posbankumId,
           kategori: uploadKey,
           path_berkas: path,
           tgl_upload: new Date().toISOString(),
           status_verifikasi: "menunggu",
+          id_user_verifikator: null,
+          tgl_verifikasi: null,
           nama_berkas: file.name,
           mime_type: file.type,
           size_bytes: file.size,
-        });
-      }
+          catatan_admin: null,
+        }));
 
-      const { error: insErr } = await supabase
-        .from(TABLE_DOC)
-        .insert(rowsToInsert);
+        const { error: insErr } = await supabase
+          .from(TABLE_DOC)
+          .insert(rowsToInsert);
 
-      if (insErr) {
-        if (uploadedPaths.length) {
-          await supabase.storage.from(BUCKET).remove(uploadedPaths);
+        if (insErr) {
+          const uncommittedPaths = committedToDatabase
+            ? insertItems.map((item) => item.path)
+            : uploadedPaths;
+          if (uncommittedPaths.length) {
+            await supabase.storage.from(BUCKET).remove(uncommittedPaths);
+          }
+          throw insErr;
         }
-        throw insErr;
+        committedToDatabase = true;
       }
 
-      const oldIds = rowsToReplace.map((row) => row?.id_data).filter(Boolean);
-      const oldPaths = rowsToReplace
+      const leftoverTargets = replaceTargets.slice(updateItems.length);
+      const oldIds = leftoverTargets.map((row) => row?.id_data).filter(Boolean);
+      const leftoverOldPaths = leftoverTargets
         .map((row) => row?.path_berkas)
         .filter(Boolean);
 
@@ -1192,15 +1246,17 @@ export default function KelolaDataPosbankum({ profile }) {
         if (delErr) throw delErr;
       }
 
-      if (oldPaths.length) {
-        await supabase.storage.from(BUCKET).remove(oldPaths);
+      oldPathsToRemove.push(...leftoverOldPaths);
+
+      if (oldPathsToRemove.length) {
+        await supabase.storage.from(BUCKET).remove(oldPathsToRemove);
       }
 
       await loadDocs();
       closeUpload();
       setSuccessMessage(
-        rowsToInsert.length > 1
-          ? `${rowsToInsert.length} file berhasil mengganti dokumen lama!`
+        selectedFiles.length > 1
+          ? `${selectedFiles.length} file berhasil mengganti dokumen lama!`
           : "Dokumen lama berhasil diganti dengan dokumen baru!",
       );
     } catch (e) {
@@ -1311,6 +1367,8 @@ export default function KelolaDataPosbankum({ profile }) {
       if (keys.has("status_tagging_area")) patch.status_tagging_area = "proses";
       if (keys.has("status_verifikasi_lokasi"))
         patch.status_verifikasi_lokasi = "proses";
+      if (keys.has("status_verifikasi_tagging_area"))
+        patch.status_verifikasi_tagging_area = "menunggu";
       if (keys.has("status_verifikasi_tagging"))
         patch.status_verifikasi_tagging = "proses";
       if (keys.has("verification_status_location"))

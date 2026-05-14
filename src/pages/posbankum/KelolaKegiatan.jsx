@@ -7,7 +7,7 @@ import {
   FiCheckCircle,
   FiClock,
   FiXCircle,
-  FiEdit2,
+  FiEdit,
   FiTrash2,
   FiPlus,
   FiX,
@@ -972,7 +972,7 @@ export default function KelolaKegiatan() {
                       title="Edit"
                       onClick={() => openEdit(item)}
                     >
-                      <FiEdit2 />
+                      <FiEdit />
                     </button>
                   ) : null}
 

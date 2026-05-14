@@ -832,7 +832,7 @@ export default function ForgotPasswordPage() {
       <button
         type="button"
         onClick={handleBack}
-        className="inline-flex h-[46px] items-center gap-2 rounded-2xl border border-[#D9DDE7] bg-[#F7F7F8] px-5 text-[14px] font-semibold text-[#1F5AC8] shadow-[0_6px_16px_rgba(15,23,42,0.06)] transition hover:translate-y-[-1px]"
+        className="inline-flex h-[46px] items-center gap-2 rounded-2xl border border-[#D9DDE7] bg-[#F7F7F8] px-5 text-[14px] font-bold text-[#1F5AC8] shadow-[0_6px_16px_rgba(15,23,42,0.06)] transition hover:translate-y-[-1px]"
       >
         <ArrowLeftIcon className="w-5 h-5" />
         {step === "success" ? "Kembali" : "Kembali ke Login"}
@@ -851,7 +851,7 @@ export default function ForgotPasswordPage() {
               </div>
 
               <div className="text-center">
-                <h1 className="text-[36px] font-extrabold leading-[1.08] tracking-[-0.03em] text-[#101828]">
+                <h1 className="text-[36px] font-bold leading-[1.08] tracking-[-0.03em] text-[#101828]">
                   Lupa Kata
                   <br />
                   Sandi?
@@ -862,7 +862,7 @@ export default function ForgotPasswordPage() {
               </div>
 
               <form onSubmit={handleSendCode} className="mt-10">
-                <label className="mb-3 block text-[14px] font-semibold text-[#374151]">
+                <label className="mb-3 block text-[14px] font-bold text-[#374151]">
                   Email
                 </label>
 
@@ -894,7 +894,7 @@ export default function ForgotPasswordPage() {
                 <button
                   type="submit"
                   disabled={sendingEmail}
-                  className={`mt-6 flex h-[52px] w-full items-center justify-center gap-3 rounded-[16px] text-[17px] font-semibold text-white shadow-[0_12px_24px_rgba(28,80,194,0.28)] transition ${
+                  className={`mt-6 flex h-[52px] w-full items-center justify-center gap-3 rounded-[16px] text-[17px] font-bold text-white shadow-[0_12px_24px_rgba(28,80,194,0.28)] transition ${
                     sendingEmail
                       ? "bg-[#88A4DA]"
                       : "bg-[linear-gradient(180deg,#235BCA_0%,#1E51B3_100%)] hover:translate-y-[-1px]"
@@ -940,7 +940,7 @@ export default function ForgotPasswordPage() {
               </div>
 
               <div className="text-center">
-                <h1 className="text-[18px] font-semibold text-[#252F3F]">
+                <h1 className="text-[18px] font-bold text-[#252F3F]">
                   Masukkan Kode Verifikasi
                 </h1>
                 <p className="mx-auto mt-3 max-w-[320px] text-[15px] leading-8 text-[#5F6B7A]">
@@ -984,7 +984,7 @@ export default function ForgotPasswordPage() {
                 <button
                   type="button"
                   disabled
-                  className="mt-7 flex h-[52px] w-full items-center justify-center gap-3 rounded-[16px] bg-[#88A4DA] text-[17px] font-semibold text-white"
+                  className="mt-7 flex h-[52px] w-full items-center justify-center gap-3 rounded-[16px] bg-[#88A4DA] text-[17px] font-bold text-white"
                 >
                   {verifyingOtp ? (
                     <>
@@ -1008,7 +1008,7 @@ export default function ForgotPasswordPage() {
                     <button
                       type="button"
                       onClick={handleResendOtp}
-                      className="font-semibold text-[#2159D1] hover:underline"
+                      className="font-bold text-[#2159D1] hover:underline"
                       disabled={sendingEmail}
                     >
                       Kirim ulang kode
@@ -1030,7 +1030,7 @@ export default function ForgotPasswordPage() {
               </div>
 
               <div className="text-center">
-                <h1 className="text-[36px] font-extrabold leading-[1.08] tracking-[-0.03em] text-[#101828]">
+                <h1 className="text-[36px] font-bold leading-[1.08] tracking-[-0.03em] text-[#101828]">
                   Buat Kata Sandi
                   <br />
                   Baru
@@ -1042,7 +1042,7 @@ export default function ForgotPasswordPage() {
 
               <form onSubmit={handleUpdatePassword} className="mt-9">
                 <div>
-                  <label className="mb-3 block text-[14px] font-semibold text-[#374151]">
+                  <label className="mb-3 block text-[14px] font-bold text-[#374151]">
                     Kata Sandi Baru
                   </label>
 
@@ -1075,7 +1075,7 @@ export default function ForgotPasswordPage() {
                 </div>
 
                 <div className="mt-6">
-                  <label className="mb-3 block text-[14px] font-semibold text-[#374151]">
+                  <label className="mb-3 block text-[14px] font-bold text-[#374151]">
                     Konfirmasi Kata Sandi
                   </label>
 
@@ -1147,7 +1147,7 @@ export default function ForgotPasswordPage() {
                 <button
                   type="submit"
                   disabled={updatingPassword || !isPasswordValid}
-                  className={`mt-6 flex h-[52px] w-full items-center justify-center gap-3 rounded-[16px] text-[17px] font-semibold text-white shadow-[0_12px_24px_rgba(28,80,194,0.22)] ${
+                  className={`mt-6 flex h-[52px] w-full items-center justify-center gap-3 rounded-[16px] text-[17px] font-bold text-white shadow-[0_12px_24px_rgba(28,80,194,0.22)] ${
                     updatingPassword || !isPasswordValid
                       ? "bg-[#88A4DA]"
                       : "bg-[linear-gradient(180deg,#235BCA_0%,#1E51B3_100%)] hover:translate-y-[-1px]"
@@ -1193,7 +1193,7 @@ export default function ForgotPasswordPage() {
               </div>
 
               <div className="text-center">
-                <h1 className="text-[36px] font-extrabold leading-[1.12] tracking-[-0.03em] text-[#101828]">
+                <h1 className="text-[36px] font-bold leading-[1.12] tracking-[-0.03em] text-[#101828]">
                   Kata Sandi Berhasil
                   <br />
                   Diubah!
@@ -1206,7 +1206,7 @@ export default function ForgotPasswordPage() {
                 <button
                   type="button"
                   onClick={goToLogin}
-                  className="mt-6 text-[16px] font-semibold text-[#1F5AC8] hover:underline"
+                  className="mt-6 text-[16px] font-bold text-[#1F5AC8] hover:underline"
                 >
                   Langsung ke Login →
                 </button>

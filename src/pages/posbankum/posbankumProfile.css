@@ -73,11 +73,15 @@
 }
 
 .ppf-gateLogo {
-  width: 112px;
-  height: 112px;
+  --ppf-gate-bird-width: 110px;
+  --ppf-gate-bird-height: 150px;
+  --ppf-gate-bird-offset-y: -7px;
+  width: var(--ppf-gate-bird-width);
+  height: var(--ppf-gate-bird-height);
   object-fit: contain;
   position: relative;
   z-index: 1;
+  transform: translateY(var(--ppf-gate-bird-offset-y));
 }
 
 .ppf-gateHero h2,
@@ -87,9 +91,9 @@
 }
 
 .ppf-gateHero h2 {
-  margin-top: 12px;
+  margin-top: -64px;
   font-size: 23px;
-  font-weight: 800;
+  font-weight: 700;
   color: #fff;
 }
 
@@ -116,19 +120,19 @@
 }
 
 .ppf-gateNoticeIcon {
-  width: 48px;
-  height: 48px;
-  border-radius: 16px;
+  width: 45px;
+  height: 45px;
+  border-radius: 12px;
   background: #f97316;
   color: #fff;
   display: grid;
   place-items: center;
-  font-size: 22px;
+  font-size: 28px;
 }
 
 .ppf-gateNoticeTitle {
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
   color: #9a3412;
 }
 
@@ -141,7 +145,7 @@
 
 .ppf-gateTitle {
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
   color: #151c2e;
 }
 
@@ -165,6 +169,16 @@
   font-weight: 700;
 }
 
+.ppf-gateItemIconBox {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #d1e1fd;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+
 .ppf-gateItemIcon,
 .ppf-inputMask,
 .ppf-sideIcon {
@@ -177,16 +191,22 @@
   flex-shrink: 0;
 }
 
+.ppf-gateItemSvg {
+  color: #1454c4;
+  font-size: 22px;
+  flex-shrink: 0;
+}
+
+.ppf-inputMask {
+  background: #9ca3af;
+}
+
 .ppf-gateCheck {
   width: 24px;
   height: 24px;
-  border-radius: 999px;
-  border: 2px solid #22c55e;
   color: #16a34a;
-  display: grid;
-  place-items: center;
-  font-size: 12px;
-  font-weight: 900;
+  font-size: 24px;
+  flex-shrink: 0;
 }
 
 .ppf-mainBtn,
@@ -194,7 +214,7 @@
   border: 0;
   cursor: pointer;
   border-radius: 16px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .ppf-mainBtn {
@@ -215,9 +235,9 @@
 .ppf-backBtn {
   width: 42px;
   height: 42px;
-  border-radius: 999px;
+  border-radius: 12px;
   border: 0;
-  background: #eceff4;
+  background: #e5e7eb;
   color: #5f6778;
   display: grid;
   place-items: center;
@@ -227,7 +247,7 @@
 
 .ppf-headCopy h2 {
   font-size: 22px;
-  font-weight: 800;
+  font-weight: 700;
   color: #151c2e;
 }
 
@@ -261,7 +281,7 @@
 }
 
 .ppf-btnBlue {
-  background: #1454c4;
+  background: #0f3f93;
   color: #fff;
 }
 
@@ -346,8 +366,8 @@
   height: 102px;
   border-radius: 999px;
   margin: 0 auto;
-  background: linear-gradient(135deg, #1454c4 0%, #0b3f9d 100%);
-  box-shadow: 0 20px 28px rgba(15, 23, 42, 0.18);
+  background: linear-gradient(135deg, #1454c4 0%, #0a2a62 100%);
+  box-shadow: 0 20px 28px rgba(10, 42, 98, 0.32);
   display: grid;
   place-items: center;
 }
@@ -361,7 +381,7 @@
 .ppf-sideTitle {
   text-align: center;
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
   color: #151c2e;
 }
 
@@ -382,7 +402,7 @@
   gap: 12px;
   color: #4b5563;
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .ppf-sideMeta span {
@@ -413,7 +433,7 @@
 
 .ppf-sectionTitle {
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 700;
   color: #151c2e;
   padding-bottom: 12px;
   border-bottom: 2px solid #b7c8f8;
@@ -489,7 +509,7 @@
 }
 
 .ppf-inputIcon {
-  color: #9aa3b2;
+  color: #9ca3af;
   flex-shrink: 0;
   font-size: 18px;
 }
@@ -518,15 +538,16 @@
 .ppf-helper,
 .ppf-errorText {
   font-size: 12px;
-  font-weight: 700;
 }
 
 .ppf-helper {
   color: #667085;
+  font-weight: 400;
 }
 
 .ppf-errorText {
   color: #dc2626;
+  font-weight: 700;
 }
 
 .ppf-paralegalList {
@@ -569,17 +590,18 @@
   display: inline-flex;
   align-items: center;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .ppf-badgeBlue {
-  background: #1454c4;
+  background: #0f3f93;
   color: #fff;
 }
 
 .ppf-badgeGreen {
   background: #dcfce7;
   color: #15803d;
+  gap: 6px;
 }
 
 .ppf-deleteBtn,
@@ -608,10 +630,20 @@
   padding: 15px 18px;
   display: flex;
   align-items: flex-start;
-  gap: 8px;
+  gap: 10px;
   font-size: 13px;
   line-height: 1.7;
+  font-weight: 400;
+}
+
+.ppf-noteBox strong {
   font-weight: 700;
+}
+
+.ppf-noteIcon {
+  flex-shrink: 0;
+  font-size: 22px;
+  margin-top: 2px;
 }
 
 .ppf-modalOverlay {
@@ -646,7 +678,7 @@
   align-items: center;
   gap: 10px;
   font-size: 18px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .ppf-modalClose {
@@ -679,9 +711,19 @@
   background: #fff7ed;
   color: #c2410c;
   padding: 16px 18px;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: flex-start;
+  gap: 10px;
   font-size: 14px;
   line-height: 1.7;
-  font-weight: 700;
+  font-weight: 400;
+}
+
+.ppf-passwordInfoIcon {
+  flex-shrink: 0;
+  font-size: 22px;
+  margin-top: 1px;
 }
 
 .ppf-modalFoot {

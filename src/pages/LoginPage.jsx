@@ -236,7 +236,7 @@ export default function LoginPage() {
       <button
         type="button"
         onClick={() => navigate("/")}
-        className="inline-flex h-[46px] items-center gap-2 rounded-2xl border border-[#D9DDE7] bg-[#F7F7F8] px-5 text-[14px] font-semibold text-[#4257C8] shadow-[0_6px_16px_rgba(15,23,42,0.06)] transition hover:translate-y-[-1px]"
+        className="inline-flex h-[46px] items-center gap-2 rounded-2xl border border-[#D9DDE7] bg-[#F7F7F8] px-5 text-[14px] font-bold text-[#4257C8] shadow-[0_6px_16px_rgba(15,23,42,0.06)] transition hover:translate-y-[-1px]"
       >
         <ArrowLeftIcon className="w-5 h-5" />
         Kembali ke Beranda
@@ -255,7 +255,7 @@ export default function LoginPage() {
                 className="object-cover w-full h-full"
               />
             </div>
-            <span className="text-[15px] font-semibold tracking-[0.02em] text-white">
+            <span className="text-[15px] font-bold tracking-[0.02em] text-white">
               POSBANKUM
             </span>
           </div>
@@ -315,7 +315,7 @@ export default function LoginPage() {
             )}
 
             <div className="mb-5">
-              <label className="mb-3 block text-[14px] font-semibold text-[#374151]">
+              <label className="mb-3 block text-[14px] font-bold text-[#374151]">
                 Email<span className="text-[#E53935]">*</span>
               </label>
               <div className="flex h-[54px] items-center rounded-[16px] border border-[#D9DEE8] bg-white px-4 text-[#98A2B3]">
@@ -334,7 +334,7 @@ export default function LoginPage() {
             </div>
 
             <div className="mb-3">
-              <label className="mb-3 block text-[14px] font-semibold text-[#374151]">
+              <label className="mb-3 block text-[14px] font-bold text-[#374151]">
                 Kata Sandi<span className="text-[#E53935]">*</span>
               </label>
               <div className="flex h-[54px] items-center rounded-[16px] border border-[#D9DEE8] bg-white px-4 text-[#98A2B3]">
@@ -371,7 +371,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => navigate("/reset-password")}
-                className="text-[14px] font-semibold text-[#4257C8] transition hover:text-[#3442A6]"
+                className="text-[14px] font-bold text-[#4257C8] transition hover:text-[#3442A6]"
                 disabled={loading}
               >
                 Lupa kata sandi?
@@ -381,7 +381,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="flex h-[56px] w-full items-center justify-center gap-3 rounded-[16px] bg-[linear-gradient(90deg,#5664D7_0%,#5E6CDD_100%)] text-[17px] font-semibold text-white shadow-[0_12px_24px_rgba(86,100,215,0.34)] transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-70"
+              className="flex h-[56px] w-full items-center justify-center gap-3 rounded-[16px] bg-[linear-gradient(90deg,#5664D7_0%,#5E6CDD_100%)] text-[17px] font-bold text-white shadow-[0_12px_24px_rgba(86,100,215,0.34)] transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-70"
             >
               <span>{loading ? "Memproses..." : "Masuk"}</span>
               {!loading && <ArrowRightIcon className="w-5 h-5" />}
@@ -392,14 +392,14 @@ export default function LoginPage() {
             Dengan masuk, Anda menyetujui{" "}
             <a
               href="/terms"
-              className="font-semibold text-[#4257C8] transition hover:underline"
+              className="font-bold text-[#4257C8] transition hover:underline"
             >
               Syarat & Ketentuan
             </a>{" "}
             serta{" "}
             <a
               href="/privacy"
-              className="font-semibold text-[#4257C8] transition hover:underline"
+              className="font-bold text-[#4257C8] transition hover:underline"
             >
               Kebijakan Privasi
             </a>

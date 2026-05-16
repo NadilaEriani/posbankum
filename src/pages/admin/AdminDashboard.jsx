@@ -139,34 +139,11 @@ function getMapsUrl(detail) {
 }
 
 function buildPreferredHomeActivities(list) {
-  const preferredTitles = [
-    "Pengajuan kegiatan baru",
-    "Data Posbankum diverifikasi",
-    "Berita dipublikasikan",
-    "Perubahan data paralegal",
-  ];
-
-  const chosen = [];
-  const used = new Set();
-
-  preferredTitles.forEach((title) => {
-    const match = list.find(
-      (item) => item.title === title && !used.has(item.key),
-    );
-    if (match) {
-      used.add(match.key);
-      chosen.push(match);
-    }
-  });
-
-  list.forEach((item) => {
-    if (chosen.length >= 4) return;
-    if (used.has(item.key)) return;
-    used.add(item.key);
-    chosen.push(item);
-  });
-
-  return chosen.slice(0, 4);
+  return [...(list || [])]
+    .sort(
+      (a, b) => new Date(b?.at || 0).getTime() - new Date(a?.at || 0).getTime(),
+    )
+    .slice(0, 4);
 }
 
 export default function AdminDashboard() {
@@ -397,26 +374,52 @@ export default function AdminDashboard() {
     (dataPosRes.data || []).forEach((item) => {
       const pos = posById.get(item.id_posbankum);
       const posName = pos?.nama || "Posbankum";
-      const at = item.tgl_verifikasi || item.tgl_upload;
       const status = String(item.status_verifikasi || "").toLowerCase();
       const verified =
         status.includes("verif") ||
         status.includes("setuju") ||
-        status.includes("approve");
+        status.includes("approve") ||
+        status.includes("disetujui");
+      const rejected = status.includes("tolak") || status.includes("reject");
+      const waiting =
+        status.includes("menunggu") ||
+        status.includes("pending") ||
+        status.includes("wait") ||
+        status.includes("proses");
+      const at =
+        verified || rejected
+          ? item.tgl_verifikasi || item.tgl_upload
+          : item.tgl_upload;
+      const kategori = item.kategori || "Posbankum";
 
-      if (!verified) return;
+      let title = "Dokumen Posbankum diperbarui";
+      let desc = `Dokumen ${kategori} menunggu verifikasi admin`;
+      let kind = "Upload Ulang";
+
+      if (verified) {
+        title = "Data Posbankum diverifikasi";
+        desc = `Data ${kategori} sudah diverifikasi admin`;
+        kind = "Verifikasi";
+      } else if (rejected) {
+        title = "Data Posbankum ditolak";
+        desc = `Data ${kategori} ditolak admin`;
+        kind = "Ditolak";
+      } else if (waiting) {
+        title = "Dokumen Posbankum diperbarui";
+        desc = `Dokumen ${kategori} baru diupload dan menunggu verifikasi`;
+      }
 
       events.push({
-        key: `data:${item.id_data}`,
+        key: `data:${item.id_data}:${item.tgl_upload || ""}:${item.status_verifikasi || ""}`,
         source: "data_posbankum",
         group: "administratif",
-        title: "Data Posbankum diverifikasi",
-        desc: `Data ${item.kategori || "Posbankum"} sudah diverifikasi admin`,
+        title,
+        desc,
         actor: posName,
         actorLabel: posName,
         dateLabel: formatDateID(at),
         time: relativeTimeID(at),
-        kind: "Verifikasi",
+        kind,
         tone: pickToneFromStatus(item.status_verifikasi),
         at,
       });

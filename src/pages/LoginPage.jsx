@@ -162,6 +162,49 @@ function EyeOffIcon({ className = "w-5 h-5" }) {
   );
 }
 
+const LOGIN_ALIAS_RPC = "resolve_admin_login_email";
+
+function normalizeEmail(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[\u00A0\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]/g, "")
+    .replace(/＠/g, "@")
+    .replace(/。/g, ".")
+    .toLowerCase();
+}
+
+function isMissingRpcError(error) {
+  const code = String(error?.code || "")
+    .trim()
+    .toUpperCase();
+  const message =
+    `${error?.message || ""} ${error?.details || ""}`.toLowerCase();
+
+  return (
+    code === "PGRST202" ||
+    code === "42883" ||
+    message.includes("could not find the function") ||
+    (message.includes("function") && message.includes("does not exist"))
+  );
+}
+
+async function resolveLoginEmail(inputEmail) {
+  const normalized = normalizeEmail(inputEmail);
+  if (!normalized) return "";
+
+  const { data, error } = await supabase.rpc(LOGIN_ALIAS_RPC, {
+    p_email: normalized,
+  });
+
+  if (error) {
+    if (isMissingRpcError(error)) return normalized;
+    throw error;
+  }
+
+  return normalizeEmail(data || normalized);
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -174,7 +217,7 @@ export default function LoginPage() {
     e.preventDefault();
     setError("");
 
-    const cleanedEmail = email.trim().toLowerCase();
+    const cleanedEmail = normalizeEmail(email);
 
     if (!cleanedEmail || !password) {
       setError("Email dan kata sandi wajib diisi.");
@@ -184,9 +227,11 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
+      const loginEmail = await resolveLoginEmail(cleanedEmail);
+
       const { data: loginData, error: loginError } =
         await supabase.auth.signInWithPassword({
-          email: cleanedEmail,
+          email: loginEmail,
           password,
         });
 

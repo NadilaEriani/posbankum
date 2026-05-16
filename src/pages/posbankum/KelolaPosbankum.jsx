@@ -20,6 +20,7 @@ import "./kelolaPosbankum.css";
 const BUCKET = "posbankum-docs";
 const TABLE_DOC = "data_posbankum";
 const TABLE_POS = "posbankum";
+const DOC_STATUS_PROCESS = "menunggu";
 
 const MAX_FILE = 5 * 1024 * 1024;
 const ALLOWED_MIME = new Set(["application/pdf", "image/jpeg", "image/png"]);
@@ -96,6 +97,21 @@ function getRejectNote(row) {
     "";
 
   return String(note || "").trim();
+}
+
+function buildDocumentProcessPayload({ kategori, path, file }) {
+  return {
+    kategori,
+    path_berkas: path,
+    tgl_upload: new Date().toISOString(),
+    status_verifikasi: DOC_STATUS_PROCESS,
+    id_user_verifikator: null,
+    tgl_verifikasi: null,
+    nama_berkas: file.name,
+    mime_type: file.type,
+    size_bytes: file.size,
+    catatan_admin: null,
+  };
 }
 
 function buildOsmEmbed(lat, lng) {
@@ -673,6 +689,57 @@ export default function KelolaDataPosbankum({ profile }) {
     }
   }, [createSignedUrl, docTypes, posbankumId]);
 
+  const applyUploadedDocsToUi = useCallback(
+    async (kategori, rows) => {
+      const savedRows = sortRowsForDetail(
+        (rows || []).filter(Boolean).map((row) => ({
+          ...row,
+          kategori,
+          status_verifikasi: DOC_STATUS_PROCESS,
+          id_user_verifikator: null,
+          tgl_verifikasi: null,
+          catatan_admin: null,
+        })),
+      );
+
+      if (!savedRows.length) return;
+
+      const savedIds = new Set(
+        savedRows.map((row) => row?.id_data).filter(Boolean),
+      );
+
+      setDocsByCategory((prev) => {
+        const oldRows = prev[kategori] || [];
+        const approvedRows = oldRows.filter(
+          (row) =>
+            !savedIds.has(row?.id_data) &&
+            statusKind(row?.status_verifikasi) === "ok",
+        );
+
+        return {
+          ...prev,
+          [kategori]: sortRowsForDetail([...savedRows, ...approvedRows]),
+        };
+      });
+
+      setDocsLatest((prev) => ({
+        ...prev,
+        [kategori]: savedRows[0],
+      }));
+
+      if (savedRows[0]?.path_berkas) {
+        const signedUrl = await createSignedUrl(savedRows[0].path_berkas, 600);
+        if (signedUrl) {
+          setPreviewUrl((prev) => ({
+            ...prev,
+            [kategori]: signedUrl,
+          }));
+        }
+      }
+    },
+    [createSignedUrl],
+  );
+
   useEffect(() => {
     loadPosbankum();
     loadDocs();
@@ -1131,17 +1198,20 @@ export default function KelolaDataPosbankum({ profile }) {
       return setUploadErr("Dokumen yang sudah diterima tidak dapat diganti.");
     }
 
-    const rowsToReplace = existingRows.filter(
-      (row) => statusKind(row?.status_verifikasi) !== "ok",
+    const rowsToReplace = sortRowsForDetail(
+      existingRows.filter((row) => statusKind(row?.status_verifikasi) !== "ok"),
     );
 
     setUploading(true);
     setUploadErr("");
 
+    const uploadedPaths = [];
+    const committedPaths = new Set();
+
     try {
-      const uploadedPaths = [];
       const uploadedItems = [];
-      let committedToDatabase = false;
+      const savedRows = [];
+      const oldPathsToRemove = [];
 
       for (const file of selectedFiles) {
         const safeName = file.name.replace(/[^\w.-]+/g, "_");
@@ -1164,22 +1234,14 @@ export default function KelolaDataPosbankum({ profile }) {
       const replaceTargets = rowsToReplace.filter((row) => row?.id_data);
       const updateItems = uploadedItems.slice(0, replaceTargets.length);
       const insertItems = uploadedItems.slice(updateItems.length);
-      const oldPathsToRemove = [];
 
       for (const [index, item] of updateItems.entries()) {
         const target = replaceTargets[index];
-        const resetPayload = {
+        const resetPayload = buildDocumentProcessPayload({
           kategori: uploadKey,
-          path_berkas: item.path,
-          tgl_upload: new Date().toISOString(),
-          status_verifikasi: "menunggu",
-          id_user_verifikator: null,
-          tgl_verifikasi: null,
-          nama_berkas: item.file.name,
-          mime_type: item.file.type,
-          size_bytes: item.file.size,
-          catatan_admin: null,
-        };
+          path: item.path,
+          file: item.file,
+        });
 
         if (Object.prototype.hasOwnProperty.call(target, "catatan_admin")) {
           resetPayload.catatan_admin = null;
@@ -1194,42 +1256,66 @@ export default function KelolaDataPosbankum({ profile }) {
         const { error: updErr } = await supabase
           .from(TABLE_DOC)
           .update(resetPayload)
-          .eq("id_data", target.id_data);
+          .eq("id_data", target.id_data)
+          .eq("id_posbankum", posbankumId);
 
         if (updErr) throw updErr;
-        committedToDatabase = true;
-        if (target.path_berkas) oldPathsToRemove.push(target.path_berkas);
+
+        const { data: verifiedRow, error: verifyErr } = await supabase
+          .from(TABLE_DOC)
+          .select("*")
+          .eq("id_data", target.id_data)
+          .eq("id_posbankum", posbankumId)
+          .maybeSingle();
+
+        if (verifyErr) throw verifyErr;
+
+        if (
+          !verifiedRow ||
+          verifiedRow.path_berkas !== item.path ||
+          statusKind(verifiedRow.status_verifikasi) !== "wait"
+        ) {
+          throw new Error(
+            "Database belum memperbarui status dokumen. Periksa policy UPDATE data_posbankum.",
+          );
+        }
+
+        savedRows.push(verifiedRow);
+        committedPaths.add(item.path);
+        if (target.path_berkas && target.path_berkas !== item.path) {
+          oldPathsToRemove.push(target.path_berkas);
+        }
       }
 
       if (insertItems.length) {
         const rowsToInsert = insertItems.map(({ file, path }) => ({
           id_posbankum: posbankumId,
-          kategori: uploadKey,
-          path_berkas: path,
-          tgl_upload: new Date().toISOString(),
-          status_verifikasi: "menunggu",
-          id_user_verifikator: null,
-          tgl_verifikasi: null,
-          nama_berkas: file.name,
-          mime_type: file.type,
-          size_bytes: file.size,
-          catatan_admin: null,
+          ...buildDocumentProcessPayload({
+            kategori: uploadKey,
+            path,
+            file,
+          }),
         }));
 
-        const { error: insErr } = await supabase
+        const { data: insertedRows, error: insErr } = await supabase
           .from(TABLE_DOC)
-          .insert(rowsToInsert);
+          .insert(rowsToInsert)
+          .select("*");
 
         if (insErr) {
-          const uncommittedPaths = committedToDatabase
-            ? insertItems.map((item) => item.path)
-            : uploadedPaths;
-          if (uncommittedPaths.length) {
-            await supabase.storage.from(BUCKET).remove(uncommittedPaths);
+          if (/row-level security/i.test(insErr.message || "")) {
+            throw new Error(
+              "Upload gagal karena RLS INSERT data_posbankum belum mengizinkan penambahan data baru.",
+            );
           }
+
           throw insErr;
         }
-        committedToDatabase = true;
+
+        savedRows.push(...(insertedRows?.length ? insertedRows : rowsToInsert));
+        for (const item of insertItems) {
+          committedPaths.add(item.path);
+        }
       }
 
       const leftoverTargets = replaceTargets.slice(updateItems.length);
@@ -1243,23 +1329,36 @@ export default function KelolaDataPosbankum({ profile }) {
           .from(TABLE_DOC)
           .delete()
           .in("id_data", oldIds);
-        if (delErr) throw delErr;
-      }
 
-      oldPathsToRemove.push(...leftoverOldPaths);
+        if (!delErr && leftoverOldPaths.length) {
+          oldPathsToRemove.push(...leftoverOldPaths);
+        } else if (delErr) {
+          console.warn("Dokumen lama belum bisa dihapus:", delErr);
+        }
+      }
 
       if (oldPathsToRemove.length) {
         await supabase.storage.from(BUCKET).remove(oldPathsToRemove);
       }
 
       await loadDocs();
+      await applyUploadedDocsToUi(uploadKey, savedRows);
       closeUpload();
       setSuccessMessage(
         selectedFiles.length > 1
-          ? `${selectedFiles.length} file berhasil mengganti dokumen lama!`
-          : "Dokumen lama berhasil diganti dengan dokumen baru!",
+          ? `${selectedFiles.length} file berhasil diupload ulang.`
+          : "Dokumen berhasil diupload ulang.",
       );
     } catch (e) {
+      const cleanupPaths = uploadedPaths.filter(
+        (path) => !committedPaths.has(path),
+      );
+      if (cleanupPaths.length) {
+        try {
+          await supabase.storage.from(BUCKET).remove(cleanupPaths);
+        } catch {}
+      }
+
       console.error(e);
       setUploadErr(e?.message || "Upload gagal.");
     } finally {

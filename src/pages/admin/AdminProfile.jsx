@@ -41,7 +41,6 @@ const INITIAL_PASSWORD = {
 };
 
 const BUCKET_PROFILE = "profile-photos";
-
 const cleanFilename = (name) =>
   String(name || "file")
     .trim()
@@ -52,6 +51,22 @@ const cleanFilename = (name) =>
 
 const isExternalUrl = (value) => /^https?:\/\//i.test(String(value || ""));
 const isDataOrBlob = (value) => /^(data:|blob:)/i.test(String(value || ""));
+
+function canRemoveStoredPhoto(value) {
+  const path = safeTrim(value);
+  return Boolean(path && !isExternalUrl(path) && !isDataOrBlob(path));
+}
+
+async function removeStoredProfilePhoto(value) {
+  const path = safeTrim(value);
+  if (!canRemoveStoredPhoto(path)) return;
+
+  const { error } = await supabase.storage.from(BUCKET_PROFILE).remove([path]);
+
+  if (error) {
+    console.warn("remove profile photo:", error);
+  }
+}
 
 function getProfilePhotoUrl(value) {
   const path = safeTrim(value);
@@ -123,27 +138,19 @@ function validateAdminPassword(values) {
 }
 
 function normalizeEmail(value) {
-  return safeTrim(value).toLowerCase();
+  return safeTrim(value)
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[\u00A0\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]/g, "")
+    .replace(/＠/g, "@")
+    .replace(/。/g, ".")
+    .toLowerCase();
 }
 
 function isValidEmail(value) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizeEmail(value));
-}
-
-function getEmailUpdateError(error) {
-  const message = safeTrim(error?.message);
-  if (!message) return "Gagal mengubah email login.";
-
-  const lower = message.toLowerCase();
-  if (lower.includes("invalid") && lower.includes("email")) {
-    return "Email login tidak valid. Periksa kembali penulisan email.";
-  }
-
-  if (lower.includes("already") || lower.includes("registered")) {
-    return "Email login sudah digunakan oleh akun lain.";
-  }
-
-  return message;
+  const email = normalizeEmail(value);
+  return /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+$/.test(
+    email,
+  );
 }
 
 function getPasswordRules(password) {
@@ -187,7 +194,13 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
   const [successMessage, setSuccessMessage] = useState("");
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState("");
+  const [removePhotoRequested, setRemovePhotoRequested] = useState(false);
+  const [loginEmail, setLoginEmail] = useState(sessionUser?.email || "");
   const photoInputRef = useRef(null);
+
+  useEffect(() => {
+    setLoginEmail(sessionUser?.email || "");
+  }, [sessionUser?.email]);
 
   useEffect(() => {
     let alive = true;
@@ -230,7 +243,7 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
           const next = buildFormData(
             fallback.data,
             adminName,
-            sessionUser.email,
+            loginEmail || sessionUser.email,
           );
 
           if (!alive) return;
@@ -253,7 +266,7 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
         const next = buildFormData(
           { ...data, foto_profile: optionalPhoto },
           adminName,
-          sessionUser.email,
+          loginEmail || sessionUser.email,
         );
 
         if (!alive) return;
@@ -273,7 +286,7 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
     return () => {
       alive = false;
     };
-  }, [sessionUser?.id, sessionUser?.email, adminName]);
+  }, [sessionUser?.id, sessionUser?.email, loginEmail, adminName]);
 
   useEffect(() => {
     return () => {
@@ -286,14 +299,18 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
   const displayEmail = useMemo(
     () =>
       sanitizeText(form.email_kantor) ||
+      sanitizeText(loginEmail) ||
       sanitizeText(sessionUser?.email) ||
       "-",
-    [form.email_kantor, sessionUser?.email],
+    [form.email_kantor, loginEmail, sessionUser?.email],
   );
 
   const displayPhoto = useMemo(
-    () => photoPreview || getProfilePhotoUrl(form.foto_profile),
-    [form.foto_profile, photoPreview],
+    () =>
+      removePhotoRequested
+        ? ""
+        : photoPreview || getProfilePhotoUrl(form.foto_profile),
+    [form.foto_profile, photoPreview, removePhotoRequested],
   );
 
   const passwordRules = useMemo(
@@ -311,6 +328,7 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
     }
     setPhotoFile(null);
     setPhotoPreview("");
+    setRemovePhotoRequested(false);
     if (photoInputRef.current) photoInputRef.current.value = "";
   };
 
@@ -349,10 +367,29 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
     setSubmitError("");
     setPhotoFile(file);
     setPhotoPreview(URL.createObjectURL(file));
+    setRemovePhotoRequested(false);
+  };
+
+  const handleRemovePhoto = () => {
+    if (!editing || saving) return;
+
+    if (photoPreview && photoPreview.startsWith("blob:")) {
+      URL.revokeObjectURL(photoPreview);
+    }
+
+    setSubmitError("");
+    setPhotoFile(null);
+    setPhotoPreview("");
+    setRemovePhotoRequested(true);
+    setForm((prev) => ({ ...prev, foto_profile: "" }));
+
+    if (photoInputRef.current) photoInputRef.current.value = "";
   };
 
   const uploadProfilePhoto = async () => {
-    if (!photoFile) return safeTrim(form.foto_profile);
+    if (removePhotoRequested && !photoFile) return "";
+    if (!photoFile)
+      return safeTrim(form.foto_profile || initialForm.foto_profile);
 
     const ext = photoFile.name.includes(".")
       ? photoFile.name.split(".").pop()
@@ -390,26 +427,7 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
         );
       }
 
-      const {
-        data: { user },
-        error: userError,
-      } = await supabase.auth.getUser();
-
-      if (userError) throw userError;
-
-      const currentEmail = normalizeEmail(user?.email || sessionUser?.email);
-      const isEmailChanged = nextEmail !== currentEmail;
-
-      if (isEmailChanged) {
-        const { error: emailError } = await supabase.auth.updateUser({
-          email: nextEmail,
-        });
-
-        if (emailError) {
-          throw new Error(getEmailUpdateError(emailError));
-        }
-      }
-
+      const oldPhotoPath = safeTrim(initialForm.foto_profile);
       const nextPhoto = await uploadProfilePhoto();
       const payload = {
         full_name: safeTrim(form.full_name),
@@ -433,20 +451,21 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
 
       if (error) throw error;
 
+      if ((photoFile || removePhotoRequested) && oldPhotoPath !== nextPhoto) {
+        await removeStoredProfilePhoto(oldPhotoPath);
+      }
+
       const next = buildFormData(
         { ...form, email_kantor: nextEmail, foto_profile: nextPhoto },
         adminName,
-        nextEmail || currentEmail,
+        loginEmail || sessionUser?.email,
       );
+
       setForm(next);
       setInitialForm(next);
       resetSelectedPhoto();
       setEditing(false);
-      setSuccessMessage(
-        isEmailChanged
-          ? "Profil admin diperbarui. Jika konfirmasi email aktif, buka email baru untuk mengaktifkan email login."
-          : "Profil admin berhasil diperbarui!",
-      );
+      setSuccessMessage("Profil admin berhasil diperbarui!");
     } catch (error) {
       setSubmitError(getFriendlyError(error));
     } finally {
@@ -468,7 +487,8 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
   };
 
   const handlePasswordChange = async () => {
-    if (!sessionUser?.email || passwordSaving) return;
+    const currentLoginEmail = normalizeEmail(loginEmail || sessionUser?.email);
+    if (!currentLoginEmail || passwordSaving) return;
 
     const errors = validateAdminPassword(passwordForm);
     setPasswordFieldErrors(errors);
@@ -480,7 +500,7 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
 
     try {
       const reAuth = await supabase.auth.signInWithPassword({
-        email: sessionUser.email,
+        email: currentLoginEmail,
         password: passwordForm.currentPassword,
       });
 
@@ -627,14 +647,27 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
                     accept="image/png,image/jpeg,image/jpg"
                     onChange={handlePhotoChange}
                   />
-                  <button
-                    className="apf-photoBtn"
-                    type="button"
-                    onClick={handlePhotoClick}
-                    disabled={saving}
-                  >
-                    {displayPhoto ? "Ganti Foto" : "Tambah Foto"}
-                  </button>
+                  <div className="apf-photoActions">
+                    <button
+                      className="apf-photoBtn"
+                      type="button"
+                      onClick={handlePhotoClick}
+                      disabled={saving}
+                    >
+                      {displayPhoto ? "Ganti Foto" : "Tambah Foto"}
+                    </button>
+
+                    {displayPhoto ? (
+                      <button
+                        className="apf-photoBtn apf-photoRemoveBtn"
+                        type="button"
+                        onClick={handleRemovePhoto}
+                        disabled={saving}
+                      >
+                        Hapus Foto
+                      </button>
+                    ) : null}
+                  </div>
                   <div className="apf-photoHint">PNG atau JPG maksimal 5MB</div>
                 </>
               ) : null}
@@ -683,6 +716,7 @@ export default function AdminProfile({ sessionUser, adminName, onBack }) {
                   required: true,
                   icon: <FiMail />,
                   type: "email",
+                  helper: "Email ini digunakan untuk login admin.",
                   placeholder: "Masukkan email",
                 })}
 

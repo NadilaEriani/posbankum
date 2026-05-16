@@ -4,7 +4,9 @@ import { supabase } from "../lib/supabaseClient";
 import brandLogo from "../assets/image 1.png";
 
 const STORAGE_KEY = "posbankum-forgot-password-flow";
+const RATE_LIMIT_STORAGE_KEY = "posbankum-forgot-password-rate-limit";
 const RESEND_SECONDS = 60;
+const RATE_LIMIT_SECONDS = 300;
 const LOGIN_PATH = "/login";
 const CODE_EXPIRED_MESSAGE = "Kode sudah kadaluwarsa";
 
@@ -276,12 +278,22 @@ function maskEmail(email) {
   return `${safeName}@${safeDomain}.${extension || "com"}`;
 }
 
+function normalizeEmail(value) {
+  return String(value || "")
+    .trim()
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .replace(/[\u00A0\u1680\u180E\u2000-\u200A\u202F\u205F\u3000]/g, "")
+    .replace(/＠/g, "@")
+    .replace(/。/g, ".")
+    .toLowerCase();
+}
+
 function isValidEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(normalizeEmail(email));
 }
 
 async function checkRegisteredEmail(email) {
-  const cleanedEmail = email.trim().toLowerCase();
+  const cleanedEmail = normalizeEmail(email);
 
   const { data: rpcData, error: rpcError } = await supabase.rpc(
     "is_registered_login_email",
@@ -313,6 +325,17 @@ async function checkRegisteredEmail(email) {
   return Boolean(posbankumResult.data || profileResult.data);
 }
 
+function isRateLimitError(error) {
+  const message = error?.message?.toLowerCase?.() || "";
+  return message.includes("rate limit") || error?.status === 429;
+}
+
+function getRateLimitMessage(seconds) {
+  const safeSeconds = Math.max(1, Number(seconds) || RATE_LIMIT_SECONDS);
+  const minutes = Math.ceil(safeSeconds / 60);
+  return `Terlalu banyak permintaan. Coba lagi sekitar ${minutes} menit lagi.`;
+}
+
 function getFriendlyErrorMessage(error, fallback) {
   const message = error?.message?.toLowerCase?.() || "";
 
@@ -324,8 +347,8 @@ function getFriendlyErrorMessage(error, fallback) {
     return "Kode verifikasi tidak valid atau sudah kedaluwarsa.";
   }
 
-  if (message.includes("rate limit") || error?.status === 429) {
-    return "Terlalu banyak permintaan. Coba lagi beberapa saat.";
+  if (isRateLimitError(error)) {
+    return getRateLimitMessage(RATE_LIMIT_SECONDS);
   }
 
   if (message.includes("password")) {
@@ -394,6 +417,7 @@ export default function ForgotPasswordPage() {
 
   const [step, setStep] = useState("email");
   const [email, setEmail] = useState("");
+  const [resetEmail, setResetEmail] = useState("");
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -410,6 +434,7 @@ export default function ForgotPasswordPage() {
   const [updatingPassword, setUpdatingPassword] = useState(false);
 
   const [resendIn, setResendIn] = useState(0);
+  const [rateLimitIn, setRateLimitIn] = useState(0);
   const [codeExpiresAt, setCodeExpiresAt] = useState(null);
 
   const otpRefs = useRef([]);
@@ -440,6 +465,7 @@ export default function ForgotPasswordPage() {
 
       const parsed = JSON.parse(raw);
       if (parsed?.email) setEmail(parsed.email);
+      if (parsed?.resetEmail) setResetEmail(parsed.resetEmail);
       if (parsed?.step) setStep(parsed.step);
 
       const storedExpiresAt =
@@ -453,6 +479,13 @@ export default function ForgotPasswordPage() {
         setCodeExpiresAt(storedExpiresAt);
         setResendIn(diff);
       }
+
+      const storedRateLimitUntil = Number(
+        localStorage.getItem(RATE_LIMIT_STORAGE_KEY) || 0,
+      );
+      if (storedRateLimitUntil > Date.now()) {
+        setRateLimitIn(Math.ceil((storedRateLimitUntil - Date.now()) / 1000));
+      }
     } catch {
       // ignore
     }
@@ -465,12 +498,13 @@ export default function ForgotPasswordPage() {
       STORAGE_KEY,
       JSON.stringify({
         email,
+        resetEmail,
         step,
         resendUntil,
         codeExpiresAt,
       }),
     );
-  }, [email, step, resendIn, codeExpiresAt]);
+  }, [email, resetEmail, step, resendIn, codeExpiresAt]);
 
   useEffect(() => {
     if (resendIn <= 0) return;
@@ -487,6 +521,23 @@ export default function ForgotPasswordPage() {
 
     return () => clearInterval(timer);
   }, [resendIn]);
+
+  useEffect(() => {
+    if (rateLimitIn <= 0) return;
+
+    const timer = setInterval(() => {
+      setRateLimitIn((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          localStorage.removeItem(RATE_LIMIT_STORAGE_KEY);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [rateLimitIn]);
 
   useEffect(() => {
     const joinedOtp = otp.join("");
@@ -533,6 +584,7 @@ export default function ForgotPasswordPage() {
     nextResend = resendIn,
     nextEmail = email,
     nextCodeExpiresAt = codeExpiresAt,
+    nextResetEmail = resetEmail,
   ) => {
     const resendUntil = nextResend > 0 ? Date.now() + nextResend * 1000 : null;
 
@@ -540,6 +592,7 @@ export default function ForgotPasswordPage() {
       STORAGE_KEY,
       JSON.stringify({
         email: nextEmail,
+        resetEmail: nextResetEmail,
         step: nextStep,
         resendUntil,
         codeExpiresAt: nextCodeExpiresAt,
@@ -550,6 +603,14 @@ export default function ForgotPasswordPage() {
   const clearResetState = () => {
     sessionStorage.removeItem(STORAGE_KEY);
   };
+
+  const startRateLimitCooldown = () => {
+    const until = Date.now() + RATE_LIMIT_SECONDS * 1000;
+    localStorage.setItem(RATE_LIMIT_STORAGE_KEY, String(until));
+    setRateLimitIn(RATE_LIMIT_SECONDS);
+  };
+
+  const getActiveResetEmail = () => normalizeEmail(resetEmail || email);
 
   const isOtpExpired = () => {
     return !codeExpiresAt || Date.now() > codeExpiresAt;
@@ -572,7 +633,12 @@ export default function ForgotPasswordPage() {
     setOtpError("");
     setPasswordError("");
 
-    const cleanedEmail = email.trim().toLowerCase();
+    if (rateLimitIn > 0) {
+      setFormError(getRateLimitMessage(rateLimitIn));
+      return;
+    }
+
+    const cleanedEmail = normalizeEmail(email);
 
     if (!cleanedEmail) {
       setEmailError("Email tidak boleh kosong");
@@ -601,13 +667,21 @@ export default function ForgotPasswordPage() {
       const nextExpiresAt = Date.now() + RESEND_SECONDS * 1000;
 
       setEmail(cleanedEmail);
+      setResetEmail(cleanedEmail);
       setOtp(["", "", "", "", "", ""]);
       setStep("otp");
       setResendIn(RESEND_SECONDS);
       setCodeExpiresAt(nextExpiresAt);
       autoVerifyRef.current = "";
-      persistResetState("otp", RESEND_SECONDS, cleanedEmail, nextExpiresAt);
+      persistResetState(
+        "otp",
+        RESEND_SECONDS,
+        cleanedEmail,
+        nextExpiresAt,
+        cleanedEmail,
+      );
     } catch (error) {
+      if (isRateLimitError(error)) startRateLimitCooldown();
       setFormError(
         getFriendlyErrorMessage(
           error,
@@ -696,7 +770,7 @@ export default function ForgotPasswordPage() {
 
     try {
       const { error } = await supabase.auth.verifyOtp({
-        email: email.trim().toLowerCase(),
+        email: getActiveResetEmail(),
         token,
         type: "recovery",
       });
@@ -706,7 +780,13 @@ export default function ForgotPasswordPage() {
       setStep("password");
       setResendIn(0);
       setCodeExpiresAt(null);
-      persistResetState("password", 0, email.trim().toLowerCase(), null);
+      persistResetState(
+        "password",
+        0,
+        normalizeEmail(email),
+        null,
+        getActiveResetEmail(),
+      );
     } catch (error) {
       setOtpError(
         getFriendlyErrorMessage(
@@ -727,14 +807,25 @@ export default function ForgotPasswordPage() {
   const handleResendOtp = async () => {
     if (resendIn > 0 || sendingEmail) return;
 
+    if (rateLimitIn > 0) {
+      setOtpError(getRateLimitMessage(rateLimitIn));
+      return;
+    }
+
+    const activeResetEmail = getActiveResetEmail();
+    if (!activeResetEmail) {
+      setOtpError("Email reset tidak ditemukan. Kembali ke langkah email.");
+      setStep("email");
+      return;
+    }
+
     setSendingEmail(true);
     setOtpError("");
     setFormError("");
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(
-        email.trim().toLowerCase(),
-      );
+      const { error } =
+        await supabase.auth.resetPasswordForEmail(activeResetEmail);
 
       if (error) throw error;
 
@@ -747,14 +838,16 @@ export default function ForgotPasswordPage() {
       persistResetState(
         "otp",
         RESEND_SECONDS,
-        email.trim().toLowerCase(),
+        normalizeEmail(email),
         nextExpiresAt,
+        activeResetEmail,
       );
 
       setTimeout(() => {
         otpRefs.current[0]?.focus();
       }, 50);
     } catch (error) {
+      if (isRateLimitError(error)) startRateLimitCooldown();
       setOtpError(
         getFriendlyErrorMessage(error, "Gagal mengirim ulang kode verifikasi."),
       );
@@ -814,13 +907,14 @@ export default function ForgotPasswordPage() {
     if (step === "otp") {
       setStep("email");
       setCodeExpiresAt(null);
-      persistResetState("email", 0, email, null);
+      setResetEmail("");
+      persistResetState("email", 0, email, null, "");
       return;
     }
 
     if (step === "password") {
       setStep("otp");
-      persistResetState("otp", resendIn, email, codeExpiresAt);
+      persistResetState("otp", resendIn, email, codeExpiresAt, resetEmail);
       return;
     }
 
@@ -893,9 +987,9 @@ export default function ForgotPasswordPage() {
 
                 <button
                   type="submit"
-                  disabled={sendingEmail}
+                  disabled={sendingEmail || rateLimitIn > 0}
                   className={`mt-6 flex h-[52px] w-full items-center justify-center gap-3 rounded-[16px] text-[17px] font-bold text-white shadow-[0_12px_24px_rgba(28,80,194,0.28)] transition ${
-                    sendingEmail
+                    sendingEmail || rateLimitIn > 0
                       ? "bg-[#88A4DA]"
                       : "bg-[linear-gradient(180deg,#235BCA_0%,#1E51B3_100%)] hover:translate-y-[-1px]"
                   }`}
@@ -905,6 +999,8 @@ export default function ForgotPasswordPage() {
                       <Spinner className="w-5 h-5" />
                       Kirim Kode Verifikasi
                     </>
+                  ) : rateLimitIn > 0 ? (
+                    <>Tunggu {rateLimitIn}s</>
                   ) : (
                     <>
                       Kirim Kode Verifikasi
@@ -947,7 +1043,7 @@ export default function ForgotPasswordPage() {
                   Kode verifikasi sudah dikirim ke alamat email
                   <br />
                   <span className="font-bold text-[#3B4658]">
-                    {maskEmail(email)}
+                    {maskEmail(getActiveResetEmail() || email)}
                   </span>
                 </p>
               </div>
@@ -997,7 +1093,14 @@ export default function ForgotPasswordPage() {
                 </button>
 
                 <div className="mt-7 text-center text-[15px] text-[#4B5565]">
-                  {resendIn > 0 ? (
+                  {rateLimitIn > 0 ? (
+                    <>
+                      Kirim ulang tersedia dalam{" "}
+                      <span className="font-bold text-[#2159D1]">
+                        {rateLimitIn}s
+                      </span>
+                    </>
+                  ) : resendIn > 0 ? (
                     <>
                       Kirim ulang kode dalam{" "}
                       <span className="font-bold text-[#2159D1]">

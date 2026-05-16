@@ -833,3 +833,22 @@
   transform: none !important;
   filter: brightness(1.04);
 }
+
+.apf-photoActions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.apf-photoRemoveBtn {
+  background: transparent;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.8);
+}
+
+.apf-photoRemoveBtn:hover,
+.apf-photoRemoveBtn:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+}

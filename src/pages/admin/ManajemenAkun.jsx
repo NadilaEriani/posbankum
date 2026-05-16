@@ -507,18 +507,18 @@ export default function ManajemenAkun() {
     setDeleting(true);
 
     try {
-      const { error } = await supabase
-        .from("posbankum")
-        .delete()
-        .eq("id_posbankum", deleteTarget.id_posbankum);
+      await callSupabaseFunction("delete-posbankum-account", {
+        id_posbankum: deleteTarget.id_posbankum,
+        email: String(deleteTarget.email_akun || "")
+          .trim()
+          .toLowerCase(),
+      });
 
-      if (error) throw error;
-
-      setSuccessMessage("Data Posbankum berhasil diperbarui!");
+      setSuccessMessage("Akun Posbankum berhasil dihapus!");
       setReloadKey((x) => x + 1);
       setDeleteTarget(null);
     } catch (e) {
-      setErr(e?.message || "Gagal menghapus posbankum");
+      setErr(e?.message || "Gagal menghapus akun Posbankum");
     } finally {
       setDeleting(false);
     }

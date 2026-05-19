@@ -776,8 +776,18 @@ export default function SemuaKasus() {
 
         const orphanWebsiteKasusRows = (websiteKasusRows || []).filter(
           (row) => {
-            if (!row.website_pengaduan_id) return true;
-            return !pengaduanIdSet.has(row.website_pengaduan_id);
+            if (row.website_pengaduan_id) return false;
+
+            const sourceSystem = String(
+              row.source_system || "website",
+            ).toLowerCase();
+            const hasMobileRelation = Boolean(row.mobile_pengaduan_id);
+
+            // Jangan tampilkan sisa kasus website yang sudah tidak punya laporan induk.
+            // Baris seperti ini biasanya tertinggal setelah laporan pelayanan dihapus.
+            if (sourceSystem !== "mobile" && !hasMobileRelation) return false;
+
+            return true;
           },
         );
 
@@ -829,7 +839,10 @@ export default function SemuaKasus() {
               mobilePengaduanError.message ||
               "Gagal membaca data kasus dari Supabase mobile.";
           } else {
-            const mobileRows = mobilePengaduanRows || [];
+            const mobileRows = (mobilePengaduanRows || []).filter(
+              (row) =>
+                String(row?.source_system || "").toLowerCase() !== "website",
+            );
 
             const paralegalIds = [
               ...new Set(

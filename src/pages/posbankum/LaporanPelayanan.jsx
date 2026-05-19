@@ -449,6 +449,7 @@ function mapDbToUi(
   paralegalLookup = {},
   mobileReport = null,
   posbankumRow = null,
+  relatedKasus = null,
 ) {
   const extra = parseCatatanAdmin(row.catatan_admin);
   const resolvedParalegal = resolveParalegal(row, extra, paralegalLookup);
@@ -478,6 +479,11 @@ function mapDbToUi(
 
   return {
     id_pengaduan: row.id_pengaduan,
+    id_posbankum:
+      row.id_posbankum ||
+      posbankumRow?.id_posbankum ||
+      relatedKasus?.id_posbankum ||
+      "",
     id_paralegal: resolvedParalegal.id || mobileReport?.paralegal_id || "",
     nomor_pengaduan:
       row.nomor_pengaduan || buildPbktNumberFromMobile(mobileReport),
@@ -546,9 +552,12 @@ function mapDbToUi(
     lampiran,
     is_mobile_only: false,
     source_data: mobileReport ? "website_mobile" : "website",
-    mobile_pengaduan_id: mobileReport?.id || "",
-    global_case_id: mobileReport?.global_case_id || "",
-    website_kasus_id: mobileReport?.website_kasus_id || "",
+    mobile_pengaduan_id:
+      mobileReport?.id || relatedKasus?.mobile_pengaduan_id || "",
+    global_case_id:
+      mobileReport?.global_case_id || relatedKasus?.global_case_id || "",
+    website_kasus_id:
+      mobileReport?.website_kasus_id || relatedKasus?.id_kasus || "",
     updates: mappedTimeline.length
       ? mappedTimeline
       : Array.isArray(extra.updates) && extra.updates.length
@@ -612,6 +621,11 @@ function mapMobileReportToUi(
 
   return {
     id_pengaduan: `mobile-${row.id}`,
+    id_posbankum:
+      row.website_posbankum_id ||
+      relatedKasus?.id_posbankum ||
+      posbankumRow?.id_posbankum ||
+      "",
     id_paralegal: row.paralegal_id || "",
     nomor_pengaduan: buildPbktNumberFromMobile(row),
     nama_pelapor: firstFilled(row.nama_pelapor, "Pelapor Belum Diisi"),
@@ -1024,6 +1038,229 @@ async function getMobileProgressMap(mobileRows = []) {
   }
 
   return progressMap;
+}
+
+async function findMobileRowsForDeletedWebsiteReport({
+  globalCaseIds = [],
+  websiteKasusIds = [],
+  mobilePengaduanIds = [],
+} = {}) {
+  if (!mobileSupabase) return [];
+
+  const rowsMap = new Map();
+  const selectColumns = "id, global_case_id, website_kasus_id";
+
+  const addRows = (rows = []) => {
+    for (const row of rows || []) {
+      if (row?.id) rowsMap.set(row.id, row);
+    }
+  };
+
+  const cleanGlobalCaseIds = Array.from(new Set(globalCaseIds.filter(Boolean)));
+  const cleanWebsiteKasusIds = Array.from(
+    new Set(websiteKasusIds.filter(Boolean)),
+  );
+  const cleanMobilePengaduanIds = Array.from(
+    new Set(mobilePengaduanIds.filter(Boolean)),
+  );
+
+  if (cleanMobilePengaduanIds.length) {
+    const { data, error } = await mobileSupabase
+      .from("pengaduan")
+      .select(selectColumns)
+      .in("id", cleanMobilePengaduanIds);
+
+    if (error) throw error;
+    addRows(data || []);
+  }
+
+  if (cleanGlobalCaseIds.length) {
+    const { data, error } = await mobileSupabase
+      .from("pengaduan")
+      .select(selectColumns)
+      .in("global_case_id", cleanGlobalCaseIds);
+
+    if (error) throw error;
+    addRows(data || []);
+  }
+
+  if (cleanWebsiteKasusIds.length) {
+    const { data, error } = await mobileSupabase
+      .from("pengaduan")
+      .select(selectColumns)
+      .in("website_kasus_id", cleanWebsiteKasusIds);
+
+    if (error) throw error;
+    addRows(data || []);
+  }
+
+  return Array.from(rowsMap.values());
+}
+
+async function deleteMobileRowsForWebsiteReport({
+  globalCaseIds = [],
+  websiteKasusIds = [],
+  mobilePengaduanIds = [],
+} = {}) {
+  if (!mobileSupabase) return [];
+
+  const mobileRows = await findMobileRowsForDeletedWebsiteReport({
+    globalCaseIds,
+    websiteKasusIds,
+    mobilePengaduanIds,
+  });
+
+  const mobileIds = Array.from(
+    new Set((mobileRows || []).map((row) => row.id).filter(Boolean)),
+  );
+
+  if (!mobileIds.length) return [];
+
+  const { error: progressDeleteError } = await mobileSupabase
+    .from("progres_kasus")
+    .delete()
+    .in("pengaduan_id", mobileIds);
+
+  if (progressDeleteError) throw progressDeleteError;
+
+  const { error: pengaduanMobileDeleteError } = await mobileSupabase
+    .from("pengaduan")
+    .delete()
+    .in("id", mobileIds);
+
+  if (pengaduanMobileDeleteError) throw pengaduanMobileDeleteError;
+
+  return mobileIds;
+}
+
+function normalizeCaseDeleteText(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function isSameCaseDeleteText(a, b) {
+  const first = normalizeCaseDeleteText(a);
+  const second = normalizeCaseDeleteText(b);
+
+  return Boolean(first && second && first === second);
+}
+
+function isLikelySameOrphanKasus(row, report) {
+  if (!row || !report) return false;
+
+  const sourceSystem = String(row.source_system || "website").toLowerCase();
+  const hasReliableRelation = Boolean(
+    row.website_pengaduan_id || row.mobile_pengaduan_id,
+  );
+
+  if (sourceSystem === "mobile" || hasReliableRelation) return false;
+
+  const titleMatches = isSameCaseDeleteText(
+    row.judul_kasus || row.jenis_kasus,
+    report.judul_pengaduan || report.jenis_masalah,
+  );
+  const jenisMatches = isSameCaseDeleteText(
+    row.jenis_kasus,
+    report.jenis_masalah,
+  );
+  const deskripsiMatches = isSameCaseDeleteText(
+    row.deskripsi_kasus,
+    report.kronologi,
+  );
+
+  return titleMatches && (jenisMatches || deskripsiMatches);
+}
+
+async function getRelatedKasusRowsForReportDelete({
+  idPengaduan,
+  idPosbankum,
+  targetReport,
+} = {}) {
+  const rowsMap = new Map();
+  const selectColumns = `
+    id_kasus,
+    id_posbankum,
+    jenis_kasus,
+    judul_kasus,
+    deskripsi_kasus,
+    global_case_id,
+    source_system,
+    mobile_pengaduan_id,
+    website_pengaduan_id
+  `;
+
+  const addRows = (rows = []) => {
+    for (const row of rows || []) {
+      if (row?.id_kasus) rowsMap.set(row.id_kasus, row);
+    }
+  };
+
+  if (idPengaduan) {
+    const { data, error } = await supabase
+      .from("kasus")
+      .select(selectColumns)
+      .eq("website_pengaduan_id", idPengaduan);
+
+    if (error) throw error;
+    addRows(data || []);
+  }
+
+  const websiteKasusIds = Array.from(
+    new Set([targetReport?.website_kasus_id].filter(Boolean)),
+  );
+  const globalCaseIds = Array.from(
+    new Set([targetReport?.global_case_id].filter(Boolean)),
+  );
+  const mobilePengaduanIds = Array.from(
+    new Set([targetReport?.mobile_pengaduan_id].filter(Boolean)),
+  );
+
+  if (websiteKasusIds.length) {
+    const { data, error } = await supabase
+      .from("kasus")
+      .select(selectColumns)
+      .in("id_kasus", websiteKasusIds);
+
+    if (error) throw error;
+    addRows(data || []);
+  }
+
+  if (globalCaseIds.length) {
+    const { data, error } = await supabase
+      .from("kasus")
+      .select(selectColumns)
+      .in("global_case_id", globalCaseIds);
+
+    if (error) throw error;
+    addRows(data || []);
+  }
+
+  if (mobilePengaduanIds.length) {
+    const { data, error } = await supabase
+      .from("kasus")
+      .select(selectColumns)
+      .in("mobile_pengaduan_id", mobilePengaduanIds);
+
+    if (error) throw error;
+    addRows(data || []);
+  }
+
+  if (idPosbankum && targetReport) {
+    const { data, error } = await supabase
+      .from("kasus")
+      .select(selectColumns)
+      .eq("id_posbankum", idPosbankum);
+
+    if (error) throw error;
+
+    addRows(
+      (data || []).filter((row) => isLikelySameOrphanKasus(row, targetReport)),
+    );
+  }
+
+  return Array.from(rowsMap.values());
 }
 
 async function loadMobileTimelineData({
@@ -1661,6 +1898,12 @@ export default function KelolaPengaduan({ profile }) {
         lampiranMap.get(item.id_pengaduan).push(item);
       }
 
+      const relatedKasusByPengaduanId = new Map(
+        (relatedKasusRows || [])
+          .filter((row) => row.website_pengaduan_id)
+          .map((row) => [row.website_pengaduan_id, row]),
+      );
+
       const mapped = (pengaduanRows || []).map((row) =>
         mapDbToUi(
           row,
@@ -1669,6 +1912,7 @@ export default function KelolaPengaduan({ profile }) {
           paralegalLookup,
           mobileReportMap.get(row.id_pengaduan) || null,
           currentPosbankum,
+          relatedKasusByPengaduanId.get(row.id_pengaduan) || null,
         ),
       );
 
@@ -1879,20 +2123,45 @@ export default function KelolaPengaduan({ profile }) {
     setDeleting(true);
 
     try {
-      const { data: relatedKasusRows, error: relatedKasusError } =
-        await supabase
-          .from("kasus")
-          .select("id_kasus, global_case_id")
-          .eq("website_pengaduan_id", id_pengaduan);
+      const targetReport = reports.find(
+        (item) => item.id_pengaduan === id_pengaduan,
+      );
 
-      if (relatedKasusError) throw relatedKasusError;
+      const relatedKasusRows = await getRelatedKasusRowsForReportDelete({
+        idPengaduan: id_pengaduan,
+        idPosbankum: targetReport?.id_posbankum || profile?.id_posbankum,
+        targetReport,
+      });
 
-      const relatedKasusIds = (relatedKasusRows || [])
-        .map((item) => item.id_kasus)
-        .filter(Boolean);
-      const relatedGlobalCaseIds = (relatedKasusRows || [])
-        .map((item) => item.global_case_id)
-        .filter(Boolean);
+      const relatedKasusIds = Array.from(
+        new Set(
+          (relatedKasusRows || []).map((item) => item.id_kasus).filter(Boolean),
+        ),
+      );
+
+      const relatedGlobalCaseIds = Array.from(
+        new Set(
+          [
+            targetReport?.global_case_id,
+            ...(relatedKasusRows || []).map((item) => item.global_case_id),
+          ].filter(Boolean),
+        ),
+      );
+
+      const relatedMobilePengaduanIds = Array.from(
+        new Set(
+          [
+            targetReport?.mobile_pengaduan_id,
+            ...(relatedKasusRows || []).map((item) => item.mobile_pengaduan_id),
+          ].filter(Boolean),
+        ),
+      );
+
+      await deleteMobileRowsForWebsiteReport({
+        globalCaseIds: relatedGlobalCaseIds,
+        websiteKasusIds: relatedKasusIds,
+        mobilePengaduanIds: relatedMobilePengaduanIds,
+      });
 
       const { data: lampiranRows, error: lampiranError } = await supabase
         .from("pengaduan_lampiran")
@@ -1945,6 +2214,13 @@ export default function KelolaPengaduan({ profile }) {
 
       if (lampiranDeleteError) throw lampiranDeleteError;
 
+      const { error: kasusDeleteByPengaduanError } = await supabase
+        .from("kasus")
+        .delete()
+        .eq("website_pengaduan_id", id_pengaduan);
+
+      if (kasusDeleteByPengaduanError) throw kasusDeleteByPengaduanError;
+
       if (relatedKasusIds.length) {
         const { error: kasusDeleteError } = await supabase
           .from("kasus")
@@ -1952,6 +2228,24 @@ export default function KelolaPengaduan({ profile }) {
           .in("id_kasus", relatedKasusIds);
 
         if (kasusDeleteError) throw kasusDeleteError;
+      }
+
+      if (relatedGlobalCaseIds.length) {
+        const { error: kasusDeleteByGlobalError } = await supabase
+          .from("kasus")
+          .delete()
+          .in("global_case_id", relatedGlobalCaseIds);
+
+        if (kasusDeleteByGlobalError) throw kasusDeleteByGlobalError;
+      }
+
+      if (relatedMobilePengaduanIds.length) {
+        const { error: kasusDeleteByMobileError } = await supabase
+          .from("kasus")
+          .delete()
+          .in("mobile_pengaduan_id", relatedMobilePengaduanIds);
+
+        if (kasusDeleteByMobileError) throw kasusDeleteByMobileError;
       }
 
       const { error: pengaduanDeleteError } = await supabase

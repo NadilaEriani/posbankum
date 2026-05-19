@@ -434,9 +434,13 @@ function mapMobilePengaduanToCase(
     firstFilled(webPosbankumRow?.nama, paralegalRow?.nama_posbankum),
   );
 
+  const firstLampiranUrl = Array.isArray(row.lampiran_urls)
+    ? row.lampiran_urls.find((item) => String(item || "").trim()) || ""
+    : "";
+
   return {
     id: row.id,
-    judul: row.kategori_masalah || "Tanpa Judul",
+    judul: firstFilled(row.judul_laporan, row.kategori_masalah, "Tanpa Judul"),
     kategori: normalizeKategori(row.kategori_masalah),
     status,
     prioritas: normalizePrioritas(row.prioritas),
@@ -449,13 +453,19 @@ function mapMobilePengaduanToCase(
       webPosbankumRow?.alamat,
       paralegalRow?.alamat,
     ),
-    pelapor: firstFilled(masyarakatRow?.nama, "Pelapor Belum Diisi"),
+    pelapor: firstFilled(
+      row.nama_pelapor,
+      masyarakatRow?.nama,
+      "Pelapor Belum Diisi",
+    ),
     paralegal: firstFilled(
+      row.nama_paralegal_ditugaskan,
       webPosbankumRow?.nama_paralegal,
       paralegalRow?.nama_posbankum,
       "Paralegal Belum Diisi",
     ),
     paralegalPhone: firstFilled(
+      row.no_hp_paralegal,
       paralegalRow?.no_hp,
       webPosbankumRow?.nomor_tlp,
     ),
@@ -467,13 +477,14 @@ function mapMobilePengaduanToCase(
       row.synced_at ||
       row.tgl_lapor ||
       new Date().toISOString(),
-    deskripsi: row.kronologi || "Belum ada deskripsi kasus.",
+    deskripsi:
+      row.kronologi || row.catatan_paralegal || "Belum ada deskripsi kasus.",
     sumberData: "Mobile",
     globalCaseId: row.global_case_id || null,
     mobilePengaduanId: row.id || null,
     websiteKasusId: row.website_kasus_id || null,
     websitePengaduanId: null,
-    lampiranUrl: row.lampiran_url || "",
+    lampiranUrl: firstLampiranUrl,
   };
 }
 
@@ -788,18 +799,27 @@ export default function SemuaKasus() {
                 kategori_masalah,
                 kronologi,
                 lokasi_kejadian,
-                lampiran_url,
+                lampiran_urls,
                 status,
                 prioritas,
                 paralegal_id,
                 tgl_lapor,
                 tgl_selesai,
                 tgl_kejadian,
+                waktu_kejadian,
                 global_case_id,
                 source_system,
                 website_kasus_id,
                 website_posbankum_id,
-                synced_at
+                synced_at,
+                judul_laporan,
+                nama_lurah,
+                catatan_paralegal,
+                nama_paralegal_ditugaskan,
+                no_hp_paralegal,
+                nama_pelapor,
+                nik_pelapor,
+                no_hp_pelapor
               `,
               )
               .order("tgl_lapor", { ascending: false });

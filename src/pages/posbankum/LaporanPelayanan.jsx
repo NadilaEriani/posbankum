@@ -1,4 +1,5 @@
 import { AiOutlineBarChart } from "react-icons/ai";
+import { FaRegUserCircle } from "react-icons/fa";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabaseClient";
@@ -7,6 +8,7 @@ import DeleteConfirmModal from "../../components/ui/DeleteConfirmModal";
 import ReminderModal from "../../components/ui/ReminderModal";
 import {
   FiFileText,
+  FiCreditCard,
   FiClock,
   FiCheckCircle,
   FiAlertTriangle,
@@ -31,6 +33,7 @@ import {
   FiChevronDown,
   FiInfo,
 } from "react-icons/fi";
+import posbankumIcon from "../../assets/icon.png";
 import "./laporanPelayanan.css";
 
 const STORAGE_BUCKET = "pengaduan-lampiran";
@@ -47,6 +50,42 @@ const mobileSupabase =
   MOBILE_SUPABASE_URL && MOBILE_SUPABASE_ANON_KEY
     ? createClient(MOBILE_SUPABASE_URL, MOBILE_SUPABASE_ANON_KEY)
     : null;
+
+const MOBILE_PENGADUAN_SELECT = `
+  id,
+  kategori_masalah,
+  kronologi,
+  lokasi_kejadian,
+  status,
+  prioritas,
+  paralegal_id,
+  tgl_lapor,
+  tgl_selesai,
+  tgl_kejadian,
+  waktu_kejadian,
+  global_case_id,
+  source_system,
+  website_kasus_id,
+  website_posbankum_id,
+  synced_at,
+  judul_laporan,
+  nama_lurah,
+  catatan_paralegal,
+  nama_paralegal_ditugaskan,
+  no_hp_paralegal,
+  nama_pelapor,
+  nik_pelapor,
+  no_hp_pelapor
+`;
+
+const MOBILE_PROGRESS_SELECT = `
+  id,
+  pengaduan_id,
+  deskripsi_progres,
+  tanggal_progres,
+  foto_dokumentasi,
+  created_at
+`;
 
 function getParalegalLookupKey(value) {
   return String(value || "")
@@ -97,6 +136,7 @@ const EMPTY_FORM_DATA = {
   nomor_telepon: "",
   email: "",
   nama_lurah: "",
+  kelurahan: "",
   jenis_masalah: "",
   prioritas: "",
   judul_pengaduan: "",
@@ -132,6 +172,88 @@ function toTitleCase(value) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function firstFilled(...values) {
+  for (const value of values) {
+    if (value === null || value === undefined) continue;
+
+    const cleaned = String(value).trim();
+    if (cleaned && cleaned !== "-") return cleaned;
+  }
+
+  return "";
+}
+
+function stripPosbankumPrefix(value) {
+  return String(value || "")
+    .replace(/^posbankum\s+/i, "")
+    .trim();
+}
+
+function buildPosbankumInfoLabel({
+  posbankumName = "",
+  kelurahanName = "",
+  kecamatanName = "",
+} = {}) {
+  const cleanPosbankumName = stripPosbankumPrefix(posbankumName);
+  const cleanKelurahanName = stripPosbankumPrefix(kelurahanName);
+  const cleanKecamatanName = stripPosbankumPrefix(kecamatanName);
+  const namaWilayah = cleanPosbankumName || cleanKelurahanName;
+
+  return (
+    [namaWilayah, cleanKecamatanName]
+      .map((item) => String(item || "").trim())
+      .filter(Boolean)
+      .join(", ") || "-"
+  );
+}
+
+function normalizeLookupText(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^posbankum\s+/, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isSamePosbankumName(a, b) {
+  const first = normalizeLookupText(a);
+  const second = normalizeLookupText(b);
+
+  return Boolean(first && second && first === second);
+}
+
+function normalizePriority(value) {
+  const raw = String(value || "")
+    .trim()
+    .toLowerCase();
+
+  if (raw.includes("tinggi") || raw === "high") return "tinggi";
+  if (raw.includes("rendah") || raw === "low") return "rendah";
+  return "sedang";
+}
+
+function buildPbktNumberFromMobile(row) {
+  const rawId = String(row?.id || "").trim();
+  const reportDate = row?.tgl_lapor || row?.tgl_kejadian || row?.created_at;
+  const parsedDate = reportDate ? new Date(reportDate) : null;
+  const year =
+    parsedDate && !Number.isNaN(parsedDate.getTime())
+      ? String(parsedDate.getFullYear())
+      : new Date().getFullYear().toString();
+
+  const pgnMatch = rawId.match(/^PGN[-/]?(\d{4})[-/]?(.+)$/i);
+  if (pgnMatch) {
+    return `PBKT/${pgnMatch[1]}/${pgnMatch[2]}`;
+  }
+
+  const digits = rawId.replace(/\D/g, "");
+  const suffix = digits ? digits.slice(-5) : rawId.slice(-5).toUpperCase();
+
+  return `PBKT/${year}/${suffix || "MOBILE"}`;
+}
+
 function formatDateID(dateStr) {
   if (!dateStr) return "-";
   const d = new Date(dateStr);
@@ -151,6 +273,89 @@ function formatTimeID(dateStr) {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+function getTimelineSortValue(item) {
+  const raw = item?.sort_at || item?.tanggal || item?.created_at;
+  const date = new Date(raw);
+
+  if (Number.isNaN(date.getTime())) return 0;
+
+  return date.getTime();
+}
+
+function normalizeMobileStatus(value, tglSelesai) {
+  const raw = String(value || "")
+    .trim()
+    .toLowerCase();
+
+  if (tglSelesai) return "selesai";
+
+  if (
+    raw === "selesai" ||
+    raw === "done" ||
+    raw === "completed" ||
+    raw === "complete"
+  ) {
+    return "selesai";
+  }
+
+  return "diproses";
+}
+
+function resolveReportStatus(rowStatus, mobileReport) {
+  if (mobileReport) {
+    return normalizeMobileStatus(mobileReport.status, mobileReport.tgl_selesai);
+  }
+
+  return rowStatus || "diproses";
+}
+
+function buildMobileProgressTitle(progress) {
+  const text = String(progress?.deskripsi_progres || "").toLowerCase();
+
+  if (text.includes("selesai")) return "Pelayanan Selesai";
+  if (text.includes("mediasi")) return "Mediasi Dilakukan";
+  if (text.includes("investigasi")) return "Investigasi Berjalan";
+  if (text.includes("verifikasi")) return "Verifikasi Berjalan";
+
+  return "Progress Pelayanan";
+}
+
+function buildMobileProgressSortDate(progress) {
+  if (progress?.tanggal_progres && progress?.created_at) {
+    const timePart = String(progress.created_at).split("T")[1];
+
+    if (timePart) {
+      return `${progress.tanggal_progres}T${timePart}`;
+    }
+  }
+
+  return progress?.tanggal_progres || progress?.created_at || null;
+}
+
+function mapMobileProgressToTimeline(
+  progress,
+  mobileReport,
+  resolvedParalegal,
+) {
+  const tanggal = buildMobileProgressSortDate(progress);
+
+  return {
+    id_timeline: `mobile-${progress.id}`,
+    id_pengaduan: mobileReport?.website_pengaduan_id || "",
+    title: buildMobileProgressTitle(progress),
+    deskripsi: progress.deskripsi_progres || "-",
+    tanggal,
+    created_at: progress.created_at || tanggal,
+    created_by_name:
+      mobileReport?.nama_paralegal_ditugaskan ||
+      resolvedParalegal?.nama ||
+      "Paralegal",
+    source: "mobile",
+    sort_at: tanggal || progress.created_at || progress.tanggal_progres,
+    foto_dokumentasi: progress.foto_dokumentasi || "",
+  };
 }
 
 function getDaysDiff(dateStr) {
@@ -237,7 +442,14 @@ function buildCatatanAdmin(formData, profile) {
   });
 }
 
-function mapDbToUi(row, lampiran = [], timeline = [], paralegalLookup = {}) {
+function mapDbToUi(
+  row,
+  lampiran = [],
+  timeline = [],
+  paralegalLookup = {},
+  mobileReport = null,
+  posbankumRow = null,
+) {
   const extra = parseCatatanAdmin(row.catatan_admin);
   const resolvedParalegal = resolveParalegal(row, extra, paralegalLookup);
 
@@ -251,44 +463,258 @@ function mapDbToUi(row, lampiran = [], timeline = [], paralegalLookup = {}) {
     },
   ];
 
-  const mappedTimeline = (timeline || []).map((item) => ({
-    title: item.title || "Update",
-    date: formatDateID(item.tanggal || item.created_at),
-    time: formatTimeID(item.tanggal || item.created_at),
-    desc: item.deskripsi || "-",
-    by: item.created_by_name || "Admin Posbankum",
-  }));
+  const mappedTimeline = (timeline || [])
+    .map((item) => ({
+      title: item.title || "Update",
+      date: item.date_text || formatDateID(item.tanggal || item.created_at),
+      time: item.time_text || formatTimeID(item.tanggal || item.created_at),
+      desc: item.deskripsi || "-",
+      by: item.created_by_name || item.by || "Admin Posbankum",
+      source: item.source || "website",
+      foto_dokumentasi: item.foto_dokumentasi || "",
+      sort_at: item.sort_at || item.tanggal || item.created_at,
+    }))
+    .sort((a, b) => getTimelineSortValue(a) - getTimelineSortValue(b));
 
   return {
     id_pengaduan: row.id_pengaduan,
-    id_paralegal: resolvedParalegal.id,
-    nomor_pengaduan: row.nomor_pengaduan || "",
-    nama_pelapor: row.nama_pelapor || "",
-    nik: extra.nik || "",
-    nomor_telepon: row.nomor_telepon || "",
+    id_paralegal: resolvedParalegal.id || mobileReport?.paralegal_id || "",
+    nomor_pengaduan:
+      row.nomor_pengaduan || buildPbktNumberFromMobile(mobileReport),
+    nama_pelapor: firstFilled(row.nama_pelapor, mobileReport?.nama_pelapor),
+    nik: firstFilled(extra.nik, mobileReport?.nik_pelapor),
+    nomor_telepon: firstFilled(row.nomor_telepon, mobileReport?.no_hp_pelapor),
     email: row.email || "",
-    nama_lurah: extra.nama_lurah || "",
-    jenis_masalah: row.jenis_masalah || "",
-    judul_pengaduan: row.judul_pengaduan || "",
-    kronologi: row.kronologi || "",
-    tanggal_kejadian: row.tanggal_kejadian || "",
-    waktu_kejadian: row.waktu_kejadian || "",
-    lokasi_kejadian: row.lokasi_kejadian || "",
+    nama_lurah: firstFilled(extra.nama_lurah, mobileReport?.nama_lurah),
+    jenis_masalah: firstFilled(
+      row.jenis_masalah,
+      mobileReport?.kategori_masalah,
+    ),
+    judul_pengaduan: firstFilled(
+      row.judul_pengaduan,
+      mobileReport?.judul_laporan,
+      mobileReport?.kategori_masalah,
+    ),
+    kronologi: firstFilled(row.kronologi, mobileReport?.kronologi),
+    tanggal_kejadian: firstFilled(
+      row.tanggal_kejadian,
+      mobileReport?.tgl_kejadian,
+      mobileReport?.tgl_lapor,
+    ),
+    waktu_kejadian: firstFilled(
+      row.waktu_kejadian,
+      mobileReport?.waktu_kejadian,
+    ),
+    lokasi_kejadian: firstFilled(
+      row.lokasi_kejadian,
+      mobileReport?.lokasi_kejadian,
+    ),
     provinsi: row.provinsi || "",
     kabupaten_kota: row.kabupaten_kota || "",
     kecamatan: row.kecamatan || "",
-    status: row.status || "diproses",
-    prioritas: extra.prioritas || "sedang",
-    created_at: row.created_at || "",
-    paralegal_nama: resolvedParalegal.nama,
-    paralegal_hp: resolvedParalegal.hp,
+    posbankum_nama: firstFilled(posbankumRow?.nama),
+    posbankum_kelurahan: firstFilled(posbankumRow?.kelurahan),
+    posbankum_kecamatan: firstFilled(
+      posbankumRow?.kecamatan_nama,
+      row.kecamatan,
+    ),
+    posbankum_info: buildPosbankumInfoLabel({
+      posbankumName: posbankumRow?.nama,
+      kelurahanName: posbankumRow?.kelurahan,
+      kecamatanName: firstFilled(posbankumRow?.kecamatan_nama, row.kecamatan),
+    }),
+    status: resolveReportStatus(row.status, mobileReport),
+    prioritas: extra.prioritas || normalizePriority(mobileReport?.prioritas),
+    created_at: firstFilled(
+      row.created_at,
+      mobileReport?.tgl_lapor,
+      mobileReport?.synced_at,
+    ),
+    paralegal_nama: firstFilled(
+      resolvedParalegal.nama,
+      mobileReport?.nama_paralegal_ditugaskan,
+      "Paralegal",
+    ),
+    paralegal_hp: firstFilled(
+      resolvedParalegal.hp,
+      mobileReport?.no_hp_paralegal,
+    ),
+    catatan_internal: firstFilled(
+      extra.catatan_internal,
+      mobileReport?.catatan_paralegal,
+    ),
     lampiran,
+    is_mobile_only: false,
+    source_data: mobileReport ? "website_mobile" : "website",
+    mobile_pengaduan_id: mobileReport?.id || "",
+    global_case_id: mobileReport?.global_case_id || "",
+    website_kasus_id: mobileReport?.website_kasus_id || "",
     updates: mappedTimeline.length
       ? mappedTimeline
       : Array.isArray(extra.updates) && extra.updates.length
         ? extra.updates
         : fallbackUpdates,
   };
+}
+
+function buildMobileFallbackTimeline(row, paralegalName) {
+  return [
+    {
+      title: row?.tgl_selesai ? "Pelayanan Selesai" : "Laporan Diterima",
+      date: formatDateID(row?.tgl_lapor || row?.tgl_kejadian),
+      time: formatTimeID(row?.tgl_lapor || row?.created_at),
+      desc: firstFilled(
+        row?.catatan_paralegal,
+        row?.kronologi,
+        "Laporan dari mobile telah masuk ke sistem.",
+      ),
+      by: firstFilled(
+        row?.nama_paralegal_ditugaskan,
+        paralegalName,
+        "Paralegal",
+      ),
+      source: "mobile",
+      sort_at: row?.tgl_lapor || row?.tgl_kejadian || row?.created_at,
+    },
+  ];
+}
+
+function mapMobileReportToUi(
+  row,
+  progressRows = [],
+  relatedKasus = null,
+  posbankumRow = null,
+) {
+  const paralegalName = firstFilled(
+    row?.nama_paralegal_ditugaskan,
+    "Paralegal",
+  );
+  const paralegalHp = firstFilled(row?.no_hp_paralegal);
+
+  const mappedTimeline = (progressRows || [])
+    .map((progress) =>
+      mapMobileProgressToTimeline(progress, row, {
+        nama: paralegalName,
+        hp: paralegalHp,
+      }),
+    )
+    .sort((a, b) => getTimelineSortValue(a) - getTimelineSortValue(b))
+    .map((item) => ({
+      title: item.title || "Progress Pelayanan",
+      date: formatDateID(item.tanggal || item.created_at),
+      time: formatTimeID(item.tanggal || item.created_at),
+      desc: item.deskripsi || "-",
+      by: item.created_by_name || paralegalName,
+      source: "mobile",
+      foto_dokumentasi: item.foto_dokumentasi || "",
+      sort_at: item.sort_at || item.tanggal || item.created_at,
+    }));
+
+  return {
+    id_pengaduan: `mobile-${row.id}`,
+    id_paralegal: row.paralegal_id || "",
+    nomor_pengaduan: buildPbktNumberFromMobile(row),
+    nama_pelapor: firstFilled(row.nama_pelapor, "Pelapor Belum Diisi"),
+    nik: firstFilled(row.nik_pelapor),
+    nomor_telepon: firstFilled(row.no_hp_pelapor),
+    email: "",
+    nama_lurah: firstFilled(row.nama_lurah),
+    jenis_masalah: firstFilled(row.kategori_masalah, "Lainnya"),
+    judul_pengaduan: firstFilled(
+      row.judul_laporan,
+      row.kategori_masalah,
+      "Laporan Mobile",
+    ),
+    kronologi: firstFilled(
+      row.kronologi,
+      row.catatan_paralegal,
+      "Belum ada kronologi.",
+    ),
+    tanggal_kejadian: firstFilled(row.tgl_kejadian, row.tgl_lapor),
+    waktu_kejadian: firstFilled(row.waktu_kejadian),
+    lokasi_kejadian: firstFilled(row.lokasi_kejadian),
+    provinsi: "",
+    kabupaten_kota: "",
+    kecamatan: firstFilled(posbankumRow?.kecamatan_nama),
+    posbankum_nama: firstFilled(posbankumRow?.nama),
+    posbankum_kelurahan: firstFilled(posbankumRow?.kelurahan),
+    posbankum_kecamatan: firstFilled(posbankumRow?.kecamatan_nama),
+    posbankum_info: buildPosbankumInfoLabel({
+      posbankumName: posbankumRow?.nama,
+      kelurahanName: posbankumRow?.kelurahan,
+      kecamatanName: posbankumRow?.kecamatan_nama,
+    }),
+    status: normalizeMobileStatus(row.status, row.tgl_selesai),
+    prioritas: normalizePriority(row.prioritas),
+    created_at: firstFilled(row.tgl_lapor, row.synced_at),
+    paralegal_nama: paralegalName,
+    paralegal_hp: paralegalHp,
+    catatan_internal: firstFilled(row.catatan_paralegal),
+    lampiran: [],
+    updates: [
+      ...buildMobileFallbackTimeline(row, paralegalName),
+      ...mappedTimeline,
+    ].sort((a, b) => getTimelineSortValue(a) - getTimelineSortValue(b)),
+    is_mobile_only: true,
+    source_data: "mobile",
+    mobile_pengaduan_id: row.id,
+    global_case_id: row.global_case_id || relatedKasus?.global_case_id || "",
+    website_kasus_id: row.website_kasus_id || relatedKasus?.id_kasus || "",
+  };
+}
+
+function buildKasusLookup(kasusRows = []) {
+  const byGlobalCaseId = new Map();
+  const byWebsiteKasusId = new Map();
+  const byMobilePengaduanId = new Map();
+
+  for (const row of kasusRows || []) {
+    if (row.global_case_id) byGlobalCaseId.set(row.global_case_id, row);
+    if (row.id_kasus) byWebsiteKasusId.set(row.id_kasus, row);
+    if (row.mobile_pengaduan_id)
+      byMobilePengaduanId.set(row.mobile_pengaduan_id, row);
+  }
+
+  return { byGlobalCaseId, byWebsiteKasusId, byMobilePengaduanId };
+}
+
+function resolveRelatedKasusFromMobile(row, lookup) {
+  return (
+    lookup.byGlobalCaseId.get(row.global_case_id) ||
+    lookup.byWebsiteKasusId.get(row.website_kasus_id) ||
+    lookup.byMobilePengaduanId.get(row.id) ||
+    null
+  );
+}
+
+function buildMobileOnlyReports({
+  mobileRows = [],
+  mobileProgressMap = new Map(),
+  kasusRows = [],
+  linkedMobileIds = new Set(),
+  posbankumRow = null,
+} = {}) {
+  const lookup = buildKasusLookup(kasusRows);
+  const reports = [];
+
+  for (const row of mobileRows || []) {
+    if (!row?.id || linkedMobileIds.has(row.id)) continue;
+
+    const relatedKasus = resolveRelatedKasusFromMobile(row, lookup);
+
+    if (relatedKasus?.website_pengaduan_id) continue;
+
+    reports.push(
+      mapMobileReportToUi(
+        row,
+        mobileProgressMap.get(row.id) || [],
+        relatedKasus,
+        posbankumRow,
+      ),
+    );
+  }
+
+  return reports;
 }
 
 function escapeRegExp(value) {
@@ -396,6 +822,235 @@ async function insertPengaduanWithRetry(basePayload, maxAttempts = 5) {
   );
 }
 
+function addRowsToMap(map, rows = []) {
+  for (const row of rows || []) {
+    if (row?.id) {
+      map.set(row.id, row);
+    }
+  }
+}
+
+async function getMobilePengaduanRowsForReports({
+  profile,
+  kasusRows = [],
+  posbankumRow = null,
+}) {
+  if (!mobileSupabase) return [];
+
+  const rowsMap = new Map();
+  const selectColumns = MOBILE_PENGADUAN_SELECT;
+  const kasusLookup = buildKasusLookup(kasusRows);
+
+  if (profile?.id_posbankum) {
+    const { data, error } = await mobileSupabase
+      .from("pengaduan")
+      .select(selectColumns)
+      .eq("website_posbankum_id", profile.id_posbankum);
+
+    if (!error) {
+      addRowsToMap(rowsMap, data || []);
+    } else {
+      console.warn(
+        "Gagal membaca pengaduan mobile berdasarkan posbankum:",
+        error,
+      );
+    }
+  }
+
+  const globalCaseIds = Array.from(
+    new Set(
+      (kasusRows || []).map((item) => item.global_case_id).filter(Boolean),
+    ),
+  );
+
+  const websiteKasusIds = Array.from(
+    new Set((kasusRows || []).map((item) => item.id_kasus).filter(Boolean)),
+  );
+
+  const mobilePengaduanIds = Array.from(
+    new Set(
+      (kasusRows || []).map((item) => item.mobile_pengaduan_id).filter(Boolean),
+    ),
+  );
+
+  const relationFilters = [
+    ...globalCaseIds.map((id) => `global_case_id.eq.${id}`),
+    ...websiteKasusIds.map((id) => `website_kasus_id.eq.${id}`),
+    ...mobilePengaduanIds.map((id) => `id.eq.${id}`),
+  ];
+
+  if (relationFilters.length) {
+    const { data, error } = await mobileSupabase
+      .from("pengaduan")
+      .select(selectColumns)
+      .or(relationFilters.join(","));
+
+    if (!error) {
+      addRowsToMap(rowsMap, data || []);
+    } else {
+      console.warn(
+        "Gagal membaca pengaduan mobile berdasarkan relasi kasus:",
+        error,
+      );
+    }
+  }
+
+  const { data: allMobileRows, error: allMobileRowsError } =
+    await mobileSupabase
+      .from("pengaduan")
+      .select(selectColumns)
+      .order("tgl_lapor", { ascending: false })
+      .limit(300);
+
+  if (allMobileRowsError) {
+    console.warn("Gagal membaca seluruh pengaduan mobile:", allMobileRowsError);
+    return Array.from(rowsMap.values());
+  }
+
+  const mobileParalegalIds = Array.from(
+    new Set(
+      (allMobileRows || []).map((item) => item.paralegal_id).filter(Boolean),
+    ),
+  );
+
+  let mobileParalegalMap = new Map();
+
+  if (mobileParalegalIds.length) {
+    const { data: mobileParalegalRows, error: mobileParalegalError } =
+      await mobileSupabase
+        .from("paralegal")
+        .select("id, nama_posbankum, no_hp")
+        .in("id", mobileParalegalIds);
+
+    if (!mobileParalegalError) {
+      mobileParalegalMap = new Map(
+        (mobileParalegalRows || []).map((item) => [item.id, item]),
+      );
+    } else {
+      console.warn("Gagal membaca paralegal mobile:", mobileParalegalError);
+    }
+  }
+
+  for (const row of allMobileRows || []) {
+    if (!row?.id || rowsMap.has(row.id)) continue;
+
+    const relatedKasus = resolveRelatedKasusFromMobile(row, kasusLookup);
+    const mobileParalegal = mobileParalegalMap.get(row.paralegal_id);
+    const belongsToCurrentPosbankum = Boolean(
+      row.website_posbankum_id === profile?.id_posbankum ||
+      relatedKasus?.id_posbankum === profile?.id_posbankum ||
+      isSamePosbankumName(mobileParalegal?.nama_posbankum, posbankumRow?.nama),
+    );
+
+    if (belongsToCurrentPosbankum) {
+      rowsMap.set(row.id, {
+        ...row,
+        nama_paralegal_ditugaskan: firstFilled(
+          row.nama_paralegal_ditugaskan,
+          mobileParalegal?.nama_posbankum,
+        ),
+        no_hp_paralegal: firstFilled(
+          row.no_hp_paralegal,
+          mobileParalegal?.no_hp,
+        ),
+      });
+    }
+  }
+
+  return Array.from(rowsMap.values());
+}
+
+function buildMobileReportMap(kasusRows = [], mobileRows = []) {
+  const kasusByGlobalCaseId = new Map();
+  const kasusByWebsiteKasusId = new Map();
+  const kasusByMobilePengaduanId = new Map();
+
+  for (const row of kasusRows || []) {
+    if (row.global_case_id) kasusByGlobalCaseId.set(row.global_case_id, row);
+    if (row.id_kasus) kasusByWebsiteKasusId.set(row.id_kasus, row);
+    if (row.mobile_pengaduan_id) {
+      kasusByMobilePengaduanId.set(row.mobile_pengaduan_id, row);
+    }
+  }
+
+  const mobileReportMap = new Map();
+
+  for (const row of mobileRows || []) {
+    const relatedKasus =
+      kasusByGlobalCaseId.get(row.global_case_id) ||
+      kasusByWebsiteKasusId.get(row.website_kasus_id) ||
+      kasusByMobilePengaduanId.get(row.id) ||
+      null;
+
+    if (!relatedKasus?.website_pengaduan_id) continue;
+
+    mobileReportMap.set(relatedKasus.website_pengaduan_id, {
+      ...row,
+      website_pengaduan_id: relatedKasus.website_pengaduan_id,
+      website_kasus_id: row.website_kasus_id || relatedKasus.id_kasus,
+      global_case_id: row.global_case_id || relatedKasus.global_case_id,
+    });
+  }
+
+  return mobileReportMap;
+}
+
+async function getMobileProgressMap(mobileRows = []) {
+  if (!mobileSupabase) return new Map();
+
+  const mobilePengaduanIds = Array.from(
+    new Set((mobileRows || []).map((item) => item.id).filter(Boolean)),
+  );
+
+  if (!mobilePengaduanIds.length) return new Map();
+
+  const { data, error } = await mobileSupabase
+    .from("progres_kasus")
+    .select(MOBILE_PROGRESS_SELECT)
+    .in("pengaduan_id", mobilePengaduanIds)
+    .order("tanggal_progres", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+
+  const progressMap = new Map();
+
+  for (const progress of data || []) {
+    if (!progressMap.has(progress.pengaduan_id)) {
+      progressMap.set(progress.pengaduan_id, []);
+    }
+
+    progressMap.get(progress.pengaduan_id).push(progress);
+  }
+
+  return progressMap;
+}
+
+async function loadMobileTimelineData({
+  profile,
+  kasusRows = [],
+  posbankumRow = null,
+}) {
+  if (!mobileSupabase) {
+    return {
+      mobileRows: [],
+      mobileReportMap: new Map(),
+      mobileProgressMap: new Map(),
+    };
+  }
+
+  const mobileRows = await getMobilePengaduanRowsForReports({
+    profile,
+    kasusRows,
+    posbankumRow,
+  });
+
+  const mobileReportMap = buildMobileReportMap(kasusRows, mobileRows);
+  const mobileProgressMap = await getMobileProgressMap(mobileRows);
+
+  return { mobileRows, mobileReportMap, mobileProgressMap };
+}
+
 async function syncWebsiteReportToMobile({
   kasusRow,
   pengaduanRow,
@@ -411,16 +1066,21 @@ async function syncWebsiteReportToMobile({
     kategori_masalah: formData.jenis_masalah,
     kronologi: formData.kronologi,
     lokasi_kejadian: formData.lokasi_kejadian,
-    lampiran_url: null,
+    lampiran_urls: [],
     status: "Pending",
     prioritas: formData.prioritas || "sedang",
     paralegal_id: null,
     tgl_lapor: pengaduanRow.created_at || new Date().toISOString(),
     tgl_selesai: null,
     tgl_kejadian: formData.tanggal_kejadian || null,
+    waktu_kejadian: formData.waktu_kejadian || null,
     nama_pelapor: formData.nama_pelapor || "",
-    nomor_telepon: formData.nomor_telepon || "",
-    email: formData.email || "",
+    nik_pelapor: formData.nik || "",
+    no_hp_pelapor: formData.nomor_telepon || "",
+    nama_lurah: formData.nama_lurah || "",
+    catatan_paralegal: formData.catatan_internal || "",
+    nama_paralegal_ditugaskan: formData.paralegal_nama || "",
+    no_hp_paralegal: formData.paralegal_hp || "",
   };
 
   if (MOBILE_SYNC_URL) {
@@ -482,18 +1142,27 @@ async function syncWebsiteReportToMobile({
     kategori_masalah: payload.kategori_masalah,
     kronologi: payload.kronologi,
     lokasi_kejadian: payload.lokasi_kejadian,
-    lampiran_url: payload.lampiran_url,
+    lampiran_urls: payload.lampiran_urls,
     status: payload.status,
     prioritas: payload.prioritas,
     paralegal_id: payload.paralegal_id,
     tgl_lapor: payload.tgl_lapor,
     tgl_selesai: payload.tgl_selesai,
     tgl_kejadian: payload.tgl_kejadian,
+    waktu_kejadian: payload.waktu_kejadian,
     global_case_id: payload.global_case_id,
     source_system: payload.source_system,
     website_kasus_id: payload.website_kasus_id,
     website_posbankum_id: payload.website_posbankum_id,
     synced_at: new Date().toISOString(),
+    judul_laporan: formData.judul_pengaduan || formData.jenis_masalah,
+    nama_lurah: payload.nama_lurah,
+    catatan_paralegal: payload.catatan_paralegal,
+    nama_paralegal_ditugaskan: payload.nama_paralegal_ditugaskan,
+    no_hp_paralegal: payload.no_hp_paralegal,
+    nama_pelapor: payload.nama_pelapor,
+    nik_pelapor: payload.nik_pelapor,
+    no_hp_pelapor: payload.no_hp_pelapor,
   };
 
   const { error: upsertError } = await mobileSupabase
@@ -553,6 +1222,7 @@ function getSanitizedFormData(formData) {
     nomor_telepon: digitsOnly(formData.nomor_telepon, MAX_PHONE_LENGTH),
     email: normalizeOptionalEmail(formData.email),
     nama_lurah: normalizeText(formData.nama_lurah, 120),
+    kelurahan: normalizeText(formData.kelurahan, 120),
     jenis_masalah: normalizeText(formData.jenis_masalah, 80),
     prioritas: normalizeText(formData.prioritas, 20),
     judul_pengaduan: normalizeText(formData.judul_pengaduan, MAX_TITLE_LENGTH),
@@ -672,6 +1342,7 @@ export default function KelolaPengaduan({ profile }) {
   const [reminderModal, setReminderModal] = useState(EMPTY_REMINDER_MODAL);
   const [formData, setFormData] = useState(EMPTY_FORM_DATA);
   const [paralegalOptions, setParalegalOptions] = useState([]);
+  const [currentPosbankum, setCurrentPosbankum] = useState(null);
 
   const closeReminderModal = () => {
     setReminderModal(EMPTY_REMINDER_MODAL);
@@ -721,6 +1392,7 @@ export default function KelolaPengaduan({ profile }) {
     if (!profile?.id_posbankum) {
       setReports([]);
       setParalegalOptions([]);
+      setCurrentPosbankum(null);
       setLoading(false);
       return;
     }
@@ -731,6 +1403,46 @@ export default function KelolaPengaduan({ profile }) {
     try {
       const loadedParalegals = await loadParalegalOptions();
       const paralegalLookup = buildParalegalLookup(loadedParalegals);
+
+      const { data: currentPosbankumRow, error: currentPosbankumError } =
+        await supabase
+          .from("posbankum")
+          .select(
+            `
+            id_posbankum,
+            id_kecamatan,
+            nama,
+            nomor_tlp,
+            alamat,
+            nama_paralegal,
+            email_akun,
+            kelurahan
+          `,
+          )
+          .eq("id_posbankum", profile.id_posbankum)
+          .maybeSingle();
+
+      if (currentPosbankumError) throw currentPosbankumError;
+
+      let currentPosbankum = currentPosbankumRow || null;
+
+      if (currentPosbankumRow?.id_kecamatan) {
+        const { data: currentKecamatanRow, error: currentKecamatanError } =
+          await supabase
+            .from("kecamatan")
+            .select("id_kecamatan, nama")
+            .eq("id_kecamatan", currentPosbankumRow.id_kecamatan)
+            .maybeSingle();
+
+        if (currentKecamatanError) throw currentKecamatanError;
+
+        currentPosbankum = {
+          ...currentPosbankumRow,
+          kecamatan_nama: currentKecamatanRow?.nama || "",
+        };
+      }
+
+      setCurrentPosbankum(currentPosbankum);
 
       const { data: pengaduanRows, error: pengaduanError } = await supabase
         .from("pengaduan")
@@ -770,6 +1482,28 @@ export default function KelolaPengaduan({ profile }) {
 
       let lampiranRows = [];
       let timelineRows = [];
+      let relatedKasusRows = [];
+
+      const { data: kasusData, error: kasusError } = await supabase
+        .from("kasus")
+        .select(
+          `
+          id_kasus,
+          id_posbankum,
+          global_case_id,
+          mobile_pengaduan_id,
+          website_pengaduan_id,
+          status,
+          prioritas,
+          tgl_upload,
+          tgl_selesai,
+          last_synced_at
+        `,
+        )
+        .eq("id_posbankum", profile.id_posbankum);
+
+      if (kasusError) throw kasusError;
+      relatedKasusRows = kasusData || [];
 
       if (ids.length) {
         const { data: timelineData, error: timelineError } = await supabase
@@ -817,12 +1551,85 @@ export default function KelolaPengaduan({ profile }) {
           ...item,
           created_by_name:
             timelineProfileMap.get(item.created_by) || "Admin Posbankum",
+          source: "website",
+          sort_at: item.tanggal || item.created_at,
         };
 
         if (!timelineMap.has(item.id_pengaduan)) {
           timelineMap.set(item.id_pengaduan, []);
         }
         timelineMap.get(item.id_pengaduan).push(normalized);
+      }
+
+      let mobileRows = [];
+      let mobileOnlyReports = [];
+      let mobileReportMap = new Map();
+
+      try {
+        const mobileTimelineData = await loadMobileTimelineData({
+          profile,
+          kasusRows: relatedKasusRows,
+          posbankumRow: currentPosbankum,
+        });
+
+        mobileRows = mobileTimelineData.mobileRows || [];
+        mobileReportMap = mobileTimelineData.mobileReportMap;
+        const mobileProgressMap = mobileTimelineData.mobileProgressMap;
+        const linkedMobileIds = new Set(
+          Array.from(mobileReportMap.values())
+            .map((item) => item.id)
+            .filter(Boolean),
+        );
+        const pengaduanRowMap = new Map(
+          (pengaduanRows || []).map((row) => [row.id_pengaduan, row]),
+        );
+
+        for (const [idPengaduan, mobileReport] of mobileReportMap.entries()) {
+          const row = pengaduanRowMap.get(idPengaduan);
+          if (!row) continue;
+
+          const extra = parseCatatanAdmin(row.catatan_admin);
+          const resolvedParalegal = resolveParalegal(
+            row,
+            extra,
+            paralegalLookup,
+          );
+
+          const mobileProgressRows =
+            mobileProgressMap.get(mobileReport.id) || [];
+
+          if (!mobileProgressRows.length) continue;
+
+          if (!timelineMap.has(idPengaduan)) {
+            timelineMap.set(idPengaduan, []);
+          }
+
+          const mappedMobileTimeline = mobileProgressRows.map((progress) =>
+            mapMobileProgressToTimeline(
+              progress,
+              mobileReport,
+              resolvedParalegal,
+            ),
+          );
+
+          timelineMap.get(idPengaduan).push(...mappedMobileTimeline);
+        }
+
+        for (const [, items] of timelineMap.entries()) {
+          items.sort(
+            (a, b) => getTimelineSortValue(a) - getTimelineSortValue(b),
+          );
+        }
+
+        mobileOnlyReports = buildMobileOnlyReports({
+          mobileRows,
+          mobileProgressMap,
+          kasusRows: relatedKasusRows,
+          linkedMobileIds,
+          posbankumRow: currentPosbankum,
+        });
+      } catch (mobileTimelineError) {
+        console.warn("Timeline mobile belum bisa dimuat:", mobileTimelineError);
       }
 
       if (ids.length) {
@@ -860,10 +1667,18 @@ export default function KelolaPengaduan({ profile }) {
           lampiranMap.get(row.id_pengaduan) || [],
           timelineMap.get(row.id_pengaduan) || [],
           paralegalLookup,
+          mobileReportMap.get(row.id_pengaduan) || null,
+          currentPosbankum,
         ),
       );
 
-      setReports(mapped);
+      const finalReports = [...mapped, ...mobileOnlyReports].sort(
+        (a, b) =>
+          getTimelineSortValue({ sort_at: b.created_at }) -
+          getTimelineSortValue({ sort_at: a.created_at }),
+      );
+
+      setReports(finalReports);
     } catch (err) {
       console.error("loadReports error:", err);
       setErrorMessage(err.message || "Gagal memuat data laporan.");
@@ -878,6 +1693,7 @@ export default function KelolaPengaduan({ profile }) {
     } else {
       setReports([]);
       setParalegalOptions([]);
+      setCurrentPosbankum(null);
       setLoading(false);
     }
   }, [profile?.id_posbankum]);
@@ -1172,31 +1988,59 @@ export default function KelolaPengaduan({ profile }) {
       return;
     }
 
-    const updatesHtml = (selectedReport.updates || [])
-      .map(
-        (u) => `
-          <div class="print-timeline-item">
-            <div class="print-timeline-title-row">
-              <div class="print-timeline-title">${u.title}</div>
-              <div class="print-timeline-date">${u.date}</div>
-            </div>
-            <div class="print-timeline-desc">${u.desc}</div>
-            <div class="print-timeline-meta">
-              <span>${u.time}</span>
-              <span>${u.by}</span>
-            </div>
-          </div>
-        `,
-      )
-      .join("");
+    const safeHtml = (value) =>
+      String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 
-    const lampiranHtml = (selectedReport.lampiran || [])
-      .map(
-        (file) => `
-          <div class="print-attachment-item">${file.nama_file}</div>
-        `,
-      )
-      .join("");
+    const showValue = (value, fallback = "-") => {
+      const text = firstFilled(value, fallback);
+      return safeHtml(text || fallback);
+    };
+
+    const showParagraph = (value, fallback = "-") =>
+      showValue(value, fallback).replace(/\n/g, "<br />");
+
+    const formatFileSize = (bytes) => {
+      const size = Number(bytes || 0);
+      if (!Number.isFinite(size) || size <= 0) return "";
+      if (size < 1024) return `${size} B`;
+      if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+      return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+    };
+
+    const statusLabel = getStatusLabel(selectedReport.status);
+    const priorityLabel = getPriorityLabel(selectedReport.prioritas);
+    const statusBadgeClass =
+      selectedReport.status === "selesai" ? "badge-green" : "badge-blue";
+    const priorityBadgeClass =
+      selectedReport.prioritas === "tinggi" ? "badge-red" : "badge-blue";
+    const catatanParalegal = firstFilled(
+      selectedReport.catatan_internal,
+      selectedReport.catatan_paralegal,
+      selectedReport.updates?.[0]?.desc,
+    );
+
+    const lampiranHtml = (selectedReport.lampiran || []).length
+      ? (selectedReport.lampiran || [])
+          .map((file, index) => {
+            const sizeText = formatFileSize(file.size_bytes);
+            return `
+              <div class="print-attachment-item">
+                <div>
+                  <div class="print-attachment-name">${index + 1}. ${showValue(file.nama_file, "Lampiran")}</div>
+                  <div class="print-attachment-meta">
+                    ${[showValue(file.mime_type, ""), safeHtml(sizeText)].filter(Boolean).join(" • ") || "File lampiran"}
+                  </div>
+                </div>
+              </div>
+            `;
+          })
+          .join("")
+      : `<div class="print-empty">Tidak ada lampiran.</div>`;
 
     const html = `
       <!doctype html>
@@ -1207,7 +2051,7 @@ export default function KelolaPengaduan({ profile }) {
           <style>
             @page {
               size: A4;
-              margin: 18mm;
+              margin: 14mm;
             }
 
             * {
@@ -1219,26 +2063,87 @@ export default function KelolaPengaduan({ profile }) {
               color: #374151;
               margin: 0;
               background: #ffffff;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
 
-            .print-wrap {
+            .print-page {
               width: 100%;
+              background: #ffffff;
+            }
+
+            .print-shell {
+              width: 100%;
+              max-width: 780px;
+              margin: 0 auto;
+              padding: 22px 26px 28px;
+              background: #ffffff;
+            }
+
+            .print-topline {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              gap: 12px;
+              padding-bottom: 12px;
+              border-bottom: 1px solid #e5e7eb;
+              margin-bottom: 18px;
+              font-size: 10px;
+              color: #4b5563;
             }
 
             .print-header {
-              margin-bottom: 18px;
+              display: flex;
+              justify-content: space-between;
+              align-items: flex-start;
+              gap: 18px;
+              margin-bottom: 20px;
             }
 
             .print-title {
-              font-size: 28px;
-              font-weight: 700;
+              font-size: 22px;
+              line-height: 1.2;
+              font-weight: 800;
               color: #111827;
-              margin-bottom: 6px;
+              margin-bottom: 5px;
             }
 
             .print-sub {
-              font-size: 14px;
+              font-size: 13px;
+              font-weight: 700;
               color: #4b5563;
+            }
+
+            .print-badges {
+              display: flex;
+              gap: 8px;
+              flex-wrap: wrap;
+              justify-content: flex-end;
+            }
+
+            .print-badge {
+              display: inline-flex;
+              align-items: center;
+              padding: 7px 12px;
+              border-radius: 999px;
+              font-size: 12px;
+              font-weight: 800;
+              white-space: nowrap;
+            }
+
+            .badge-blue {
+              background: #d1e1fd;
+              color: #0f3f93;
+            }
+
+            .badge-red {
+              background: #fee2e2;
+              color: #dc2626;
+            }
+
+            .badge-green {
+              background: #dcfce7;
+              color: #15803d;
             }
 
             .print-section {
@@ -1247,205 +2152,362 @@ export default function KelolaPengaduan({ profile }) {
             }
 
             .print-section-title {
-              font-size: 18px;
-              font-weight: 700;
+              font-size: 15px;
+              font-weight: 800;
               color: #111827;
               padding-bottom: 8px;
-              border-bottom: 2px solid #1454C4;
+              border-bottom: 2px solid #1454c4;
               margin-bottom: 12px;
             }
 
             .print-grid {
               display: grid;
               grid-template-columns: 1fr 1fr;
-              gap: 16px;
+              gap: 10px 16px;
             }
 
-            .print-card {
-              border: 1px solid #d1d5db;
-              border-radius: 16px;
-              padding: 14px;
-              background: #ffffff;
+            .print-info {
+              margin-bottom: 12px;
             }
 
             .print-label {
-              font-size: 12px;
-              color: #6b7280;
-              margin-bottom: 4px;
+              font-size: 11px;
+              color: #64748b;
+              margin-bottom: 5px;
+              font-weight: 700;
             }
 
             .print-value {
-              font-size: 15px;
-              font-weight: 700;
+              font-size: 13px;
+              line-height: 1.55;
+              font-weight: 800;
               color: #111827;
             }
 
             .print-text {
-              font-size: 14px;
-              line-height: 1.65;
+              font-size: 12.5px;
+              line-height: 1.75;
               color: #374151;
             }
 
-            .print-badge {
+            .print-box {
+              border: 1px solid #d1d5db;
+              border-radius: 12px;
+              padding: 12px 13px;
+              background: #ffffff;
+            }
+
+            .print-soft-box {
+              border: 1px solid #dbeafe;
+              border-radius: 12px;
+              padding: 12px 13px;
+              background: #ffffff;
+            }
+
+            .print-category {
               display: inline-block;
-              padding: 7px 12px;
-              border-radius: 999px;
-              font-size: 13px;
-              font-weight: 700;
-              margin-right: 8px;
+              padding: 5px 9px;
+              border-radius: 8px;
+              background: #d1e1fd;
+              color: #0f3f93;
+              font-size: 11px;
+              font-weight: 800;
             }
 
-            .badge-blue {
-              background: #D1E1FD;
-              color: #0F3F93;
+            .print-note {
+              border-left: 4px solid #ea580c;
+              background: rgba(234, 88, 12, 0.08);
+              border-radius: 12px;
+              padding: 11px 13px;
+              margin-top: 12px;
+              page-break-inside: avoid;
             }
 
-            .badge-red {
-              background: #FEE2E2;
-              color: #DC2626;
+            .print-note-title {
+              color: #c2410c;
+              font-weight: 800;
+              font-size: 12px;
+              margin-bottom: 5px;
             }
 
-            .badge-green {
-              background: #DCFCE7;
-              color: #15803D;
+            .print-note-text {
+              color: #9a3412;
+              font-size: 12px;
+              line-height: 1.65;
+            }
+
+            .print-summary {
+              display: grid;
+              grid-template-columns: 1fr 1fr 1fr;
+              gap: 10px;
+              margin-top: 12px;
+            }
+
+            .print-summary .print-box {
+              border-color: #d1e1fd;
+            }
+
+            .print-attachment-item {
+              border: 1px solid #d1d5db;
+              border-radius: 10px;
+              padding: 10px 12px;
+              margin-bottom: 8px;
+              page-break-inside: avoid;
+            }
+
+            .print-attachment-name {
+              font-size: 12.5px;
+              font-weight: 800;
+              color: #111827;
+            }
+
+            .print-attachment-meta {
+              margin-top: 4px;
+              font-size: 11px;
+              color: #64748b;
+            }
+
+            .print-empty {
+              border: 1px dashed #d1d5db;
+              border-radius: 10px;
+              padding: 11px 12px;
+              color: #64748b;
+              font-size: 12px;
+              background: #f9fafb;
+            }
+
+            .print-timeline {
+              position: relative;
+              padding-left: 0;
             }
 
             .print-timeline-item {
-              border: 1px solid #d1d5db;
-              border-radius: 16px;
-              padding: 14px;
+              display: grid;
+              grid-template-columns: 30px 1fr;
+              gap: 10px;
               margin-bottom: 12px;
               page-break-inside: avoid;
+            }
+
+            .print-timeline-dot {
+              width: 24px;
+              height: 24px;
+              border-radius: 999px;
+              background: #d1e1fd;
+              color: #0f3f93;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-size: 11px;
+              font-weight: 800;
+              margin-top: 12px;
+            }
+
+            .print-timeline-content {
+              border: 1px solid #d1d5db;
+              border-radius: 14px;
+              padding: 12px 14px;
+              background: #ffffff;
             }
 
             .print-timeline-title-row {
               display: flex;
               justify-content: space-between;
               gap: 12px;
-              margin-bottom: 8px;
+              margin-bottom: 7px;
             }
 
             .print-timeline-title {
-              font-size: 16px;
-              font-weight: 700;
+              font-size: 14px;
+              font-weight: 800;
               color: #111827;
             }
 
             .print-timeline-date {
-              font-size: 13px;
-              font-weight: 700;
+              font-size: 12px;
+              font-weight: 800;
               color: #4b5563;
               white-space: nowrap;
             }
 
             .print-timeline-desc {
-              font-size: 14px;
-              line-height: 1.6;
-              margin-bottom: 10px;
+              font-size: 12.5px;
+              line-height: 1.65;
+              margin-bottom: 9px;
+              color: #374151;
             }
 
             .print-timeline-meta {
               display: flex;
               justify-content: space-between;
               gap: 12px;
-              font-size: 13px;
+              font-size: 11.5px;
               color: #4b5563;
+              font-weight: 700;
             }
 
-            .print-attachment-item {
-              border: 1px solid #d1d5db;
-              border-radius: 12px;
-              padding: 10px 12px;
-              margin-bottom: 8px;
-              font-size: 14px;
+            .print-timeline-doc {
+              margin-top: 8px;
+              font-size: 11px;
+              color: #4b5563;
+              word-break: break-word;
             }
 
-            .print-summary {
-              display: grid;
-              grid-template-columns: 1fr 1fr;
+            .print-footer {
+              margin-top: 22px;
+              padding-top: 12px;
+              border-top: 1px solid #e5e7eb;
+              display: flex;
+              justify-content: space-between;
               gap: 12px;
-              margin-top: 14px;
+              font-size: 10px;
+              color: #64748b;
             }
 
             @media print {
-              .print-title {
-                font-size: 24px;
+              body {
+                background: #ffffff;
+              }
+
+              .print-shell {
+                max-width: none;
+                padding: 0;
+              }
+
+              .print-section {
+                page-break-inside: avoid;
               }
             }
           </style>
         </head>
         <body>
-          <div class="print-wrap">
-            <div class="print-header">
-              <div class="print-title">Detail Laporan Pelayanan</div>
-              <div class="print-sub">${selectedReport.nomor_pengaduan}</div>
-            </div>
-
-            <div class="print-section">
-              <div class="print-section-title">Status Laporan</div>
-              <span class="print-badge badge-blue">Status: ${getStatusLabel(selectedReport.status)}</span>
-              <span class="print-badge ${
-                selectedReport.prioritas === "tinggi"
-                  ? "badge-red"
-                  : "badge-blue"
-              }">Prioritas: ${getPriorityLabel(selectedReport.prioritas)}</span>
-            </div>
-
-            <div class="print-section">
-              <div class="print-section-title">Data Pelapor</div>
-              <div class="print-grid">
-                <div class="print-card"><div class="print-label">Nama Pelapor</div><div class="print-value">${selectedReport.nama_pelapor}</div></div>
-                <div class="print-card"><div class="print-label">NIK</div><div class="print-value">${selectedReport.nik}</div></div>
-                <div class="print-card"><div class="print-label">Nomor Telepon</div><div class="print-value">${selectedReport.nomor_telepon}</div></div>
-                <div class="print-card"><div class="print-label">Email</div><div class="print-value">${selectedReport.email || "-"}</div></div>
-                <div class="print-card"><div class="print-label">Kelurahan/Kecamatan</div><div class="print-value">${selectedReport.lokasi_kejadian}, ${selectedReport.kecamatan}</div></div>
-                <div class="print-card"><div class="print-label">Nama Lurah/Kepala Desa</div><div class="print-value">${selectedReport.nama_lurah || "-"}</div></div>
-              </div>
-            </div>
-
-            <div class="print-section">
-              <div class="print-section-title">Paralegal yang Mengurus</div>
-              <div class="print-card">
-                <div class="print-value">${selectedReport.paralegal_nama}</div>
-                <div class="print-text" style="margin-top: 6px;">${selectedReport.paralegal_hp}</div>
-              </div>
-            </div>
-
-            <div class="print-section">
-              <div class="print-section-title">Informasi Laporan</div>
-              <div class="print-card" style="margin-bottom: 12px;">
-                <div class="print-label">Judul Laporan</div>
-                <div class="print-value">${selectedReport.judul_pengaduan}</div>
-              </div>
-              <div class="print-card" style="margin-bottom: 12px;">
-                <div class="print-label">Jenis Masalah</div>
-                <div class="print-value">${selectedReport.jenis_masalah}</div>
-              </div>
-              <div class="print-card">
-                <div class="print-label">Kronologi</div>
-                <div class="print-text">${selectedReport.kronologi}</div>
+          <div class="print-page">
+            <div class="print-shell">
+              <div class="print-topline">
+                <div>${safeHtml(new Date().toLocaleString("id-ID", { dateStyle: "medium", timeStyle: "short" }))}</div>
+                <div>Laporan Pelayanan Posbankum</div>
               </div>
 
-              <div class="print-summary">
-                <div class="print-card">
-                  <div class="print-label">Tanggal Dibuat</div>
-                  <div class="print-value">${formatDateID(selectedReport.tanggal_kejadian)}</div>
+              <div class="print-header">
+                <div>
+                  <div class="print-title">Detail Laporan Pelayanan</div>
+                  <div class="print-sub">${showValue(selectedReport.nomor_pengaduan)}</div>
                 </div>
-                <div class="print-card">
-                  <div class="print-label">Total Durasi</div>
-                  <div class="print-value">${getDaysDiff(selectedReport.tanggal_kejadian)} hari</div>
+                <div class="print-badges">
+                  <span class="print-badge ${statusBadgeClass}">Status: ${safeHtml(statusLabel)}</span>
+                  <span class="print-badge ${priorityBadgeClass}">Prioritas: ${safeHtml(priorityLabel)}</span>
                 </div>
               </div>
-            </div>
 
-            <div class="print-section">
-              <div class="print-section-title">Lampiran (${selectedReport.lampiran?.length || 0})</div>
-              ${lampiranHtml || "<div class='print-text'>Tidak ada lampiran</div>"}
-            </div>
+              <div class="print-section">
+                <div class="print-section-title">Informasi Laporan</div>
+                <div class="print-info">
+                  <div class="print-label">Judul Laporan</div>
+                  <div class="print-value">${showValue(selectedReport.judul_pengaduan)}</div>
+                </div>
+                <div class="print-info">
+                  <div class="print-label">Jenis Masalah</div>
+                  <div><span class="print-category">${showValue(selectedReport.jenis_masalah)}</span></div>
+                </div>
+                <div class="print-info">
+                  <div class="print-label">Kronologi</div>
+                  <div class="print-soft-box print-text">${showParagraph(selectedReport.kronologi)}</div>
+                </div>
+                <div class="print-grid">
+                  <div class="print-info">
+                    <div class="print-label">Tanggal Kejadian</div>
+                    <div class="print-value">${safeHtml(formatDateID(selectedReport.tanggal_kejadian))}</div>
+                  </div>
+                  <div class="print-info">
+                    <div class="print-label">Waktu Kejadian</div>
+                    <div class="print-value">${showValue(selectedReport.waktu_kejadian)}</div>
+                  </div>
+                </div>
+                <div class="print-info">
+                  <div class="print-label">Lokasi Kejadian</div>
+                  <div class="print-value">${showValue(selectedReport.lokasi_kejadian)}</div>
+                </div>
+                ${
+                  catatanParalegal
+                    ? `<div class="print-note">
+                        <div class="print-note-title">Catatan Paralegal</div>
+                        <div class="print-note-text">${showParagraph(catatanParalegal)}</div>
+                      </div>`
+                    : ""
+                }
+              </div>
 
-            <div class="print-section">
-              <div class="print-section-title">Timeline Lengkap</div>
-              ${updatesHtml}
+              <div class="print-section">
+                <div class="print-section-title">Data Pelapor</div>
+                <div class="print-grid">
+                  <div class="print-info">
+                    <div class="print-label">Nama Pelapor</div>
+                    <div class="print-value">${showValue(selectedReport.nama_pelapor)}</div>
+                  </div>
+                  <div class="print-info">
+                    <div class="print-label">NIK</div>
+                    <div class="print-value">${showValue(selectedReport.nik)}</div>
+                  </div>
+                  <div class="print-info">
+                    <div class="print-label">Nomor Telepon</div>
+                    <div class="print-value">${showValue(selectedReport.nomor_telepon)}</div>
+                  </div>
+                  <div class="print-info">
+                    <div class="print-label">Email</div>
+                    <div class="print-value">${showValue(selectedReport.email)}</div>
+                  </div>
+                  <div class="print-info">
+                    <div class="print-label">Posbankum/Kecamatan</div>
+                    <div class="print-value">${showValue(selectedReport.posbankum_info)}</div>
+                  </div>
+                  <div class="print-info">
+                    <div class="print-label">Lurah/Kades</div>
+                    <div class="print-value">${showValue(selectedReport.nama_lurah)}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="print-section">
+                <div class="print-section-title">Paralegal yang Mengurus</div>
+                <div class="print-grid">
+                  <div class="print-box">
+                    <div class="print-label">Nama Paralegal</div>
+                    <div class="print-value">${showValue(selectedReport.paralegal_nama)}</div>
+                  </div>
+                  <div class="print-box">
+                    <div class="print-label">Nomor HP Paralegal</div>
+                    <div class="print-value">${showValue(selectedReport.paralegal_hp)}</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="print-section">
+                <div class="print-section-title">Ringkasan Waktu</div>
+                <div class="print-summary">
+                  <div class="print-box">
+                    <div class="print-label">Tanggal Dibuat</div>
+                    <div class="print-value">${safeHtml(formatDateID(selectedReport.created_at || selectedReport.tanggal_kejadian))}</div>
+                  </div>
+                  <div class="print-box">
+                    <div class="print-label">Tanggal Kejadian</div>
+                    <div class="print-value">${safeHtml(formatDateID(selectedReport.tanggal_kejadian))}</div>
+                  </div>
+                  <div class="print-box">
+                    <div class="print-label">Total Durasi</div>
+                    <div class="print-value">${safeHtml(String(getDaysDiff(selectedReport.tanggal_kejadian)))} hari</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="print-section">
+                <div class="print-section-title">Lampiran (${safeHtml(String(selectedReport.lampiran?.length || 0))})</div>
+                ${lampiranHtml}
+              </div>
+
+              <div class="print-footer">
+                <div>Dicetak dari Sistem Aplikasi Posbankum</div>
+                <div>${showValue(selectedReport.nomor_pengaduan)}</div>
+              </div>
             </div>
           </div>
 
@@ -1554,6 +2616,37 @@ export default function KelolaPengaduan({ profile }) {
     setSaving(true);
 
     try {
+      let namaPosbankumPembuat = firstFilled(
+        currentPosbankum?.nama,
+        sanitizedFormData.kelurahan,
+      );
+
+      if (!namaPosbankumPembuat) {
+        const { data: posbankumPembuat, error: posbankumPembuatError } =
+          await supabase
+            .from("posbankum")
+            .select("nama")
+            .eq("id_posbankum", profile.id_posbankum)
+            .maybeSingle();
+
+        if (posbankumPembuatError) throw posbankumPembuatError;
+        namaPosbankumPembuat = firstFilled(posbankumPembuat?.nama);
+      }
+
+      if (namaPosbankumPembuat) {
+        const { error: kelurahanUpdateError } = await supabase
+          .from("posbankum")
+          .update({ kelurahan: namaPosbankumPembuat })
+          .eq("id_posbankum", profile.id_posbankum);
+
+        if (kelurahanUpdateError) throw kelurahanUpdateError;
+      }
+
+      const laporanFormData = {
+        ...sanitizedFormData,
+        kelurahan: namaPosbankumPembuat,
+      };
+
       const payload = {
         id_posbankum: profile.id_posbankum,
         nama_pelapor: sanitizedFormData.nama_pelapor,
@@ -1572,7 +2665,7 @@ export default function KelolaPengaduan({ profile }) {
         id_kecamatan: null,
         status: "diproses",
         id_paralegal: sanitizedFormData.id_paralegal,
-        catatan_admin: buildCatatanAdmin(sanitizedFormData, profile),
+        catatan_admin: buildCatatanAdmin(laporanFormData, profile),
         created_by: profile.id,
       };
 
@@ -1594,14 +2687,18 @@ export default function KelolaPengaduan({ profile }) {
       if (timelineInsertError) throw timelineInsertError;
 
       const kasusPayload = {
-        jenis_kasus: sanitizedFormData.jenis_masalah,
-        deskripsi_kasus: sanitizedFormData.kronologi,
+        id_posbankum: profile.id_posbankum,
+        jenis_kasus: laporanFormData.jenis_masalah,
+        judul_kasus: laporanFormData.judul_pengaduan,
+        deskripsi_kasus: laporanFormData.kronologi,
         tgl_upload: insertedRow.created_at || new Date().toISOString(),
-        tgl_mulai: sanitizedFormData.tanggal_kejadian || null,
+        tgl_mulai: laporanFormData.tanggal_kejadian || null,
         tgl_selesai: null,
         source_system: "website",
         website_pengaduan_id: id_pengaduan,
         last_synced_at: new Date().toISOString(),
+        status: "diproses",
+        prioritas: laporanFormData.prioritas || "sedang",
       };
 
       let insertedKasus = null;
@@ -1637,7 +2734,12 @@ export default function KelolaPengaduan({ profile }) {
           { onConflict: "id_posbankum,id_kasus" },
         );
 
-      if (linkKasusError) throw linkKasusError;
+      if (linkKasusError) {
+        console.warn(
+          "Relasi lihat_kasus tidak dapat disimpan, tetapi laporan utama tetap berhasil disimpan:",
+          linkKasusError,
+        );
+      }
 
       if (sanitizedFormData.lampiran.length) {
         const lampiranInsertRows = [];
@@ -1674,7 +2776,7 @@ export default function KelolaPengaduan({ profile }) {
         await syncWebsiteReportToMobile({
           kasusRow: insertedKasus,
           pengaduanRow: { ...insertedRow, id_pengaduan },
-          formData: sanitizedFormData,
+          formData: laporanFormData,
           profile,
         });
       } catch (syncError) {
@@ -1836,6 +2938,13 @@ export default function KelolaPengaduan({ profile }) {
 
       {tab === "buat" ? (
         <form className="lpFormCard" onSubmit={handleSubmit}>
+          <input
+            type="hidden"
+            name="kelurahan"
+            value={currentPosbankum?.nama || formData.kelurahan || ""}
+            readOnly
+          />
+
           <div className="lpInfoBox">
             <FiInfo />
             <div>
@@ -1902,6 +3011,21 @@ export default function KelolaPengaduan({ profile }) {
                   inputMode="numeric"
                   maxLength={MAX_PHONE_LENGTH}
                   placeholder="081234567890"
+                />
+              </div>
+
+              <div className="lpField">
+                <label>Email Pelapor (Opsional)</label>
+                <input
+                  type="email"
+                  value={formData.email}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      email: e.target.value,
+                    }))
+                  }
+                  placeholder="contoh@email.com"
                 />
               </div>
 
@@ -2288,7 +3412,7 @@ export default function KelolaPengaduan({ profile }) {
                     </div>
 
                     <div className="lpActionRow">
-                      {tab === "aktif" ? (
+                      {tab === "aktif" && !report.is_mobile_only ? (
                         <button
                           type="button"
                           className="lpBtn lpBtnDelete"
@@ -2463,7 +3587,7 @@ export default function KelolaPengaduan({ profile }) {
                         <FiUser /> {selectedReport.nama_pelapor}
                       </div>
                       <div className="lpDetailLine">
-                        <FiFileText /> NIK: {selectedReport.nik}
+                        <FiCreditCard /> NIK: {selectedReport.nik}
                       </div>
                       <div className="lpDetailLine">
                         <FiPhone /> {selectedReport.nomor_telepon}
@@ -2472,12 +3596,33 @@ export default function KelolaPengaduan({ profile }) {
                         <FiMail /> {selectedReport.email || "-"}
                       </div>
                       <div className="lpDetailLine">
-                        <FiMapPin /> {selectedReport.lokasi_kejadian},{" "}
-                        {selectedReport.kecamatan}
+                        <span
+                          aria-hidden="true"
+                          style={{
+                            width: 18,
+                            height: 18,
+                            flex: "0 0 18px",
+                            display: "inline-block",
+                            backgroundColor: "currentColor",
+                            WebkitMaskImage: `url(${posbankumIcon})`,
+                            maskImage: `url(${posbankumIcon})`,
+                            WebkitMaskRepeat: "no-repeat",
+                            maskRepeat: "no-repeat",
+                            WebkitMaskPosition: "center",
+                            maskPosition: "center",
+                            WebkitMaskSize: "contain",
+                            maskSize: "contain",
+                          }}
+                        />
+                        {selectedReport.posbankum_info || "-"}
                       </div>
                       <div className="lpDetailLine">
-                        <FiMapPin /> Lurah/Kades:{" "}
+                        <FaRegUserCircle /> Lurah/Kades:{" "}
                         {selectedReport.nama_lurah || "-"}
+                      </div>
+                      <div className="lpDetailLine">
+                        <FiMapPin /> Lokasi Kejadian:{" "}
+                        {selectedReport.lokasi_kejadian || "-"}
                       </div>
                     </div>
                   </section>

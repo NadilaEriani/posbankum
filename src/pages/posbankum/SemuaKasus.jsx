@@ -558,7 +558,7 @@ function mergeWebsiteAndMobileCase(existing, item) {
   };
 }
 
-export default function SemuaKasus() {
+export default function SemuaKasus({ profile } = {}) {
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState("");
@@ -587,7 +587,7 @@ export default function SemuaKasus() {
       setLoadError("");
 
       try {
-        const { data: pengaduanRows, error: pengaduanError } = await supabase
+        let pengaduanQuery = supabase
           .from("pengaduan")
           .select(
             `
@@ -619,33 +619,86 @@ export default function SemuaKasus() {
           )
           .order("created_at", { ascending: false });
 
+        if (profile?.id_posbankum) {
+          pengaduanQuery = pengaduanQuery.eq(
+            "id_posbankum",
+            profile.id_posbankum,
+          );
+        }
+
+        const { data: pengaduanRows, error: pengaduanError } =
+          await pengaduanQuery;
+
         if (pengaduanError) throw pengaduanError;
 
-        const { data: websiteKasusRows, error: websiteKasusError } =
-          await supabase
+        const kasusSelect = `
+          id_kasus,
+          jenis_kasus,
+          deskripsi_kasus,
+          tgl_upload,
+          tgl_mulai,
+          tgl_selesai,
+          global_case_id,
+          source_system,
+          mobile_pengaduan_id,
+          website_pengaduan_id,
+          last_synced_at,
+          id_posbankum,
+          judul_kasus,
+          status,
+          prioritas
+        `;
+
+        let linkedKasusIds = [];
+
+        if (profile?.id_posbankum) {
+          const { data: linkedRows, error: linkedError } = await supabase
+            .from("lihat_kasus")
+            .select("id_kasus")
+            .eq("id_posbankum", profile.id_posbankum);
+
+          if (linkedError) throw linkedError;
+
+          linkedKasusIds = [
+            ...new Set(
+              (linkedRows || []).map((item) => item.id_kasus).filter(Boolean),
+            ),
+          ];
+        }
+
+        let directKasusQuery = supabase
+          .from("kasus")
+          .select(kasusSelect)
+          .order("tgl_upload", { ascending: false });
+
+        if (profile?.id_posbankum) {
+          directKasusQuery = directKasusQuery.eq(
+            "id_posbankum",
+            profile.id_posbankum,
+          );
+        }
+
+        const { data: directKasusRows, error: directKasusError } =
+          await directKasusQuery;
+        if (directKasusError) throw directKasusError;
+
+        let linkedKasusRows = [];
+        if (linkedKasusIds.length) {
+          const { data, error } = await supabase
             .from("kasus")
-            .select(
-              `
-              id_kasus,
-              jenis_kasus,
-              deskripsi_kasus,
-              tgl_upload,
-              tgl_mulai,
-              tgl_selesai,
-              global_case_id,
-              source_system,
-              mobile_pengaduan_id,
-              website_pengaduan_id,
-              last_synced_at,
-              id_posbankum,
-              judul_kasus,
-              status,
-              prioritas
-            `,
-            )
+            .select(kasusSelect)
+            .in("id_kasus", linkedKasusIds)
             .order("tgl_upload", { ascending: false });
 
-        if (websiteKasusError) throw websiteKasusError;
+          if (error) throw error;
+          linkedKasusRows = data || [];
+        }
+
+        const websiteKasusMap = new Map();
+        [...(directKasusRows || []), ...linkedKasusRows].forEach((row) => {
+          if (row?.id_kasus) websiteKasusMap.set(row.id_kasus, row);
+        });
+        const websiteKasusRows = Array.from(websiteKasusMap.values());
 
         const posbankumIds = [
           ...new Set(
@@ -776,16 +829,13 @@ export default function SemuaKasus() {
 
         const orphanWebsiteKasusRows = (websiteKasusRows || []).filter(
           (row) => {
-            if (row.website_pengaduan_id) return false;
-
-            const sourceSystem = String(
-              row.source_system || "website",
-            ).toLowerCase();
-            const hasMobileRelation = Boolean(row.mobile_pengaduan_id);
-
-            // Jangan tampilkan sisa kasus website yang sudah tidak punya laporan induk.
-            // Baris seperti ini biasanya tertinggal setelah laporan pelayanan dihapus.
-            if (sourceSystem !== "mobile" && !hasMobileRelation) return false;
+            if (!row?.id_kasus) return false;
+            if (
+              row.website_pengaduan_id &&
+              pengaduanIdSet.has(row.website_pengaduan_id)
+            ) {
+              return false;
+            }
 
             return true;
           },
@@ -799,40 +849,49 @@ export default function SemuaKasus() {
         let mobileReadError = "";
 
         if (mobileSupabase) {
+          let mobilePengaduanQuery = mobileSupabase
+            .from("pengaduan")
+            .select(
+              `
+              id,
+              masyarakat_id,
+              kategori_masalah,
+              kronologi,
+              lokasi_kejadian,
+              lampiran_urls,
+              status,
+              prioritas,
+              paralegal_id,
+              tgl_lapor,
+              tgl_selesai,
+              tgl_kejadian,
+              waktu_kejadian,
+              global_case_id,
+              source_system,
+              website_kasus_id,
+              website_posbankum_id,
+              synced_at,
+              judul_laporan,
+              nama_lurah,
+              catatan_paralegal,
+              nama_paralegal_ditugaskan,
+              no_hp_paralegal,
+              nama_pelapor,
+              nik_pelapor,
+              no_hp_pelapor
+            `,
+            )
+            .order("tgl_lapor", { ascending: false });
+
+          if (profile?.id_posbankum) {
+            mobilePengaduanQuery = mobilePengaduanQuery.eq(
+              "website_posbankum_id",
+              profile.id_posbankum,
+            );
+          }
+
           const { data: mobilePengaduanRows, error: mobilePengaduanError } =
-            await mobileSupabase
-              .from("pengaduan")
-              .select(
-                `
-                id,
-                masyarakat_id,
-                kategori_masalah,
-                kronologi,
-                lokasi_kejadian,
-                lampiran_urls,
-                status,
-                prioritas,
-                paralegal_id,
-                tgl_lapor,
-                tgl_selesai,
-                tgl_kejadian,
-                waktu_kejadian,
-                global_case_id,
-                source_system,
-                website_kasus_id,
-                website_posbankum_id,
-                synced_at,
-                judul_laporan,
-                nama_lurah,
-                catatan_paralegal,
-                nama_paralegal_ditugaskan,
-                no_hp_paralegal,
-                nama_pelapor,
-                nik_pelapor,
-                no_hp_pelapor
-              `,
-              )
-              .order("tgl_lapor", { ascending: false });
+            await mobilePengaduanQuery;
 
           if (mobilePengaduanError) {
             mobileReadError =
@@ -1133,7 +1192,7 @@ export default function SemuaKasus() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [profile?.id_posbankum]);
 
   const sourceCases = useMemo(() => cases || [], [cases]);
 

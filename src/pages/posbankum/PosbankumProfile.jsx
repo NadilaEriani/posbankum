@@ -51,6 +51,25 @@ function friendlyError(error) {
   return error?.message || "Terjadi kesalahan. Silakan coba lagi.";
 }
 
+function isRlsPolicyError(error) {
+  const message = String(error?.message || error?.details || "").toLowerCase();
+
+  return (
+    error?.code === "42501" ||
+    message.includes("row-level security") ||
+    message.includes("violates row-level security policy") ||
+    message.includes("permission denied")
+  );
+}
+
+function profileSaveError(error) {
+  if (isRlsPolicyError(error)) {
+    return "Data profil utama berhasil diproses, tetapi data paralegal belum bisa disimpan karena RLS tabel paralegal_members belum mengizinkan akun Posbankum menambah/mengubah paralegal. Jalankan SQL policy paralegal_members yang diberikan Jarvis, lalu simpan ulang profil.";
+  }
+
+  return friendlyError(error);
+}
+
 function normalizeIndonesianPhone(value) {
   const digits = String(value || "").replace(/\D/g, "");
   if (!digits) return "";
@@ -312,7 +331,9 @@ export default function PosbankumProfile({
         if (membersResponse.error) {
           setHasParalegalTable(false);
           setSchemaNotice(
-            "Untuk menyimpan banyak paralegal secara penuh, jalankan SQL tambahan tabel paralegal_members.",
+            isRlsPolicyError(membersResponse.error)
+              ? "Akses membaca data paralegal belum diizinkan oleh RLS tabel paralegal_members. Jalankan SQL policy paralegal_members agar data paralegal bisa dibaca dan disimpan."
+              : "Untuk menyimpan banyak paralegal secara penuh, jalankan SQL tambahan tabel paralegal_members.",
           );
 
           nextParalegals = [
@@ -664,7 +685,7 @@ export default function PosbankumProfile({
 
       setSuccessMessage("Profil Posbankum berhasil diperbarui!");
     } catch (error) {
-      setSubmitError(friendlyError(error));
+      setSubmitError(profileSaveError(error));
     } finally {
       setSaving(false);
     }

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabaseClient";
 import {
   FiHome,
@@ -33,6 +34,14 @@ import KelolaBerita from "./KelolaBerita";
 import posbankum from "../../assets/icon.png";
 import logo from "../../assets/logo.png";
 import AdminProfile from "./AdminProfile";
+
+const MOBILE_SUPABASE_URL = import.meta.env.VITE_MOBILE_SUPABASE_URL;
+const MOBILE_SUPABASE_ANON_KEY = import.meta.env.VITE_MOBILE_SUPABASE_ANON_KEY;
+
+const mobileSupabase =
+  MOBILE_SUPABASE_URL && MOBILE_SUPABASE_ANON_KEY
+    ? createClient(MOBILE_SUPABASE_URL, MOBILE_SUPABASE_ANON_KEY)
+    : null;
 
 function toDateStr(d) {
   const pad = (n) => String(n).padStart(2, "0");
@@ -101,6 +110,273 @@ function pickToneFromStatus(status) {
     return "orange";
   }
   return "blue";
+}
+
+function parseJsonObject(value) {
+  if (!value) return {};
+  if (typeof value === "object" && !Array.isArray(value)) return value;
+
+  try {
+    const parsed = JSON.parse(String(value));
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed
+      : {};
+  } catch {
+    return {};
+  }
+}
+
+function isCompletedStatus(value) {
+  const raw = String(value || "")
+    .trim()
+    .toLowerCase();
+
+  return ["selesai", "done", "completed", "complete"].includes(raw);
+}
+
+function getLatestTimelineDate(timelines = []) {
+  const sorted = [...(timelines || [])].sort((a, b) => {
+    const aDate = new Date(a?.tanggal || a?.created_at || 0).getTime();
+    const bDate = new Date(b?.tanggal || b?.created_at || 0).getTime();
+    return aDate - bDate;
+  });
+
+  const last = sorted[sorted.length - 1];
+  return last?.tanggal || last?.created_at || "";
+}
+
+function timelineHasCompletedText(timelines = []) {
+  return (timelines || []).some((item) =>
+    String(`${item?.title || ""} ${item?.deskripsi || ""}`)
+      .toLowerCase()
+      .includes("selesai"),
+  );
+}
+
+function getCaseCompletionProgress(
+  kasusRow = {},
+  pengaduanRow = {},
+  timelines = [],
+) {
+  const extra = parseJsonObject(pengaduanRow?.catatan_admin);
+  const explicitProgress = Number(extra.progress ?? extra.progres);
+
+  if (Number.isFinite(explicitProgress) && explicitProgress >= 0) {
+    return Math.max(0, Math.min(100, Math.round(explicitProgress)));
+  }
+
+  if (
+    kasusRow?.tgl_selesai ||
+    isCompletedStatus(kasusRow?.status) ||
+    isCompletedStatus(pengaduanRow?.status) ||
+    timelineHasCompletedText(timelines)
+  ) {
+    return 100;
+  }
+
+  const progressFromTimeline = Math.max(0, (timelines || []).length - 1) * 25;
+  return Math.max(0, Math.min(100, progressFromTimeline));
+}
+
+function isCaseCompletedByProgress(
+  kasusRow = {},
+  pengaduanRow = {},
+  timelines = [],
+) {
+  return getCaseCompletionProgress(kasusRow, pengaduanRow, timelines) >= 100;
+}
+
+function getCaseCompletionDate(
+  kasusRow = {},
+  pengaduanRow = {},
+  timelines = [],
+  fallback = "",
+) {
+  return (
+    kasusRow?.tgl_selesai ||
+    getLatestTimelineDate(timelines) ||
+    kasusRow?.last_synced_at ||
+    pengaduanRow?.updated_at ||
+    pengaduanRow?.created_at ||
+    kasusRow?.tgl_upload ||
+    fallback ||
+    new Date().toISOString()
+  );
+}
+
+async function loadCaseCompletionContext(kasusRows = []) {
+  const websitePengaduanIds = Array.from(
+    new Set(
+      (kasusRows || [])
+        .map((item) => item.website_pengaduan_id)
+        .filter(Boolean),
+    ),
+  );
+
+  const pengaduanMap = new Map();
+  const timelineMap = new Map();
+
+  if (!websitePengaduanIds.length) {
+    return { pengaduanMap, timelineMap };
+  }
+
+  const [pengaduanRes, timelineRes] = await Promise.all([
+    supabase
+      .from("pengaduan")
+      .select(
+        "id_pengaduan,id_posbankum,status,catatan_admin,created_at,updated_at",
+      )
+      .in("id_pengaduan", websitePengaduanIds),
+    supabase
+      .from("pengaduan_timeline")
+      .select("id_pengaduan,title,deskripsi,tanggal,created_at")
+      .in("id_pengaduan", websitePengaduanIds)
+      .order("tanggal", { ascending: true }),
+  ]);
+
+  if (pengaduanRes.error) throw pengaduanRes.error;
+  if (timelineRes.error) throw timelineRes.error;
+
+  (pengaduanRes.data || []).forEach((item) => {
+    pengaduanMap.set(item.id_pengaduan, item);
+  });
+
+  (timelineRes.data || []).forEach((item) => {
+    if (!timelineMap.has(item.id_pengaduan)) {
+      timelineMap.set(item.id_pengaduan, []);
+    }
+    timelineMap.get(item.id_pengaduan).push(item);
+  });
+
+  return { pengaduanMap, timelineMap };
+}
+
+async function loadTimelineMapForPengaduanRows(pengaduanRows = []) {
+  const pengaduanIds = Array.from(
+    new Set(
+      (pengaduanRows || []).map((item) => item.id_pengaduan).filter(Boolean),
+    ),
+  );
+
+  const timelineMap = new Map();
+  if (!pengaduanIds.length) return timelineMap;
+
+  const { data, error } = await supabase
+    .from("pengaduan_timeline")
+    .select("id_pengaduan,title,deskripsi,tanggal,created_at")
+    .in("id_pengaduan", pengaduanIds)
+    .order("tanggal", { ascending: true });
+
+  if (error) throw error;
+
+  (data || []).forEach((item) => {
+    if (!timelineMap.has(item.id_pengaduan)) {
+      timelineMap.set(item.id_pengaduan, []);
+    }
+    timelineMap.get(item.id_pengaduan).push(item);
+  });
+
+  return timelineMap;
+}
+
+async function loadMobileCompletedCasesByPosbankum(posbankumIds = []) {
+  const result = {
+    rows: [],
+    progressMap: new Map(),
+  };
+
+  if (!mobileSupabase) return result;
+
+  const ids = Array.from(new Set((posbankumIds || []).filter(Boolean)));
+  if (!ids.length) return result;
+
+  const { data: mobileRows, error: mobileError } = await mobileSupabase
+    .from("pengaduan")
+    .select(
+      `
+      id,
+      kategori_masalah,
+      judul_laporan,
+      status,
+      tgl_selesai,
+      tgl_lapor,
+      tgl_kejadian,
+      synced_at,
+      global_case_id,
+      website_kasus_id,
+      website_posbankum_id
+    `,
+    )
+    .in("website_posbankum_id", ids)
+    .range(0, 49999);
+
+  if (mobileError) throw mobileError;
+
+  const rows = mobileRows || [];
+  result.rows = rows;
+
+  const mobilePengaduanIds = Array.from(
+    new Set(rows.map((item) => item.id).filter(Boolean)),
+  );
+
+  if (!mobilePengaduanIds.length) return result;
+
+  const { data: progressRows, error: progressError } = await mobileSupabase
+    .from("progres_kasus")
+    .select("id,pengaduan_id,deskripsi_progres,tanggal_progres,created_at")
+    .in("pengaduan_id", mobilePengaduanIds)
+    .order("tanggal_progres", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (progressError) throw progressError;
+
+  (progressRows || []).forEach((item) => {
+    if (!item?.pengaduan_id) return;
+    if (!result.progressMap.has(item.pengaduan_id)) {
+      result.progressMap.set(item.pengaduan_id, []);
+    }
+    result.progressMap.get(item.pengaduan_id).push(item);
+  });
+
+  return result;
+}
+
+function mobileProgressHasCompletedText(progressRows = []) {
+  return (progressRows || []).some((item) =>
+    String(item?.deskripsi_progres || "")
+      .toLowerCase()
+      .includes("selesai"),
+  );
+}
+
+function getLatestMobileProgressDate(progressRows = []) {
+  const sorted = [...(progressRows || [])].sort((a, b) => {
+    const aDate = new Date(a?.tanggal_progres || a?.created_at || 0).getTime();
+    const bDate = new Date(b?.tanggal_progres || b?.created_at || 0).getTime();
+    return aDate - bDate;
+  });
+
+  const last = sorted[sorted.length - 1];
+  return last?.tanggal_progres || last?.created_at || "";
+}
+
+function isMobileCaseCompleted(row = {}, progressRows = []) {
+  return Boolean(
+    row?.tgl_selesai ||
+    isCompletedStatus(row?.status) ||
+    mobileProgressHasCompletedText(progressRows),
+  );
+}
+
+function getMobileCaseCompletionDate(row = {}, progressRows = []) {
+  return (
+    row?.tgl_selesai ||
+    getLatestMobileProgressDate(progressRows) ||
+    row?.synced_at ||
+    row?.tgl_lapor ||
+    row?.tgl_kejadian ||
+    new Date().toISOString()
+  );
 }
 
 function normalizeWhatsAppNumber(phone) {
@@ -260,6 +536,9 @@ export default function AdminDashboard() {
     const title = String(ev?.title || "").toLowerCase();
     const src = String(ev?.source || "").toLowerCase();
 
+    if (title.includes("kasus selesai")) {
+      return <FiCheckCircle />;
+    }
     if (title.includes("pengajuan kegiatan") || src === "kegiatan") {
       return <TbFileCheck />;
     }
@@ -327,7 +606,9 @@ export default function AdminDashboard() {
         .limit(LIMIT),
       supabase
         .from("kasus")
-        .select("id_kasus,jenis_kasus,deskripsi_kasus")
+        .select(
+          "id_kasus,id_posbankum,jenis_kasus,judul_kasus,deskripsi_kasus,status,tgl_selesai,tgl_upload,last_synced_at,website_pengaduan_id",
+        )
         .limit(LIMIT),
     ]);
 
@@ -338,15 +619,11 @@ export default function AdminDashboard() {
     if (lihatKasusRes.error) throw lihatKasusRes.error;
     if (kasusRes.error) throw kasusRes.error;
 
-    const kasusMap = new Map(
-      (kasusRes.data || []).map((k) => [
-        k.id_kasus,
-        {
-          jenis_kasus: k.jenis_kasus,
-          deskripsi_kasus: k.deskripsi_kasus,
-        },
-      ]),
+    const caseCompletionContext = await loadCaseCompletionContext(
+      kasusRes.data || [],
     );
+
+    const kasusMap = new Map((kasusRes.data || []).map((k) => [k.id_kasus, k]));
 
     const events = [];
 
@@ -469,26 +746,69 @@ export default function AdminDashboard() {
       });
     });
 
-    (lihatKasusRes.data || []).forEach((item) => {
-      const pos = posById.get(item.id_posbankum);
+    const pushedCaseEventKeys = new Set();
+
+    function pushKasusEvent({ kasus, idPosbankum, linkedAt = "" }) {
+      if (!kasus?.id_kasus || !idPosbankum) return;
+
+      const eventKey = `kasus:${idPosbankum}:${kasus.id_kasus}`;
+      if (pushedCaseEventKeys.has(eventKey)) return;
+      pushedCaseEventKeys.add(eventKey);
+
+      const pos = posById.get(idPosbankum);
       const posName = pos?.nama || "Posbankum";
-      const kasus = kasusMap.get(item.id_kasus) || {};
-      const at = item.created_at;
+      const pengaduan = kasus?.website_pengaduan_id
+        ? caseCompletionContext.pengaduanMap.get(kasus.website_pengaduan_id)
+        : null;
+      const timelines = kasus?.website_pengaduan_id
+        ? caseCompletionContext.timelineMap.get(kasus.website_pengaduan_id) ||
+          []
+        : [];
+      const completed = isCaseCompletedByProgress(kasus, pengaduan, timelines);
+      const at = completed
+        ? getCaseCompletionDate(
+            kasus,
+            pengaduan,
+            timelines,
+            linkedAt || kasus.tgl_upload,
+          )
+        : linkedAt || kasus.tgl_upload || kasus.last_synced_at;
+      const jenisKasus = kasus.judul_kasus || kasus.jenis_kasus || "Kasus";
+
       events.push({
-        key: `kasus:${item.id_posbankum}:${item.id_kasus}:${item.created_at || ""}`,
+        key: eventKey,
         source: "kasus",
         group: "kegiatan_kasus",
-        title: kasus.jenis_kasus
-          ? `Penanganan ${kasus.jenis_kasus}`
-          : "Kasus ditangani",
-        desc: kasus.deskripsi_kasus || "Kasus baru sedang diproses Posbankum",
+        title: completed
+          ? "Kasus selesai"
+          : kasus.jenis_kasus
+            ? `Penanganan ${kasus.jenis_kasus}`
+            : "Kasus ditangani",
+        desc: completed
+          ? `${jenisKasus} sudah selesai ditangani Posbankum`
+          : kasus.deskripsi_kasus || "Kasus baru sedang diproses Posbankum",
         actor: posName,
         actorLabel: posName,
         dateLabel: formatDateID(at),
         time: relativeTimeID(at),
-        kind: "Kegiatan",
-        tone: "blue",
+        kind: completed ? "Kasus Selesai" : "Kegiatan",
+        tone: completed ? "green" : "blue",
         at,
+      });
+    }
+
+    (kasusRes.data || []).forEach((kasus) => {
+      if (kasus?.id_posbankum) {
+        pushKasusEvent({ kasus, idPosbankum: kasus.id_posbankum });
+      }
+    });
+
+    (lihatKasusRes.data || []).forEach((item) => {
+      const kasus = kasusMap.get(item.id_kasus) || {};
+      pushKasusEvent({
+        kasus,
+        idPosbankum: item.id_posbankum,
+        linkedAt: item.created_at,
       });
     });
 
@@ -565,42 +885,61 @@ export default function AdminDashboard() {
       );
       const prevEnd = start;
 
-      const [kegNowRes, kegPrevRes, kasusNowRes, kasusPrevRes, dokNowRes] =
-        await Promise.all([
-          supabase
-            .from("kegiatan")
-            .select("id_posbankum,tgl_upload")
-            .gte("tgl_upload", start.toISOString())
-            .range(0, 49999),
-          supabase
-            .from("kegiatan")
-            .select("id_posbankum,tgl_upload")
-            .gte("tgl_upload", prevStart.toISOString())
-            .lt("tgl_upload", prevEnd.toISOString())
-            .range(0, 49999),
-          supabase
-            .from("lihat_kasus")
-            .select("id_posbankum,created_at")
-            .gte("created_at", start.toISOString())
-            .range(0, 49999),
-          supabase
-            .from("lihat_kasus")
-            .select("id_posbankum,created_at")
-            .gte("created_at", prevStart.toISOString())
-            .lt("created_at", prevEnd.toISOString())
-            .range(0, 49999),
-          supabase
-            .from("data_posbankum")
-            .select("id_posbankum,tgl_upload")
-            .gte("tgl_upload", start.toISOString())
-            .range(0, 49999),
-        ]);
+      const [
+        kegNowRes,
+        kegPrevRes,
+        dokNowRes,
+        kasusStatsRes,
+        lihatKasusStatsRes,
+        pengaduanStatsRes,
+      ] = await Promise.all([
+        supabase
+          .from("kegiatan")
+          .select("id_posbankum,tgl_upload")
+          .gte("tgl_upload", start.toISOString())
+          .range(0, 49999),
+        supabase
+          .from("kegiatan")
+          .select("id_posbankum,tgl_upload")
+          .gte("tgl_upload", prevStart.toISOString())
+          .lt("tgl_upload", prevEnd.toISOString())
+          .range(0, 49999),
+        supabase
+          .from("data_posbankum")
+          .select("id_posbankum,tgl_upload")
+          .gte("tgl_upload", start.toISOString())
+          .range(0, 49999),
+        supabase
+          .from("kasus")
+          .select(
+            "id_kasus,id_posbankum,status,tgl_selesai,tgl_upload,last_synced_at,website_pengaduan_id,global_case_id,mobile_pengaduan_id",
+          )
+          .range(0, 49999),
+        supabase
+          .from("lihat_kasus")
+          .select("id_posbankum,id_kasus")
+          .range(0, 49999),
+        supabase
+          .from("pengaduan")
+          .select(
+            "id_pengaduan,id_posbankum,status,catatan_admin,created_at,updated_at",
+          )
+          .range(0, 49999),
+      ]);
 
       if (kegNowRes.error) throw kegNowRes.error;
       if (kegPrevRes.error) throw kegPrevRes.error;
-      if (kasusNowRes.error) throw kasusNowRes.error;
-      if (kasusPrevRes.error) throw kasusPrevRes.error;
       if (dokNowRes.error) throw dokNowRes.error;
+      if (kasusStatsRes.error) throw kasusStatsRes.error;
+      if (lihatKasusStatsRes.error) throw lihatKasusStatsRes.error;
+      if (pengaduanStatsRes.error) throw pengaduanStatsRes.error;
+
+      const caseStatsContext = await loadCaseCompletionContext(
+        kasusStatsRes.data || [],
+      );
+      const pengaduanTimelineMap = await loadTimelineMapForPengaduanRows(
+        pengaduanStatsRes.data || [],
+      );
 
       const agg = new Map();
       (posList || []).forEach((p) => {
@@ -620,14 +959,154 @@ export default function AdminDashboard() {
         const a = ensure(r.id_posbankum);
         a.pk += 1;
       });
-      (kasusNowRes.data || []).forEach((r) => {
-        const a = ensure(r.id_posbankum);
-        a.ka += 1;
+      const kasusPosbankumMap = new Map();
+      (lihatKasusStatsRes.data || []).forEach((row) => {
+        if (!row?.id_kasus || !row?.id_posbankum) return;
+        if (!kasusPosbankumMap.has(row.id_kasus)) {
+          kasusPosbankumMap.set(row.id_kasus, new Set());
+        }
+        kasusPosbankumMap.get(row.id_kasus).add(row.id_posbankum);
       });
-      (kasusPrevRes.data || []).forEach((r) => {
-        const a = ensure(r.id_posbankum);
-        a.pka += 1;
+
+      const kasusByWebsitePengaduanId = new Map();
+      (kasusStatsRes.data || []).forEach((row) => {
+        if (row?.website_pengaduan_id) {
+          kasusByWebsitePengaduanId.set(row.website_pengaduan_id, row);
+        }
       });
+
+      function addCountForPosbankumIds(ids = [], targetKey) {
+        Array.from(new Set(ids.filter(Boolean))).forEach((idPosbankum) => {
+          const a = ensure(idPosbankum);
+          a[targetKey] += 1;
+        });
+      }
+
+      const completedCaseCountKeys = new Set();
+
+      function addCompletedCaseCountForPosbankumIds(
+        ids = [],
+        targetKey,
+        caseKey,
+      ) {
+        const safeCaseKey = String(caseKey || "").trim();
+        Array.from(new Set(ids.filter(Boolean))).forEach((idPosbankum) => {
+          const countKey = `${targetKey}:${idPosbankum}:${safeCaseKey || crypto.randomUUID()}`;
+          if (completedCaseCountKeys.has(countKey)) return;
+          completedCaseCountKeys.add(countKey);
+
+          const a = ensure(idPosbankum);
+          a[targetKey] += 1;
+        });
+      }
+
+      function addCompletedCasesInRange(fromDate, untilDate, targetKey) {
+        const countedPengaduanIds = new Set();
+
+        (kasusStatsRes.data || []).forEach((row) => {
+          const pengaduan = row?.website_pengaduan_id
+            ? caseStatsContext.pengaduanMap.get(row.website_pengaduan_id)
+            : null;
+          const timelines = row?.website_pengaduan_id
+            ? caseStatsContext.timelineMap.get(row.website_pengaduan_id) || []
+            : [];
+
+          if (!isCaseCompletedByProgress(row, pengaduan, timelines)) return;
+
+          const completedAt = new Date(
+            getCaseCompletionDate(row, pengaduan, timelines),
+          );
+
+          if (Number.isNaN(completedAt.getTime())) return;
+          if (completedAt < fromDate) return;
+          if (untilDate && completedAt >= untilDate) return;
+
+          if (row.website_pengaduan_id)
+            countedPengaduanIds.add(row.website_pengaduan_id);
+
+          const relatedPosbankumIds = [
+            row.id_posbankum,
+            pengaduan?.id_posbankum,
+            ...Array.from(kasusPosbankumMap.get(row.id_kasus) || []),
+          ];
+
+          addCompletedCaseCountForPosbankumIds(
+            relatedPosbankumIds,
+            targetKey,
+            row.global_case_id || row.id_kasus || row.website_pengaduan_id,
+          );
+        });
+
+        (pengaduanStatsRes.data || []).forEach((row) => {
+          if (!row?.id_pengaduan || countedPengaduanIds.has(row.id_pengaduan)) {
+            return;
+          }
+
+          const relatedKasus = kasusByWebsitePengaduanId.get(row.id_pengaduan);
+          const timelines = pengaduanTimelineMap.get(row.id_pengaduan) || [];
+
+          if (!isCaseCompletedByProgress(relatedKasus || {}, row, timelines))
+            return;
+
+          const completedAt = new Date(
+            getCaseCompletionDate(relatedKasus || {}, row, timelines),
+          );
+
+          if (Number.isNaN(completedAt.getTime())) return;
+          if (completedAt < fromDate) return;
+          if (untilDate && completedAt >= untilDate) return;
+
+          addCompletedCaseCountForPosbankumIds(
+            [row.id_posbankum, relatedKasus?.id_posbankum],
+            targetKey,
+            relatedKasus?.global_case_id ||
+              relatedKasus?.id_kasus ||
+              row.id_pengaduan,
+          );
+        });
+      }
+
+      addCompletedCasesInRange(start, null, "ka");
+      addCompletedCasesInRange(prevStart, prevEnd, "pka");
+
+      try {
+        const mobileCompletedData = await loadMobileCompletedCasesByPosbankum(
+          (posList || []).map((item) => item.id_posbankum),
+        );
+
+        (mobileCompletedData.rows || []).forEach((row) => {
+          const progressRows =
+            mobileCompletedData.progressMap.get(row.id) || [];
+          if (!isMobileCaseCompleted(row, progressRows)) return;
+
+          const completedAt = new Date(
+            getMobileCaseCompletionDate(row, progressRows),
+          );
+
+          if (Number.isNaN(completedAt.getTime())) return;
+
+          const targetKey =
+            completedAt >= start
+              ? "ka"
+              : completedAt >= prevStart && completedAt < prevEnd
+                ? "pka"
+                : "";
+
+          if (!targetKey) return;
+
+          addCompletedCaseCountForPosbankumIds(
+            [row.website_posbankum_id],
+            targetKey,
+            row.global_case_id || row.website_kasus_id || row.id,
+          );
+        });
+      } catch (mobileDashboardError) {
+        console.warn(
+          "Kasus mobile belum bisa dihitung di dashboard admin:",
+          mobileDashboardError,
+        );
+      }
+
       (dokNowRes.data || []).forEach((r) => {
         const a = ensure(r.id_posbankum);
         a.d += 1;
@@ -815,6 +1294,21 @@ export default function AdminDashboard() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "lihat_kasus" },
+        () => fetchDashboard(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "kasus" },
+        () => fetchDashboard(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "pengaduan" },
+        () => fetchDashboard(),
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "pengaduan_timeline" },
         () => fetchDashboard(),
       )
       .on(

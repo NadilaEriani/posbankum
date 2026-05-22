@@ -886,8 +886,8 @@ export default function VerifikasiDataPosbankum() {
     return m;
   }, [kecamatanAll]);
 
-  useEffect(() => {
-    (async () => {
+  const loadVerificationData = useCallback(
+    async ({ keepPage = false } = {}) => {
       setLoading(true);
       setErr("");
 
@@ -931,14 +931,22 @@ export default function VerifikasiDataPosbankum() {
 
         setPosList(pos ?? []);
         setUploadsByPos(grouped);
-        setPage(1);
+        if (!keepPage) setPage(1);
+
+        return { pos: pos ?? [], uploads };
       } catch (e) {
         setErr(e?.message || "Gagal memuat data");
+        return { pos: [], uploads: [] };
       } finally {
         setLoading(false);
       }
-    })();
-  }, [kabupatenId, kecamatanId, debouncedQ]);
+    },
+    [kabupatenId, kecamatanId, debouncedQ],
+  );
+
+  useEffect(() => {
+    loadVerificationData();
+  }, [loadVerificationData]);
 
   const cards = useMemo(() => {
     return (posList ?? []).map((p) => {
@@ -1463,14 +1471,26 @@ export default function VerifikasiDataPosbankum() {
     let nextPayload = { ...payload };
 
     for (let attempt = 0; attempt < 10; attempt += 1) {
-      if (!Object.keys(nextPayload).length) return;
+      if (!Object.keys(nextPayload).length) {
+        throw new Error("Tidak ada data verifikasi lokasi yang bisa disimpan.");
+      }
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("posbankum")
         .update(nextPayload)
-        .eq("id_posbankum", selectedDoc.posId);
+        .eq("id_posbankum", selectedDoc.posId)
+        .select("*")
+        .maybeSingle();
 
-      if (!error) return;
+      if (!error) {
+        if (!data?.id_posbankum) {
+          throw new Error(
+            "Status tagging area tidak tersimpan di database. Periksa RLS/policy UPDATE tabel posbankum.",
+          );
+        }
+
+        return data;
+      }
 
       const missingColumn = getMissingColumnName(error);
       if (
@@ -1483,20 +1503,36 @@ export default function VerifikasiDataPosbankum() {
       const { [missingColumn]: _removed, ...rest } = nextPayload;
       nextPayload = rest;
     }
+
+    throw new Error("Gagal menyimpan status tagging area ke database.");
   };
 
   const updateDataPosbankumWithSchemaFallback = async (payload) => {
     let nextPayload = { ...payload };
 
     for (let attempt = 0; attempt < 10; attempt += 1) {
-      if (!Object.keys(nextPayload).length) return;
+      if (!Object.keys(nextPayload).length) {
+        throw new Error(
+          "Tidak ada data verifikasi dokumen yang bisa disimpan.",
+        );
+      }
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("data_posbankum")
         .update(nextPayload)
-        .eq("id_data", selectedDoc.uploadId);
+        .eq("id_data", selectedDoc.uploadId)
+        .select("*")
+        .maybeSingle();
 
-      if (!error) return;
+      if (!error) {
+        if (!data?.id_data) {
+          throw new Error(
+            "Status dokumen tidak tersimpan di database. Periksa RLS/policy UPDATE tabel data_posbankum.",
+          );
+        }
+
+        return data;
+      }
 
       const missingColumn = getMissingColumnName(error);
       if (
@@ -1509,6 +1545,8 @@ export default function VerifikasiDataPosbankum() {
       const { [missingColumn]: _removed, ...rest } = nextPayload;
       nextPayload = rest;
     }
+
+    throw new Error("Gagal menyimpan status dokumen ke database.");
   };
 
   const syncExistingTaggingStatusToDataPosbankum = async (
@@ -1619,7 +1657,18 @@ export default function VerifikasiDataPosbankum() {
       verifierId,
     );
 
-    await updatePosbankumWithSchemaFallback(payload);
+    const updatedPosbankum = await updatePosbankumWithSchemaFallback(payload);
+    const savedTaggingStatus = getTaggingStatus(
+      updatedPosbankum,
+      hasTaggingArea(updatedPosbankum),
+      null,
+    );
+
+    if (savedTaggingStatus !== status) {
+      throw new Error(
+        `Status tagging area belum tersimpan dengan benar. Database masih membaca status "${savedTaggingStatus}".`,
+      );
+    }
 
     const taggingUploadId = await syncExistingTaggingStatusToDataPosbankum(
       status,
@@ -1633,6 +1682,66 @@ export default function VerifikasiDataPosbankum() {
       taggingUploadId,
       now,
     });
+  };
+
+  const saveTaggingLocationOnly = async () => {
+    if (!selectedDoc?.posId) return;
+
+    setErr("");
+    setVerifyBusy(true);
+
+    try {
+      const posRow = posById[selectedDoc.posId] || selectedDoc?.raw || {};
+      const latNum = Number(locDraft.lat);
+      const lngNum = Number(locDraft.lng);
+
+      if (!Number.isFinite(latNum) || !Number.isFinite(lngNum)) {
+        setLocErr("Koordinat tagging area belum valid.");
+        setVerifyBusy(false);
+        return;
+      }
+
+      const payload = {
+        updated_at: new Date().toISOString(),
+      };
+
+      if (Object.prototype.hasOwnProperty.call(posRow, "alamat")) {
+        payload.alamat = simplifyLocationAddress(locDraft.alamat);
+      }
+
+      if (Object.prototype.hasOwnProperty.call(posRow, "latitude")) {
+        payload.latitude = latNum;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(posRow, "longitude")) {
+        payload.longitude = lngNum;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(posRow, "lat")) {
+        payload.lat = latNum;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(posRow, "lng")) {
+        payload.lng = lngNum;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(posRow, "long")) {
+        payload.long = lngNum;
+      }
+
+      if (Object.prototype.hasOwnProperty.call(posRow, "koordinat")) {
+        payload.koordinat = `${latNum},${lngNum}`;
+      }
+
+      await updatePosbankumWithSchemaFallback(payload);
+      await loadVerificationData({ keepPage: true });
+
+      closePreview();
+      setSuccessMessage("Perubahan tagging area berhasil disimpan!");
+    } catch (e) {
+      setErr(e?.message || "Gagal menyimpan perubahan tagging area.");
+      setVerifyBusy(false);
+    }
   };
 
   const updateFileVerification = async (status, reason = "") => {
@@ -1663,7 +1772,17 @@ export default function VerifikasiDataPosbankum() {
       status === "ditolak" ? reason : "",
     );
 
-    await updateDataPosbankumWithSchemaFallback(payload);
+    const updatedDocument =
+      await updateDataPosbankumWithSchemaFallback(payload);
+    const savedStatus = normalizeStatus(
+      updatedDocument?.status_verifikasi ?? updatedDocument?.status,
+    );
+
+    if (savedStatus !== status) {
+      throw new Error(
+        `Status dokumen belum tersimpan dengan benar. Database masih membaca status "${savedStatus}".`,
+      );
+    }
 
     if (selectedDoc?.posId && selectedDoc?.key) {
       setDocStatusLocal(selectedDoc.posId, selectedDoc.key, status, reason);
@@ -1713,13 +1832,24 @@ export default function VerifikasiDataPosbankum() {
         await updateFileVerification(status, reason);
       }
 
-      await createDocumentNotification(status, reason);
+      try {
+        await createDocumentNotification(status, reason);
+      } catch (notificationError) {
+        console.warn(
+          "Notifikasi verifikasi tidak berhasil dibuat:",
+          notificationError,
+        );
+      }
+
+      await loadVerificationData({ keepPage: true });
 
       closePreview();
       if (status === "disetujui") {
-        setSuccessMessage("Data berhasil disetujui!");
+        setSuccessMessage("Data berhasil disetujui dan tersimpan di database!");
       } else {
-        setRejectToastMessage("Data berhasil ditolak!");
+        setRejectToastMessage(
+          "Data berhasil ditolak dan tersimpan di database!",
+        );
       }
     } catch (e) {
       setErr(e?.message || "Gagal memperbarui status verifikasi");
@@ -1765,9 +1895,7 @@ export default function VerifikasiDataPosbankum() {
           <button
             className="vd-previewBtn vd-previewSaveBtn"
             type="button"
-            onClick={() =>
-              updateVerification("disetujui", "", { saveLocation: true })
-            }
+            onClick={saveTaggingLocationOnly}
             disabled={verifyBusy || !locDirty || !locDraft.lat || !locDraft.lng}
           >
             <FiSave />

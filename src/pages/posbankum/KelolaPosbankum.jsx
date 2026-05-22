@@ -472,6 +472,21 @@ function sortRowsForDetail(rows = []) {
   });
 }
 
+function hasApprovedRows(rows = []) {
+  return (rows || []).some(
+    (row) => statusKind(row?.status_verifikasi) === "ok",
+  );
+}
+
+function pickProtectedLatestRow(rows = []) {
+  const sortedRows = sortRowsForDetail(rows || []);
+  return (
+    sortedRows.find((row) => statusKind(row?.status_verifikasi) === "ok") ||
+    sortedRows[0] ||
+    null
+  );
+}
+
 export default function KelolaDataPosbankum({ profile }) {
   const posbankumId = profile?.id_posbankum ?? null;
 
@@ -658,14 +673,16 @@ export default function KelolaDataPosbankum({ profile }) {
       const latest = {};
       const grouped = {};
       for (const row of data || []) {
-        if (row?.kategori && !latest[row.kategori]) {
-          latest[row.kategori] = row;
-        }
         if (row?.kategori) {
           if (!grouped[row.kategori]) grouped[row.kategori] = [];
           grouped[row.kategori].push(row);
         }
       }
+
+      Object.keys(grouped).forEach((kategori) => {
+        grouped[kategori] = sortRowsForDetail(grouped[kategori]);
+        latest[kategori] = pickProtectedLatestRow(grouped[kategori]);
+      });
 
       setDocsLatest(latest);
       setDocsByCategory(grouped);
@@ -724,7 +741,10 @@ export default function KelolaDataPosbankum({ profile }) {
 
       setDocsLatest((prev) => ({
         ...prev,
-        [kategori]: savedRows[0],
+        [kategori]: pickProtectedLatestRow([
+          ...(docsByCategory[kategori] || []),
+          ...savedRows,
+        ]),
       }));
 
       if (savedRows[0]?.path_berkas) {
@@ -737,7 +757,7 @@ export default function KelolaDataPosbankum({ profile }) {
         }
       }
     },
-    [createSignedUrl],
+    [createSignedUrl, docsByCategory],
   );
 
   useEffect(() => {
@@ -986,7 +1006,11 @@ export default function KelolaDataPosbankum({ profile }) {
 
   const searchLocation = async () => {
     const q = locQuery.trim();
-    if (!q) return;
+
+    if (!q) {
+      setLocErr("Masukkan nama lokasi terlebih dahulu.");
+      return;
+    }
 
     setLocErr("");
 
@@ -1002,17 +1026,26 @@ export default function KelolaDataPosbankum({ profile }) {
         },
       );
 
+      if (!res.ok) {
+        setLocErr("Pencarian lokasi gagal. Periksa koneksi lalu coba lagi.");
+        return;
+      }
+
       const json = await res.json();
-      const hit = json?.[0];
+      const hit = Array.isArray(json) ? json[0] : null;
       if (!hit) {
-        setLocErr("Lokasi tidak ditemukan.");
+        setLocErr(
+          "Lokasi tidak ditemukan. Periksa ejaan atau gunakan kata kunci lain.",
+        );
         return;
       }
 
       const lat = Number(hit.lat);
       const lng = Number(hit.lon);
       if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-        setLocErr("Koordinat lokasi tidak valid.");
+        setLocErr(
+          "Koordinat lokasi tidak valid. Periksa input lokasi lalu coba lagi.",
+        );
         return;
       }
 
@@ -1029,7 +1062,7 @@ export default function KelolaDataPosbankum({ profile }) {
         moveMarker(lat, lng, 16);
       }, 120);
     } catch {
-      setLocErr("Pencarian lokasi gagal.");
+      setLocErr("Pencarian lokasi gagal. Periksa koneksi lalu coba lagi.");
     }
   };
 
@@ -1084,7 +1117,7 @@ export default function KelolaDataPosbankum({ profile }) {
     const latestRow = docsLatest[kategori] || null;
     const isSapras = isSaprasCategory(kategori);
 
-    if (latestRow && statusKind(latestRow.status_verifikasi) === "ok") {
+    if (hasApprovedRows(rows)) {
       setSuccessMessage("Dokumen yang sudah diterima tidak dapat diganti.");
       return;
     }
@@ -1194,16 +1227,38 @@ export default function KelolaDataPosbankum({ profile }) {
     const existingRows = docsByCategory[uploadKey] || [];
     const latestRow = docsLatest[uploadKey] || null;
 
-    if (latestRow && statusKind(latestRow.status_verifikasi) === "ok") {
+    if (
+      hasApprovedRows(existingRows) ||
+      (latestRow && statusKind(latestRow.status_verifikasi) === "ok")
+    ) {
+      return setUploadErr("Dokumen yang sudah diterima tidak dapat diganti.");
+    }
+
+    setUploading(true);
+    setUploadErr("");
+
+    const { data: freshRows, error: freshCheckError } = await supabase
+      .from(TABLE_DOC)
+      .select("id_data,kategori,status_verifikasi")
+      .eq("id_posbankum", posbankumId)
+      .eq("kategori", uploadKey);
+
+    if (freshCheckError) {
+      setUploading(false);
+      return setUploadErr(
+        freshCheckError.message || "Gagal memeriksa status dokumen terbaru.",
+      );
+    }
+
+    if (hasApprovedRows(freshRows || [])) {
+      setUploading(false);
+      await loadDocs();
       return setUploadErr("Dokumen yang sudah diterima tidak dapat diganti.");
     }
 
     const rowsToReplace = sortRowsForDetail(
       existingRows.filter((row) => statusKind(row?.status_verifikasi) !== "ok"),
     );
-
-    setUploading(true);
-    setUploadErr("");
 
     const uploadedPaths = [];
     const committedPaths = new Set();
@@ -1430,6 +1485,11 @@ export default function KelolaDataPosbankum({ profile }) {
 
   const saveLocation = async () => {
     if (!posbankumId) return;
+
+    if (locationKind === "ok") {
+      setLocErr("Tagging Area yang sudah diterima tidak dapat diubah.");
+      return;
+    }
 
     setSavingLoc(true);
     setLocErr("");
@@ -1773,6 +1833,8 @@ export default function KelolaDataPosbankum({ profile }) {
       <div className="kpDocs kpDocsMain">
         {docTypes.map((item) => {
           const row = docsLatest[item.key];
+          const categoryRows = docsByCategory[item.key] || [];
+          const hasApprovedDocument = hasApprovedRows(categoryRows);
           const kind = row ? statusKind(row.status_verifikasi) : "none";
           const label = statusLabelFromKind(kind);
           const note = getRejectNote(row);
@@ -1832,9 +1894,9 @@ export default function KelolaDataPosbankum({ profile }) {
                   ].join(" ")}
                   type="button"
                   onClick={() => openUpload(item.key)}
-                  disabled={uploading || kind === "ok"}
+                  disabled={uploading || hasApprovedDocument}
                   title={
-                    kind === "ok"
+                    hasApprovedDocument
                       ? "Dokumen yang sudah diterima tidak dapat diganti"
                       : "Ganti dokumen"
                   }
@@ -1936,6 +1998,13 @@ export default function KelolaDataPosbankum({ profile }) {
               className="kpBtnPrimary is-blue"
               type="button"
               onClick={() => {
+                if (locationKind === "ok") {
+                  setSuccessMessage(
+                    "Tagging Area yang sudah diterima tidak dapat diubah.",
+                  );
+                  return;
+                }
+
                 setLocErr("");
                 setLocQuery("");
                 const rawAlamat = String(
@@ -1950,6 +2019,12 @@ export default function KelolaDataPosbankum({ profile }) {
                 setLocDirty(cleanAlamat !== rawAlamat.trim());
                 setEditLocOpen(true);
               }}
+              disabled={locationKind === "ok"}
+              title={
+                locationKind === "ok"
+                  ? "Tagging Area yang sudah diterima tidak dapat diubah"
+                  : "Atur lokasi"
+              }
             >
               <FiMapPin />
               Atur Lokasi
@@ -2148,9 +2223,15 @@ export default function KelolaDataPosbankum({ profile }) {
                     className="kpLocSearchInput"
                     placeholder="Cari lokasi (contoh: Jl. Sudirman, Pekanbaru)"
                     value={locQuery}
-                    onChange={(e) => setLocQuery(e.target.value)}
+                    onChange={(e) => {
+                      setLocQuery(e.target.value);
+                      if (locErr) setLocErr("");
+                    }}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter") searchLocation();
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        searchLocation();
+                      }
                     }}
                   />
                 </div>
@@ -2172,6 +2253,12 @@ export default function KelolaDataPosbankum({ profile }) {
                   <MdLocationSearching />
                 </button>
               </div>
+
+              {locErr ? (
+                <div className="kpInlineErr" role="alert" aria-live="polite">
+                  {locErr}
+                </div>
+              ) : null}
 
               <div className="kpMapWrap">
                 <div className="kpMapShell">
@@ -2198,10 +2285,10 @@ export default function KelolaDataPosbankum({ profile }) {
                   </div>
 
                   <div
-                    className={`kpMapBox ${locErr ? "has-error" : ""}`}
+                    className={`kpMapBox ${locErr.includes("Peta") ? "has-error" : ""}`}
                     ref={mapBoxRef}
                   >
-                    {locErr ? (
+                    {locErr.includes("Peta") ? (
                       <div className="kpMapFallbackText">{locErr}</div>
                     ) : null}
                   </div>
@@ -2260,8 +2347,6 @@ export default function KelolaDataPosbankum({ profile }) {
                   saat ini.
                 </span>
               </div>
-
-              {locErr ? <div className="kpInlineErr">{locErr}</div> : null}
 
               <div className="kpModalActions">
                 <button

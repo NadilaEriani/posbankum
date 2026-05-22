@@ -25,11 +25,11 @@ import {
   FiX,
   FiUser,
   FiPhone,
-  FiMail,
   FiMapPin,
   FiUsers,
   FiSend,
   FiPaperclip,
+  FiDownload,
   FiChevronDown,
   FiInfo,
 } from "react-icons/fi";
@@ -134,7 +134,6 @@ const EMPTY_FORM_DATA = {
   nama_pelapor: "",
   nik: "",
   nomor_telepon: "",
-  email: "",
   nama_lurah: "",
   kelurahan: "",
   jenis_masalah: "",
@@ -340,11 +339,12 @@ function mapMobileProgressToTimeline(
   resolvedParalegal,
 ) {
   const tanggal = buildMobileProgressSortDate(progress);
+  const progressTitle = buildMobileProgressTitle(progress);
 
   return {
     id_timeline: `mobile-${progress.id}`,
     id_pengaduan: mobileReport?.website_pengaduan_id || "",
-    title: buildMobileProgressTitle(progress),
+    title: progressTitle,
     deskripsi: progress.deskripsi_progres || "-",
     tanggal,
     created_at: progress.created_at || tanggal,
@@ -355,6 +355,7 @@ function mapMobileProgressToTimeline(
     source: "mobile",
     sort_at: tanggal || progress.created_at || progress.tanggal_progres,
     foto_dokumentasi: progress.foto_dokumentasi || "",
+    lampiran: normalizeProgressAttachments(progress, progressTitle),
   };
 }
 
@@ -473,9 +474,29 @@ function mapDbToUi(
       by: item.created_by_name || item.by || "Admin Posbankum",
       source: item.source || "website",
       foto_dokumentasi: item.foto_dokumentasi || "",
+      lampiran: Array.isArray(item.lampiran)
+        ? item.lampiran
+        : normalizeProgressAttachments(
+            {
+              id: item.id_timeline,
+              foto_dokumentasi: item.foto_dokumentasi,
+            },
+            item.title || "Update",
+          ),
       sort_at: item.sort_at || item.tanggal || item.created_at,
     }))
     .sort((a, b) => getTimelineSortValue(a) - getTimelineSortValue(b));
+
+  const baseUpdates = mappedTimeline.length
+    ? mappedTimeline
+    : Array.isArray(extra.updates) && extra.updates.length
+      ? extra.updates
+      : fallbackUpdates;
+
+  const updatesWithReportAttachments = mergeReportAttachmentsIntoTimeline(
+    baseUpdates,
+    lampiran,
+  );
 
   return {
     id_pengaduan: row.id_pengaduan,
@@ -490,7 +511,6 @@ function mapDbToUi(
     nama_pelapor: firstFilled(row.nama_pelapor, mobileReport?.nama_pelapor),
     nik: firstFilled(extra.nik, mobileReport?.nik_pelapor),
     nomor_telepon: firstFilled(row.nomor_telepon, mobileReport?.no_hp_pelapor),
-    email: row.email || "",
     nama_lurah: firstFilled(extra.nama_lurah, mobileReport?.nama_lurah),
     jenis_masalah: firstFilled(
       row.jenis_masalah,
@@ -558,11 +578,7 @@ function mapDbToUi(
       mobileReport?.global_case_id || relatedKasus?.global_case_id || "",
     website_kasus_id:
       mobileReport?.website_kasus_id || relatedKasus?.id_kasus || "",
-    updates: mappedTimeline.length
-      ? mappedTimeline
-      : Array.isArray(extra.updates) && extra.updates.length
-        ? extra.updates
-        : fallbackUpdates,
+    updates: updatesWithReportAttachments,
   };
 }
 
@@ -616,6 +632,7 @@ function mapMobileReportToUi(
       by: item.created_by_name || paralegalName,
       source: "mobile",
       foto_dokumentasi: item.foto_dokumentasi || "",
+      lampiran: item.lampiran || [],
       sort_at: item.sort_at || item.tanggal || item.created_at,
     }));
 
@@ -631,7 +648,6 @@ function mapMobileReportToUi(
     nama_pelapor: firstFilled(row.nama_pelapor, "Pelapor Belum Diisi"),
     nik: firstFilled(row.nik_pelapor),
     nomor_telepon: firstFilled(row.no_hp_pelapor),
-    email: "",
     nama_lurah: firstFilled(row.nama_lurah),
     jenis_masalah: firstFilled(row.kategori_masalah, "Lainnya"),
     judul_pengaduan: firstFilled(
@@ -1417,6 +1433,233 @@ function sanitizeFileName(name) {
     .replace(/[^a-zA-Z0-9._-]/g, "");
 }
 
+function isDirectFileUrl(value) {
+  return /^(https?:|blob:|data:)/i.test(String(value || "").trim());
+}
+
+function getFileNameFromPath(value, fallback = "Lampiran") {
+  const raw = String(value || "").trim();
+  if (!raw) return fallback;
+
+  const clean = raw.split("?")[0].split("#")[0];
+  const fileName = clean.split("/").filter(Boolean).pop();
+
+  if (!fileName) return fallback;
+
+  try {
+    return decodeURIComponent(fileName) || fallback;
+  } catch {
+    return fileName || fallback;
+  }
+}
+
+function getAttachmentFileName(file, fallback = "Lampiran") {
+  return firstFilled(
+    file?.nama_file,
+    file?.name,
+    file?.filename,
+    getFileNameFromPath(
+      file?.path_file || file?.url || file?.foto_dokumentasi,
+      fallback,
+    ),
+    fallback,
+  );
+}
+
+function formatFileSize(bytes) {
+  const size = Number(bytes || 0);
+  if (!Number.isFinite(size) || size <= 0) return "";
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function parseLampiranValue(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) return value;
+  if (typeof value === "object") return [value];
+
+  const raw = String(value || "").trim();
+  if (!raw) return [];
+
+  if (raw.startsWith("[") || raw.startsWith("{")) {
+    try {
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch {
+      // lanjut pakai pemisah teks biasa
+    }
+  }
+
+  return raw.split(/\r?\n|;/).flatMap((part) => {
+    const cleaned = part.trim();
+    if (!cleaned) return [];
+
+    if (cleaned.includes(",") && !cleaned.startsWith("http")) {
+      return cleaned
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean);
+    }
+
+    return [cleaned];
+  });
+}
+
+function normalizeProgressAttachments(
+  progress,
+  progressTitle = "Progress Pelayanan",
+) {
+  const values = parseLampiranValue(progress?.foto_dokumentasi);
+  const context = `Lampiran dari progres: ${progressTitle}`;
+
+  return values
+    .map((item, index) => {
+      const rawPath =
+        typeof item === "string"
+          ? item
+          : firstFilled(
+              item?.path_file,
+              item?.path,
+              item?.url,
+              item?.public_url,
+              item?.signedUrl,
+              item?.foto_dokumentasi,
+            );
+
+      if (!rawPath) return null;
+
+      return {
+        id_lampiran: `mobile-progress-${progress?.id || "lampiran"}-${index}`,
+        nama_file:
+          typeof item === "object"
+            ? firstFilled(
+                item?.nama_file,
+                item?.name,
+                item?.filename,
+                getFileNameFromPath(rawPath, `Lampiran ${index + 1}`),
+              )
+            : getFileNameFromPath(rawPath, `Lampiran ${index + 1}`),
+        path_file: rawPath,
+        url: isDirectFileUrl(rawPath) ? rawPath : "",
+        mime_type:
+          typeof item === "object"
+            ? firstFilled(item?.mime_type, item?.type)
+            : "",
+        size_bytes:
+          typeof item === "object" ? item?.size_bytes || item?.size || 0 : 0,
+        source: "mobile-progress",
+        attachment_context: context,
+        progress_title: progressTitle,
+      };
+    })
+    .filter(Boolean);
+}
+
+function normalizeReportAttachments(lampiran = []) {
+  return (lampiran || [])
+    .map((file, index) => {
+      const rawPath = firstFilled(
+        file?.path_file,
+        file?.url,
+        file?.signedUrl,
+        file?.public_url,
+        file?.download_url,
+      );
+
+      if (!rawPath) return null;
+
+      return {
+        ...file,
+        id_lampiran: file?.id_lampiran || `website-report-lampiran-${index}`,
+        nama_file: getAttachmentFileName(file, `Lampiran ${index + 1}`),
+        path_file: file?.path_file || rawPath,
+        url: isDirectFileUrl(rawPath) ? rawPath : file?.url || "",
+        source: file?.source || "website-report",
+        attachment_context: "Lampiran laporan utama",
+        progress_title: "Laporan Diterima",
+      };
+    })
+    .filter(Boolean);
+}
+
+function mergeReportAttachmentsIntoTimeline(updates = [], lampiran = []) {
+  const reportAttachments = normalizeReportAttachments(lampiran);
+
+  if (!reportAttachments.length) {
+    return updates || [];
+  }
+
+  const baseUpdates =
+    Array.isArray(updates) && updates.length
+      ? updates
+      : [
+          {
+            title: "Laporan Diterima",
+            date: formatDateID(new Date().toISOString()),
+            time: formatTimeID(new Date().toISOString()),
+            desc: "Laporan telah masuk ke sistem.",
+            by: "Admin Posbankum",
+            source: "website",
+            sort_at: new Date().toISOString(),
+          },
+        ];
+
+  const targetIndex = baseUpdates.findIndex((item) =>
+    String(item?.title || "")
+      .toLowerCase()
+      .includes("laporan diterima"),
+  );
+  const selectedIndex = targetIndex >= 0 ? targetIndex : 0;
+
+  return baseUpdates.map((item, index) => {
+    if (index !== selectedIndex) return item;
+
+    return {
+      ...item,
+      lampiran: [
+        ...(Array.isArray(item.lampiran) ? item.lampiran : []),
+        ...reportAttachments,
+      ],
+    };
+  });
+}
+
+function getAttachmentIdentity(file, fallback = "") {
+  return firstFilled(
+    file?.id_lampiran,
+    file?.path_file,
+    file?.url,
+    file?.signedUrl,
+    file?.public_url,
+    file?.download_url,
+    file?.foto_dokumentasi,
+    file?.nama_file,
+    fallback,
+  );
+}
+
+function getReportAttachmentCount(report) {
+  const keys = new Set();
+
+  const addFile = (file, fallback = "") => {
+    const key = getAttachmentIdentity(file, fallback);
+    if (key) keys.add(key);
+  };
+
+  (report?.lampiran || []).forEach((file, index) =>
+    addFile(file, `report-lampiran-${index}`),
+  );
+
+  (report?.updates || []).forEach((update, updateIndex) => {
+    (update?.lampiran || []).forEach((file, fileIndex) =>
+      addFile(file, `timeline-lampiran-${updateIndex}-${fileIndex}`),
+    );
+  });
+
+  return keys.size;
+}
+
 function digitsOnly(value, maxLength = Infinity) {
   return String(value || "")
     .replace(/\D/g, "")
@@ -1428,17 +1671,6 @@ function normalizeText(value, maxLength = Infinity) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, maxLength);
-}
-
-function normalizeOptionalEmail(value) {
-  return String(value || "")
-    .trim()
-    .toLowerCase();
-}
-
-function isValidEmail(value) {
-  if (!value) return true;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 function isAllowedFileType(file) {
@@ -1457,7 +1689,6 @@ function getSanitizedFormData(formData) {
     nama_pelapor: normalizeText(formData.nama_pelapor, 120),
     nik: digitsOnly(formData.nik, MAX_NIK_LENGTH),
     nomor_telepon: digitsOnly(formData.nomor_telepon, MAX_PHONE_LENGTH),
-    email: normalizeOptionalEmail(formData.email),
     nama_lurah: normalizeText(formData.nama_lurah, 120),
     kelurahan: normalizeText(formData.kelurahan, 120),
     jenis_masalah: normalizeText(formData.jenis_masalah, 80),
@@ -1510,10 +1741,6 @@ function validateFormData(formData, paralegalOptions = []) {
     cleaned.nomor_telepon.length > MAX_PHONE_LENGTH
   ) {
     return "Nomor telepon harus terdiri dari 10 sampai 15 digit angka.";
-  }
-
-  if (!isValidEmail(cleaned.email)) {
-    return "Format email tidak valid.";
   }
 
   if (cleaned.judul_pengaduan.length < 8) {
@@ -1652,7 +1879,6 @@ export default function KelolaPengaduan({ profile }) {
             nomor_tlp,
             alamat,
             nama_paralegal,
-            email_akun,
             kelurahan
           `,
           )
@@ -1690,7 +1916,6 @@ export default function KelolaPengaduan({ profile }) {
           nomor_pengaduan,
           nama_pelapor,
           nomor_telepon,
-          email,
           jenis_masalah,
           judul_pengaduan,
           kronologi,
@@ -2049,7 +2274,13 @@ export default function KelolaPengaduan({ profile }) {
 
   const isImageFile = (file) => {
     const mime = String(file?.mime_type || "").toLowerCase();
-    const name = String(file?.nama_file || "").toLowerCase();
+    const name = String(
+      file?.nama_file ||
+        file?.path_file ||
+        file?.url ||
+        file?.foto_dokumentasi ||
+        "",
+    ).toLowerCase();
 
     return (
       mime.startsWith("image/") ||
@@ -2067,29 +2298,58 @@ export default function KelolaPengaduan({ profile }) {
     setPreviewFile(null);
   };
 
+  const resolveLampiranUrl = async (file) => {
+    const directUrl = firstFilled(
+      file?.signedUrl,
+      file?.download_url,
+      file?.public_url,
+      file?.url,
+      file?.foto_dokumentasi,
+    );
+
+    if (isDirectFileUrl(directUrl)) {
+      return directUrl;
+    }
+
+    const pathFile = firstFilled(file?.path_file, directUrl);
+
+    if (!pathFile) {
+      throw new Error("File lampiran tidak ditemukan.");
+    }
+
+    if (isDirectFileUrl(pathFile)) {
+      return pathFile;
+    }
+
+    const bucketName = firstFilled(
+      file?.bucket,
+      file?.storage_bucket,
+      STORAGE_BUCKET,
+    );
+    const storageClient =
+      file?.source === "mobile-progress" && mobileSupabase
+        ? mobileSupabase
+        : supabase;
+
+    const { data, error } = await storageClient.storage
+      .from(bucketName)
+      .createSignedUrl(pathFile, 3600);
+
+    if (error) throw error;
+
+    const signedUrl = data?.signedUrl;
+    if (!signedUrl) {
+      throw new Error("URL file tidak berhasil dibuat.");
+    }
+
+    return signedUrl;
+  };
+
   const handleOpenLampiran = async (file) => {
     try {
-      if (!file?.path_file) {
-        openReminderModal({
-          title: "Lampiran tidak ditemukan",
-          subtitle: "File tidak dapat dibuka",
-          description: "File lampiran tidak ditemukan.",
-        });
-        return;
-      }
-
       setPreviewLoading(true);
 
-      const { data, error } = await supabase.storage
-        .from(STORAGE_BUCKET)
-        .createSignedUrl(file.path_file, 3600);
-
-      if (error) throw error;
-
-      const signedUrl = data?.signedUrl;
-      if (!signedUrl) {
-        throw new Error("URL file tidak berhasil dibuat.");
-      }
+      const signedUrl = await resolveLampiranUrl(file);
 
       if (isImageFile(file)) {
         setPreviewFile({
@@ -2107,6 +2367,55 @@ export default function KelolaPengaduan({ profile }) {
         title: "Lampiran gagal dibuka",
         subtitle: "Terjadi kendala saat membuka file",
         description: err.message || "Gagal membuka lampiran.",
+      });
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
+  const handleDownloadLampiran = async (file) => {
+    try {
+      setPreviewLoading(true);
+
+      const fileUrl = await resolveLampiranUrl(file);
+      const fileName = getAttachmentFileName(file);
+
+      try {
+        const response = await fetch(fileUrl);
+        if (!response.ok) throw new Error("File tidak dapat diunduh langsung.");
+
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+
+        link.href = blobUrl;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+
+        window.setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+      } catch (downloadError) {
+        console.warn(
+          "Download langsung gagal, membuka file sebagai fallback:",
+          downloadError,
+        );
+
+        const link = document.createElement("a");
+        link.href = fileUrl;
+        link.download = fileName;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+      }
+    } catch (err) {
+      console.error("handleDownloadLampiran error:", err);
+      openReminderModal({
+        title: "Lampiran gagal diunduh",
+        subtitle: "Terjadi kendala saat mengunduh file",
+        description: err.message || "Gagal mengunduh lampiran.",
       });
     } finally {
       setPreviewLoading(false);
@@ -2298,14 +2607,6 @@ export default function KelolaPengaduan({ profile }) {
     const showParagraph = (value, fallback = "-") =>
       showValue(value, fallback).replace(/\n/g, "<br />");
 
-    const formatFileSize = (bytes) => {
-      const size = Number(bytes || 0);
-      if (!Number.isFinite(size) || size <= 0) return "";
-      if (size < 1024) return `${size} B`;
-      if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
-      return `${(size / (1024 * 1024)).toFixed(1)} MB`;
-    };
-
     const statusLabel = getStatusLabel(selectedReport.status);
     const priorityLabel = getPriorityLabel(selectedReport.prioritas);
     const statusBadgeClass =
@@ -2317,24 +2618,6 @@ export default function KelolaPengaduan({ profile }) {
       selectedReport.catatan_paralegal,
       selectedReport.updates?.[0]?.desc,
     );
-
-    const lampiranHtml = (selectedReport.lampiran || []).length
-      ? (selectedReport.lampiran || [])
-          .map((file, index) => {
-            const sizeText = formatFileSize(file.size_bytes);
-            return `
-              <div class="print-attachment-item">
-                <div>
-                  <div class="print-attachment-name">${index + 1}. ${showValue(file.nama_file, "Lampiran")}</div>
-                  <div class="print-attachment-meta">
-                    ${[showValue(file.mime_type, ""), safeHtml(sizeText)].filter(Boolean).join(" • ") || "File lampiran"}
-                  </div>
-                </div>
-              </div>
-            `;
-          })
-          .join("")
-      : `<div class="print-empty">Tidak ada lampiran.</div>`;
 
     const html = `
       <!doctype html>
@@ -2541,35 +2824,6 @@ export default function KelolaPengaduan({ profile }) {
               border-color: #d1e1fd;
             }
 
-            .print-attachment-item {
-              border: 1px solid #d1d5db;
-              border-radius: 10px;
-              padding: 10px 12px;
-              margin-bottom: 8px;
-              page-break-inside: avoid;
-            }
-
-            .print-attachment-name {
-              font-size: 12.5px;
-              font-weight: 800;
-              color: #111827;
-            }
-
-            .print-attachment-meta {
-              margin-top: 4px;
-              font-size: 11px;
-              color: #64748b;
-            }
-
-            .print-empty {
-              border: 1px dashed #d1d5db;
-              border-radius: 10px;
-              padding: 11px 12px;
-              color: #64748b;
-              font-size: 12px;
-              background: #f9fafb;
-            }
-
             .print-timeline {
               position: relative;
               padding-left: 0;
@@ -2747,10 +3001,6 @@ export default function KelolaPengaduan({ profile }) {
                     <div class="print-value">${showValue(selectedReport.nomor_telepon)}</div>
                   </div>
                   <div class="print-info">
-                    <div class="print-label">Email</div>
-                    <div class="print-value">${showValue(selectedReport.email)}</div>
-                  </div>
-                  <div class="print-info">
                     <div class="print-label">Posbankum/Kecamatan</div>
                     <div class="print-value">${showValue(selectedReport.posbankum_info)}</div>
                   </div>
@@ -2793,10 +3043,6 @@ export default function KelolaPengaduan({ profile }) {
                 </div>
               </div>
 
-              <div class="print-section">
-                <div class="print-section-title">Lampiran (${safeHtml(String(selectedReport.lampiran?.length || 0))})</div>
-                ${lampiranHtml}
-              </div>
 
               <div class="print-footer">
                 <div>Dicetak dari Sistem Aplikasi Posbankum</div>
@@ -2945,7 +3191,6 @@ export default function KelolaPengaduan({ profile }) {
         id_posbankum: profile.id_posbankum,
         nama_pelapor: sanitizedFormData.nama_pelapor,
         nomor_telepon: sanitizedFormData.nomor_telepon,
-        email: sanitizedFormData.email || null,
         jenis_masalah: sanitizedFormData.jenis_masalah,
         judul_pengaduan: sanitizedFormData.judul_pengaduan,
         kronologi: sanitizedFormData.kronologi,
@@ -3305,21 +3550,6 @@ export default function KelolaPengaduan({ profile }) {
                   inputMode="numeric"
                   maxLength={MAX_PHONE_LENGTH}
                   placeholder="081234567890"
-                />
-              </div>
-
-              <div className="lpField">
-                <label>Email Pelapor (Opsional)</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      email: e.target.value,
-                    }))
-                  }
-                  placeholder="contoh@email.com"
                 />
               </div>
 
@@ -3702,7 +3932,7 @@ export default function KelolaPengaduan({ profile }) {
                   <div className="lpReportFooter">
                     <div className="lpReportFootText">
                       {report.updates?.length || 0} Update •{" "}
-                      {report.lampiran?.length || 0} Lampiran
+                      {getReportAttachmentCount(report)} Lampiran
                     </div>
 
                     <div className="lpActionRow">
@@ -3887,9 +4117,6 @@ export default function KelolaPengaduan({ profile }) {
                         <FiPhone /> {selectedReport.nomor_telepon}
                       </div>
                       <div className="lpDetailLine">
-                        <FiMail /> {selectedReport.email || "-"}
-                      </div>
-                      <div className="lpDetailLine">
                         <span
                           aria-hidden="true"
                           style={{
@@ -3974,38 +4201,6 @@ export default function KelolaPengaduan({ profile }) {
                         </div>
                       </div>
                     </div>
-
-                    <div className="lpDetailBlock">
-                      <div className="lpDetailLabel">
-                        Lampiran ({selectedReport.lampiran?.length || 0})
-                      </div>
-                      <div className="lpAttachmentList">
-                        {(selectedReport.lampiran || []).map((file, idx) => (
-                          <div
-                            className="lpAttachmentItem"
-                            key={`${file.nama_file}-${idx}`}
-                          >
-                            <div className="lpAttachmentInfo">
-                              <FiFileText /> {file.nama_file}
-                            </div>
-
-                            <button
-                              type="button"
-                              className="lpAttachmentEyeBtn"
-                              onClick={() => handleOpenLampiran(file)}
-                              title={
-                                isImageFile(file)
-                                  ? "Lihat foto"
-                                  : "Buka lampiran"
-                              }
-                              disabled={previewLoading}
-                            >
-                              <FiEye />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                   </section>
                 </div>
 
@@ -4036,6 +4231,75 @@ export default function KelolaPengaduan({ profile }) {
                               </span>
                               <span className="lpTimelineBy">{item.by}</span>
                             </div>
+
+                            {item.lampiran?.length ? (
+                              <div
+                                className="lpAttachmentList"
+                                style={{ marginTop: 12 }}
+                              >
+                                {item.lampiran.map((file, fileIdx) => {
+                                  const sizeText = formatFileSize(
+                                    file.size_bytes,
+                                  );
+                                  const progressInfo =
+                                    file.attachment_context ||
+                                    `Lampiran dari progres: ${item.title}`;
+
+                                  return (
+                                    <div
+                                      className="lpAttachmentItem"
+                                      key={`${file.id_lampiran || file.nama_file}-${fileIdx}`}
+                                    >
+                                      <div className="lpAttachmentInfo">
+                                        <FiFileText />
+                                        <div>
+                                          <div>
+                                            {getAttachmentFileName(file)}
+                                          </div>
+                                          <div
+                                            style={{
+                                              marginTop: 3,
+                                              fontSize: 12,
+                                              color: "#64748b",
+                                            }}
+                                          >
+                                            {[progressInfo, sizeText]
+                                              .filter(Boolean)
+                                              .join(" • ")}
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <button
+                                        type="button"
+                                        className="lpAttachmentEyeBtn"
+                                        onClick={() => handleOpenLampiran(file)}
+                                        title={
+                                          isImageFile(file)
+                                            ? "Lihat foto"
+                                            : "Buka lampiran"
+                                        }
+                                        disabled={previewLoading}
+                                      >
+                                        <FiEye />
+                                      </button>
+
+                                      <button
+                                        type="button"
+                                        className="lpAttachmentEyeBtn"
+                                        onClick={() =>
+                                          handleDownloadLampiran(file)
+                                        }
+                                        title="Download lampiran"
+                                        disabled={previewLoading}
+                                      >
+                                        <FiDownload />
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
                           </div>
                         </div>
                       ))}

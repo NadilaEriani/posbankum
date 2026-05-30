@@ -1,7 +1,6 @@
 import { HiOutlineScale } from "react-icons/hi";
 import { AiOutlineBarChart } from "react-icons/ai";
 import { useEffect, useMemo, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabaseClient";
 import {
   FiCheckCircle,
@@ -25,13 +24,8 @@ import "./semuaKasus.css";
 
 const PAGE_SIZE = 9;
 
-const MOBILE_SUPABASE_URL = import.meta.env.VITE_MOBILE_SUPABASE_URL;
-const MOBILE_SUPABASE_ANON_KEY = import.meta.env.VITE_MOBILE_SUPABASE_ANON_KEY;
-
-const mobileSupabase =
-  MOBILE_SUPABASE_URL && MOBILE_SUPABASE_ANON_KEY
-    ? createClient(MOBILE_SUPABASE_URL, MOBILE_SUPABASE_ANON_KEY)
-    : null;
+// Database mobile dan website sudah digabung.
+const mobileSupabase = null;
 
 const CATEGORY_OPTIONS = [
   "Semua",
@@ -349,38 +343,28 @@ function mapPengaduanToCase(
       row.created_at || row.tanggal_kejadian || new Date().toISOString(),
     updateTerakhir:
       lastTimeline?.tanggal ||
-      kasusRow?.last_synced_at ||
+      kasusRow?.updated_at ||
       row.updated_at ||
       row.created_at ||
       new Date().toISOString(),
     deskripsi:
       row.kronologi || extra.catatan_internal || "Belum ada deskripsi kasus.",
-    sumberData:
-      String(kasusRow?.source_system || "website").toLowerCase() === "mobile"
-        ? "Mobile"
-        : "Website",
-    globalCaseId: kasusRow?.global_case_id || null,
-    mobilePengaduanId: kasusRow?.mobile_pengaduan_id || null,
+    sumberData: "Website",
+    globalCaseId: null,
+    mobilePengaduanId: null,
     websiteKasusId: kasusRow?.id_kasus || null,
     websitePengaduanId: row.id_pengaduan || null,
   };
 }
 
 function mapWebsiteKasusToCase(row, posbankumRow) {
-  const sourceLabel =
-    String(row.source_system || "").toLowerCase() === "mobile"
-      ? "Mobile"
-      : "Website";
+  const sourceLabel = "Website";
 
   const status = row.tgl_selesai ? "Selesai" : normalizeStatus(row.status);
   const judul = row.judul_kasus || row.jenis_kasus || "Tanpa Judul";
 
   return {
-    id:
-      row.website_pengaduan_id ||
-      row.id_kasus ||
-      row.global_case_id ||
-      row.mobile_pengaduan_id,
+    id: row.website_pengaduan_id || row.id_kasus,
     judul,
     kategori: normalizeKategori(row.jenis_kasus || row.judul_kasus),
     status,
@@ -397,11 +381,11 @@ function mapWebsiteKasusToCase(row, posbankumRow) {
     emailPosbankum: firstFilled(posbankumRow?.email_akun),
     tanggalLapor: row.tgl_upload || new Date().toISOString(),
     updateTerakhir:
-      row.last_synced_at || row.tgl_upload || new Date().toISOString(),
+      row.updated_at || row.tgl_upload || new Date().toISOString(),
     deskripsi: row.deskripsi_kasus || "Belum ada deskripsi kasus.",
     sumberData: sourceLabel,
-    globalCaseId: row.global_case_id || null,
-    mobilePengaduanId: row.mobile_pengaduan_id || null,
+    globalCaseId: null,
+    mobilePengaduanId: null,
     websiteKasusId: row.id_kasus || null,
     websitePengaduanId: row.website_pengaduan_id || null,
   };
@@ -638,15 +622,12 @@ export default function SemuaKasus({ profile } = {}) {
           tgl_upload,
           tgl_mulai,
           tgl_selesai,
-          global_case_id,
-          source_system,
-          mobile_pengaduan_id,
           website_pengaduan_id,
-          last_synced_at,
           id_posbankum,
           judul_kasus,
           status,
-          prioritas
+          prioritas,
+          updated_at
         `;
 
         let linkedKasusIds = [];
@@ -847,278 +828,6 @@ export default function SemuaKasus({ profile } = {}) {
 
         let mobileCases = [];
         let mobileReadError = "";
-
-        if (mobileSupabase) {
-          let mobilePengaduanQuery = mobileSupabase
-            .from("pengaduan")
-            .select(
-              `
-              id,
-              masyarakat_id,
-              kategori_masalah,
-              kronologi,
-              lokasi_kejadian,
-              lampiran_urls,
-              status,
-              prioritas,
-              paralegal_id,
-              tgl_lapor,
-              tgl_selesai,
-              tgl_kejadian,
-              waktu_kejadian,
-              global_case_id,
-              source_system,
-              website_kasus_id,
-              website_posbankum_id,
-              synced_at,
-              judul_laporan,
-              nama_lurah,
-              catatan_paralegal,
-              nama_paralegal_ditugaskan,
-              no_hp_paralegal,
-              nama_pelapor,
-              nik_pelapor,
-              no_hp_pelapor
-            `,
-            )
-            .order("tgl_lapor", { ascending: false });
-
-          if (profile?.id_posbankum) {
-            mobilePengaduanQuery = mobilePengaduanQuery.eq(
-              "website_posbankum_id",
-              profile.id_posbankum,
-            );
-          }
-
-          const { data: mobilePengaduanRows, error: mobilePengaduanError } =
-            await mobilePengaduanQuery;
-
-          if (mobilePengaduanError) {
-            mobileReadError =
-              mobilePengaduanError.message ||
-              "Gagal membaca data kasus dari Supabase mobile.";
-          } else {
-            const mobileRows = (mobilePengaduanRows || []).filter(
-              (row) =>
-                String(row?.source_system || "").toLowerCase() !== "website",
-            );
-
-            const paralegalIds = [
-              ...new Set(
-                mobileRows.map((item) => item.paralegal_id).filter(Boolean),
-              ),
-            ];
-
-            const masyarakatIds = [
-              ...new Set(
-                mobileRows.map((item) => item.masyarakat_id).filter(Boolean),
-              ),
-            ];
-
-            const mobilePengaduanIds = [
-              ...new Set(mobileRows.map((item) => item.id).filter(Boolean)),
-            ];
-
-            const mobileWebPosbankumIds = [
-              ...new Set(
-                mobileRows
-                  .map((item) => item.website_posbankum_id)
-                  .filter(Boolean),
-              ),
-            ];
-
-            let paralegalRows = [];
-            let masyarakatRows = [];
-            let mobileProgressRows = [];
-            let mobileWebPosbankumRows = [];
-            let mobileKabupatenRows = [];
-            let mobileKecamatanRows = [];
-            let mobileKelurahanRows = [];
-
-            if (paralegalIds.length) {
-              const { data: paralegalData, error: paralegalError } =
-                await mobileSupabase
-                  .from("paralegal")
-                  .select("id, nama_posbankum, alamat, no_hp, web_id")
-                  .in("id", paralegalIds);
-
-              if (paralegalError) throw paralegalError;
-              paralegalRows = paralegalData || [];
-            }
-
-            if (masyarakatIds.length) {
-              const { data: masyarakatData, error: masyarakatError } =
-                await mobileSupabase
-                  .from("masyarakat")
-                  .select(
-                    `
-                    id,
-                    nik,
-                    nama,
-                    no_hp,
-                    alamat,
-                    kabupaten_id,
-                    kecamatan_id,
-                    kelurahan_id
-                  `,
-                  )
-                  .in("id", masyarakatIds);
-
-              if (masyarakatError) throw masyarakatError;
-              masyarakatRows = masyarakatData || [];
-            }
-
-            if (mobilePengaduanIds.length) {
-              const { data: progressData, error: progressError } =
-                await mobileSupabase
-                  .from("progres_kasus")
-                  .select(
-                    `
-                    id,
-                    pengaduan_id,
-                    deskripsi_progres,
-                    tanggal_progres,
-                    foto_dokumentasi,
-                    created_at
-                  `,
-                  )
-                  .in("pengaduan_id", mobilePengaduanIds)
-                  .order("tanggal_progres", { ascending: true });
-
-              if (progressError) throw progressError;
-              mobileProgressRows = progressData || [];
-            }
-
-            if (mobileWebPosbankumIds.length) {
-              const { data: webPosbankumData, error: webPosbankumError } =
-                await supabase
-                  .from("posbankum")
-                  .select(
-                    `
-                    id_posbankum,
-                    id_kabupaten,
-                    nama,
-                    nomor_tlp,
-                    alamat,
-                    nama_paralegal,
-                    email_akun
-                  `,
-                  )
-                  .in("id_posbankum", mobileWebPosbankumIds);
-
-              if (webPosbankumError) throw webPosbankumError;
-              mobileWebPosbankumRows = webPosbankumData || [];
-            }
-
-            const mobileKabupatenIds = [
-              ...new Set(
-                masyarakatRows.map((item) => item.kabupaten_id).filter(Boolean),
-              ),
-            ];
-
-            const mobileKecamatanIds = [
-              ...new Set(
-                masyarakatRows.map((item) => item.kecamatan_id).filter(Boolean),
-              ),
-            ];
-
-            const mobileKelurahanIds = [
-              ...new Set(
-                masyarakatRows.map((item) => item.kelurahan_id).filter(Boolean),
-              ),
-            ];
-
-            if (mobileKabupatenIds.length) {
-              const { data, error } = await mobileSupabase
-                .from("kabupaten")
-                .select("id, nama")
-                .in("id", mobileKabupatenIds);
-
-              if (error) throw error;
-              mobileKabupatenRows = data || [];
-            }
-
-            if (mobileKecamatanIds.length) {
-              const { data, error } = await mobileSupabase
-                .from("kecamatan")
-                .select("id, nama")
-                .in("id", mobileKecamatanIds);
-
-              if (error) throw error;
-              mobileKecamatanRows = data || [];
-            }
-
-            if (mobileKelurahanIds.length) {
-              const { data, error } = await mobileSupabase
-                .from("kelurahan")
-                .select("id, nama")
-                .in("id", mobileKelurahanIds);
-
-              if (error) throw error;
-              mobileKelurahanRows = data || [];
-            }
-
-            const paralegalMap = new Map(
-              paralegalRows.map((item) => [item.id, item]),
-            );
-
-            const masyarakatMap = new Map(
-              masyarakatRows.map((item) => [item.id, item]),
-            );
-
-            const mobileWebPosbankumMap = new Map(
-              mobileWebPosbankumRows.map((item) => [item.id_posbankum, item]),
-            );
-
-            const mobileKabupatenMap = new Map(
-              mobileKabupatenRows.map((item) => [item.id, item.nama]),
-            );
-
-            const mobileKecamatanMap = new Map(
-              mobileKecamatanRows.map((item) => [item.id, item.nama]),
-            );
-
-            const mobileKelurahanMap = new Map(
-              mobileKelurahanRows.map((item) => [item.id, item.nama]),
-            );
-
-            const mobileProgressMap = new Map();
-
-            for (const progress of mobileProgressRows) {
-              if (!mobileProgressMap.has(progress.pengaduan_id)) {
-                mobileProgressMap.set(progress.pengaduan_id, []);
-              }
-
-              mobileProgressMap.get(progress.pengaduan_id).push(progress);
-            }
-
-            mobileCases = mobileRows.map((row) => {
-              const masyarakatRow = masyarakatMap.get(row.masyarakat_id);
-              const paralegalRow = paralegalMap.get(row.paralegal_id);
-
-              const webPosbankumRow = mobileWebPosbankumMap.get(
-                row.website_posbankum_id,
-              );
-
-              return mapMobilePengaduanToCase(row, {
-                masyarakatRow,
-                paralegalRow,
-                webPosbankumRow,
-                progressRows: mobileProgressMap.get(row.id) || [],
-                kabupatenNama: mobileKabupatenMap.get(
-                  masyarakatRow?.kabupaten_id,
-                ),
-                kecamatanNama: mobileKecamatanMap.get(
-                  masyarakatRow?.kecamatan_id,
-                ),
-                kelurahanNama: mobileKelurahanMap.get(
-                  masyarakatRow?.kelurahan_id,
-                ),
-              });
-            });
-          }
-        }
-
         const mergedByKey = new Map();
 
         for (const item of websitePengaduanCases) {

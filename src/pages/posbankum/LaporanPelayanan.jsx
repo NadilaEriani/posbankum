@@ -1201,9 +1201,6 @@ async function getRelatedKasusRowsForReportDelete({
     jenis_kasus,
     judul_kasus,
     deskripsi_kasus,
-    global_case_id,
-    source_system,
-    mobile_pengaduan_id,
     website_pengaduan_id
   `;
 
@@ -1226,38 +1223,12 @@ async function getRelatedKasusRowsForReportDelete({
   const websiteKasusIds = Array.from(
     new Set([targetReport?.website_kasus_id].filter(Boolean)),
   );
-  const globalCaseIds = Array.from(
-    new Set([targetReport?.global_case_id].filter(Boolean)),
-  );
-  const mobilePengaduanIds = Array.from(
-    new Set([targetReport?.mobile_pengaduan_id].filter(Boolean)),
-  );
 
   if (websiteKasusIds.length) {
     const { data, error } = await supabase
       .from("kasus")
       .select(selectColumns)
       .in("id_kasus", websiteKasusIds);
-
-    if (error) throw error;
-    addRows(data || []);
-  }
-
-  if (globalCaseIds.length) {
-    const { data, error } = await supabase
-      .from("kasus")
-      .select(selectColumns)
-      .in("global_case_id", globalCaseIds);
-
-    if (error) throw error;
-    addRows(data || []);
-  }
-
-  if (mobilePengaduanIds.length) {
-    const { data, error } = await supabase
-      .from("kasus")
-      .select(selectColumns)
-      .in("mobile_pengaduan_id", mobilePengaduanIds);
 
     if (error) throw error;
     addRows(data || []);
@@ -1878,8 +1849,7 @@ export default function KelolaPengaduan({ profile }) {
             nama,
             nomor_tlp,
             alamat,
-            nama_paralegal,
-            kelurahan
+            nama_paralegal
           `,
           )
           .eq("id_posbankum", profile.id_posbankum)
@@ -1952,14 +1922,12 @@ export default function KelolaPengaduan({ profile }) {
           `
           id_kasus,
           id_posbankum,
-          global_case_id,
-          mobile_pengaduan_id,
           website_pengaduan_id,
           status,
           prioritas,
           tgl_upload,
           tgl_selesai,
-          last_synced_at
+          updated_at
         `,
         )
         .eq("id_posbankum", profile.id_posbankum);
@@ -2448,30 +2416,6 @@ export default function KelolaPengaduan({ profile }) {
         ),
       );
 
-      const relatedGlobalCaseIds = Array.from(
-        new Set(
-          [
-            targetReport?.global_case_id,
-            ...(relatedKasusRows || []).map((item) => item.global_case_id),
-          ].filter(Boolean),
-        ),
-      );
-
-      const relatedMobilePengaduanIds = Array.from(
-        new Set(
-          [
-            targetReport?.mobile_pengaduan_id,
-            ...(relatedKasusRows || []).map((item) => item.mobile_pengaduan_id),
-          ].filter(Boolean),
-        ),
-      );
-
-      await deleteMobileRowsForWebsiteReport({
-        globalCaseIds: relatedGlobalCaseIds,
-        websiteKasusIds: relatedKasusIds,
-        mobilePengaduanIds: relatedMobilePengaduanIds,
-      });
-
       const { data: lampiranRows, error: lampiranError } = await supabase
         .from("pengaduan_lampiran")
         .select("id_lampiran, path_file")
@@ -2491,11 +2435,11 @@ export default function KelolaPengaduan({ profile }) {
         if (storageDeleteError) throw storageDeleteError;
       }
 
-      if (relatedGlobalCaseIds.length) {
+      if (relatedKasusIds.length) {
         const { error: kasusProgressDeleteError } = await supabase
           .from("kasus_progress")
           .delete()
-          .in("global_case_id", relatedGlobalCaseIds);
+          .in("id_kasus", relatedKasusIds);
 
         if (kasusProgressDeleteError) throw kasusProgressDeleteError;
       }
@@ -2537,24 +2481,6 @@ export default function KelolaPengaduan({ profile }) {
           .in("id_kasus", relatedKasusIds);
 
         if (kasusDeleteError) throw kasusDeleteError;
-      }
-
-      if (relatedGlobalCaseIds.length) {
-        const { error: kasusDeleteByGlobalError } = await supabase
-          .from("kasus")
-          .delete()
-          .in("global_case_id", relatedGlobalCaseIds);
-
-        if (kasusDeleteByGlobalError) throw kasusDeleteByGlobalError;
-      }
-
-      if (relatedMobilePengaduanIds.length) {
-        const { error: kasusDeleteByMobileError } = await supabase
-          .from("kasus")
-          .delete()
-          .in("mobile_pengaduan_id", relatedMobilePengaduanIds);
-
-        if (kasusDeleteByMobileError) throw kasusDeleteByMobileError;
       }
 
       const { error: pengaduanDeleteError } = await supabase
@@ -3173,15 +3099,6 @@ export default function KelolaPengaduan({ profile }) {
         namaPosbankumPembuat = firstFilled(posbankumPembuat?.nama);
       }
 
-      if (namaPosbankumPembuat) {
-        const { error: kelurahanUpdateError } = await supabase
-          .from("posbankum")
-          .update({ kelurahan: namaPosbankumPembuat })
-          .eq("id_posbankum", profile.id_posbankum);
-
-        if (kelurahanUpdateError) throw kelurahanUpdateError;
-      }
-
       const laporanFormData = {
         ...sanitizedFormData,
         kelurahan: namaPosbankumPembuat,
@@ -3233,9 +3150,7 @@ export default function KelolaPengaduan({ profile }) {
         tgl_upload: insertedRow.created_at || new Date().toISOString(),
         tgl_mulai: laporanFormData.tanggal_kejadian || null,
         tgl_selesai: null,
-        source_system: "website",
         website_pengaduan_id: id_pengaduan,
-        last_synced_at: new Date().toISOString(),
         status: "diproses",
         prioritas: laporanFormData.prioritas || "sedang",
       };
@@ -3244,7 +3159,7 @@ export default function KelolaPengaduan({ profile }) {
 
       const { data: existingKasus, error: existingKasusError } = await supabase
         .from("kasus")
-        .select("id_kasus, global_case_id")
+        .select("id_kasus")
         .eq("website_pengaduan_id", id_pengaduan)
         .maybeSingle();
 
@@ -3256,7 +3171,7 @@ export default function KelolaPengaduan({ profile }) {
         const { data: newKasus, error: kasusInsertError } = await supabase
           .from("kasus")
           .insert(kasusPayload)
-          .select("id_kasus, global_case_id")
+          .select("id_kasus")
           .single();
 
         if (kasusInsertError) throw kasusInsertError;
@@ -3308,26 +3223,6 @@ export default function KelolaPengaduan({ profile }) {
             .insert(lampiranInsertRows);
 
           if (lampiranInsertError) throw lampiranInsertError;
-        }
-      }
-
-      try {
-        await syncWebsiteReportToMobile({
-          kasusRow: insertedKasus,
-          pengaduanRow: { ...insertedRow, id_pengaduan },
-          formData: laporanFormData,
-          profile,
-        });
-      } catch (syncError) {
-        console.error("Gagal sinkron laporan pelayanan ke mobile:", syncError);
-
-        if (!isIgnorableMobileSyncError(syncError)) {
-          openReminderModal({
-            title: "Sinkronisasi mobile tertunda",
-            subtitle: "Data website tetap berhasil disimpan",
-            description:
-              "Laporan website sudah berhasil disimpan, tetapi sinkronisasi ke mobile sedang bermasalah.",
-          });
         }
       }
 

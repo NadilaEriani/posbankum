@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabaseClient";
 import brandLogo from "../assets/image 1.png";
 import mascotImage from "../assets/burung1.png";
+import captchaIcon from "../assets/captcha.png";
 
 function ArrowLeftIcon({ className = "w-5 h-5" }) {
   return (
@@ -163,6 +164,8 @@ function EyeOffIcon({ className = "w-5 h-5" }) {
 }
 
 const LOGIN_ALIAS_RPC = "resolve_admin_login_email";
+const HCAPTCHA_SCRIPT_ID = "hcaptcha-script";
+const HCAPTCHA_SITE_KEY = import.meta.env.VITE_HCAPTCHA_SITE_KEY || "";
 
 function normalizeEmail(value) {
   return String(value || "")
@@ -205,6 +208,275 @@ async function resolveLoginEmail(inputEmail) {
   return normalizeEmail(data || normalized);
 }
 
+function loadHCaptchaScript() {
+  return new Promise((resolve, reject) => {
+    if (window.hcaptcha) {
+      resolve(window.hcaptcha);
+      return;
+    }
+
+    const existingScript = document.getElementById(HCAPTCHA_SCRIPT_ID);
+
+    if (existingScript) {
+      const waitUntilReady = () => {
+        if (window.hcaptcha) {
+          resolve(window.hcaptcha);
+          return;
+        }
+
+        let attempts = 0;
+        const intervalId = window.setInterval(() => {
+          attempts += 1;
+
+          if (window.hcaptcha) {
+            window.clearInterval(intervalId);
+            resolve(window.hcaptcha);
+          }
+
+          if (attempts >= 50) {
+            window.clearInterval(intervalId);
+            reject(new Error("CAPTCHA belum siap."));
+          }
+        }, 100);
+      };
+
+      existingScript.addEventListener("load", waitUntilReady, { once: true });
+      existingScript.addEventListener("error", reject, { once: true });
+      waitUntilReady();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.id = HCAPTCHA_SCRIPT_ID;
+    script.src = "https://js.hcaptcha.com/1/api.js?render=explicit";
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      if (window.hcaptcha) {
+        resolve(window.hcaptcha);
+        return;
+      }
+
+      let attempts = 0;
+      const intervalId = window.setInterval(() => {
+        attempts += 1;
+
+        if (window.hcaptcha) {
+          window.clearInterval(intervalId);
+          resolve(window.hcaptcha);
+        }
+
+        if (attempts >= 50) {
+          window.clearInterval(intervalId);
+          reject(new Error("CAPTCHA belum siap."));
+        }
+      }, 100);
+    };
+    script.onerror = () => reject(new Error("Gagal memuat CAPTCHA."));
+    document.body.appendChild(script);
+  });
+}
+
+function SupabaseCaptcha({ disabled, onVerify, onReset, resetSignal }) {
+  const captchaContainerRef = useRef(null);
+  const widgetIdRef = useRef(null);
+  const [status, setStatus] = useState("loading");
+  const [message, setMessage] = useState("CAPTCHA sedang disiapkan...");
+
+  const resetCaptcha = useCallback(() => {
+    if (window.hcaptcha && widgetIdRef.current !== null) {
+      try {
+        window.hcaptcha.reset(widgetIdRef.current);
+      } catch {
+        // Abaikan jika widget belum siap.
+      }
+    }
+
+    if (widgetIdRef.current !== null) {
+      setStatus("ready");
+      setMessage("");
+    } else {
+      setStatus("loading");
+      setMessage("CAPTCHA sedang disiapkan...");
+    }
+
+    onReset();
+  }, [onReset]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    if (!HCAPTCHA_SITE_KEY) {
+      setStatus("error");
+      setMessage("Site key CAPTCHA belum diatur.");
+      return undefined;
+    }
+
+    setStatus("loading");
+    setMessage("CAPTCHA sedang disiapkan...");
+
+    loadHCaptchaScript()
+      .then((hcaptcha) => {
+        if (!mounted || !captchaContainerRef.current) return;
+
+        if (widgetIdRef.current !== null) {
+          setStatus("ready");
+          setMessage("");
+          return;
+        }
+
+        widgetIdRef.current = hcaptcha.render(captchaContainerRef.current, {
+          sitekey: HCAPTCHA_SITE_KEY,
+          size: "invisible",
+          "expired-callback": () => {
+            if (!mounted) return;
+            setStatus("ready");
+            setMessage("Verifikasi CAPTCHA kedaluwarsa. Silakan ulangi.");
+            onReset();
+          },
+          "error-callback": () => {
+            if (!mounted) return;
+            setStatus("ready");
+            setMessage("Verifikasi CAPTCHA gagal. Silakan coba lagi.");
+            onReset();
+          },
+        });
+
+        window.setTimeout(() => {
+          if (!mounted) return;
+          setStatus("ready");
+          setMessage("");
+        }, 700);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setStatus("error");
+        setMessage("Gagal memuat CAPTCHA. Periksa koneksi internet.");
+        onReset();
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, [onReset]);
+
+  useEffect(() => {
+    if (resetSignal > 0) resetCaptcha();
+  }, [resetCaptcha, resetSignal]);
+
+  const handleCaptchaClick = async () => {
+    if (
+      disabled ||
+      status === "loading" ||
+      status === "verified" ||
+      status === "error"
+    ) {
+      return;
+    }
+
+    if (!HCAPTCHA_SITE_KEY) {
+      setStatus("error");
+      setMessage("Site key CAPTCHA belum diatur.");
+      onReset();
+      return;
+    }
+
+    if (!window.hcaptcha || widgetIdRef.current === null) {
+      setStatus("loading");
+      setMessage("CAPTCHA sedang disiapkan...");
+      onReset();
+      return;
+    }
+
+    setStatus("loading");
+    setMessage("");
+    onReset();
+
+    try {
+      const result = await window.hcaptcha.execute(widgetIdRef.current, {
+        async: true,
+      });
+
+      const token =
+        typeof result === "string"
+          ? result
+          : result?.response || result?.token || "";
+
+      if (!token) {
+        throw new Error("Token CAPTCHA kosong.");
+      }
+
+      setStatus("verified");
+      setMessage("");
+      onVerify(token);
+    } catch {
+      try {
+        window.hcaptcha.reset(widgetIdRef.current);
+      } catch {
+        // Abaikan jika reset gagal.
+      }
+
+      setStatus("ready");
+      setMessage("Verifikasi CAPTCHA gagal. Silakan coba lagi.");
+      onReset();
+    }
+  };
+
+  const isVerified = status === "verified";
+  const isLoading = status === "loading";
+
+  return (
+    <div className="mb-6">
+      <button
+        type="button"
+        onClick={handleCaptchaClick}
+        disabled={disabled || isLoading || isVerified || status === "error"}
+        className="flex min-h-[82px] w-full max-w-[335px] items-center rounded-[2px] border border-[#D9DEE8] bg-[#F7F7F8] px-4 py-3 text-left shadow-[0_1px_4px_rgba(15,23,42,0.08)] disabled:cursor-not-allowed disabled:opacity-80"
+      >
+        <span
+          className={`flex h-[30px] w-[30px] shrink-0 items-center justify-center border bg-white text-[22px] font-bold leading-none ${
+            isVerified
+              ? "border-[#4257C8] text-[#4257C8]"
+              : "border-[#D9DEE8] text-transparent"
+          }`}
+        >
+          ✓
+        </span>
+
+        <span className="ml-4 text-[19px] font-normal leading-none text-[#344054]">
+          {isLoading ? "Menyiapkan..." : "I'm not a robot"}
+        </span>
+
+        <span className="ml-auto flex min-w-[74px] flex-col items-center text-center leading-none">
+          <img
+            src={captchaIcon}
+            alt="CAPTCHA"
+            className="mb-1 h-[34px] w-[34px] object-contain"
+          />
+          <span className="text-[10px] font-semibold text-[#6D7688]">
+            CAPTCHA
+          </span>
+          <span className="mt-1 text-[9px] text-[#98A2B3]">
+            Privacy - Terms
+          </span>
+        </span>
+      </button>
+
+      <div ref={captchaContainerRef} className="hidden" />
+
+      {message && (
+        <p
+          className={`mt-2 text-[12px] ${
+            status === "error" ? "text-[#B42318]" : "text-[#6D7688]"
+          }`}
+        >
+          {message}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export default function LoginPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -212,6 +484,22 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [captchaResetSignal, setCaptchaResetSignal] = useState(0);
+
+  const handleCaptchaVerify = useCallback((token) => {
+    setCaptchaToken(token || "");
+    setError("");
+  }, []);
+
+  const handleCaptchaReset = useCallback(() => {
+    setCaptchaToken("");
+  }, []);
+
+  const resetCaptchaChallenge = useCallback(() => {
+    setCaptchaToken("");
+    setCaptchaResetSignal((prev) => prev + 1);
+  }, []);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -224,6 +512,11 @@ export default function LoginPage() {
       return;
     }
 
+    if (!captchaToken) {
+      setError("Selesaikan verifikasi CAPTCHA sebelum masuk.");
+      return;
+    }
+
     setLoading(true);
 
     try {
@@ -233,11 +526,14 @@ export default function LoginPage() {
         await supabase.auth.signInWithPassword({
           email: loginEmail,
           password,
+          options: {
+            captchaToken,
+          },
         });
 
       if (loginError) {
         throw new Error(
-          "Email atau kata sandi salah. Silakan periksa kembali.",
+          "Email, kata sandi, atau verifikasi CAPTCHA tidak valid. Silakan periksa kembali.",
         );
       }
 
@@ -263,7 +559,7 @@ export default function LoginPage() {
 
       if (role === "admin") {
         navigate("/admin");
-      } else if (role === "posbankum") {
+      } else if (role === "posbankum" || role === "paralegal") {
         navigate("/posbankum");
       } else {
         await supabase.auth.signOut();
@@ -271,6 +567,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       setError(err?.message || "Login gagal. Silakan coba lagi.");
+      resetCaptchaChallenge();
     } finally {
       setLoading(false);
     }
@@ -412,7 +709,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            <div className="mb-6 text-right">
+            <div className="mb-5 text-right">
               <button
                 type="button"
                 onClick={() => navigate("/reset-password")}
@@ -423,9 +720,16 @@ export default function LoginPage() {
               </button>
             </div>
 
+            <SupabaseCaptcha
+              disabled={loading}
+              onVerify={handleCaptchaVerify}
+              onReset={handleCaptchaReset}
+              resetSignal={captchaResetSignal}
+            />
+
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || !captchaToken}
               className="flex h-[56px] w-full items-center justify-center gap-3 rounded-[16px] bg-[linear-gradient(90deg,#5664D7_0%,#5E6CDD_100%)] text-[17px] font-bold text-white shadow-[0_12px_24px_rgba(86,100,215,0.34)] transition hover:translate-y-[-1px] disabled:cursor-not-allowed disabled:opacity-70"
             >
               <span>{loading ? "Memproses..." : "Masuk"}</span>

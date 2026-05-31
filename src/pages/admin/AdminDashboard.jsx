@@ -195,7 +195,7 @@ function getCaseCompletionDate(
   return (
     kasusRow?.tgl_selesai ||
     getLatestTimelineDate(timelines) ||
-    kasusRow?.last_synced_at ||
+    kasusRow?.updated_at ||
     pengaduanRow?.updated_at ||
     pengaduanRow?.created_at ||
     kasusRow?.tgl_upload ||
@@ -607,7 +607,7 @@ export default function AdminDashboard() {
       supabase
         .from("kasus")
         .select(
-          "id_kasus,id_posbankum,jenis_kasus,judul_kasus,deskripsi_kasus,status,tgl_selesai,tgl_upload,last_synced_at,website_pengaduan_id",
+          "id_kasus,id_posbankum,jenis_kasus,judul_kasus,deskripsi_kasus,status,tgl_selesai,tgl_upload,updated_at,website_pengaduan_id",
         )
         .limit(LIMIT),
     ]);
@@ -772,7 +772,7 @@ export default function AdminDashboard() {
             timelines,
             linkedAt || kasus.tgl_upload,
           )
-        : linkedAt || kasus.tgl_upload || kasus.last_synced_at;
+        : linkedAt || kasus.tgl_upload || kasus.updated_at;
       const jenisKasus = kasus.judul_kasus || kasus.jenis_kasus || "Kasus";
 
       events.push({
@@ -912,7 +912,7 @@ export default function AdminDashboard() {
         supabase
           .from("kasus")
           .select(
-            "id_kasus,id_posbankum,status,tgl_selesai,tgl_upload,last_synced_at,website_pengaduan_id,global_case_id,mobile_pengaduan_id",
+            "id_kasus,id_posbankum,status,tgl_selesai,tgl_upload,updated_at,website_pengaduan_id",
           )
           .range(0, 49999),
         supabase
